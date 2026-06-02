@@ -1,0 +1,183 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function campaignPath(campaignId) {
+      return /databases/$(database)/documents/campaigns/$(campaignId);
+    }
+
+    function memberPath(campaignId, uid) {
+      return /databases/$(database)/documents/campaigns/$(campaignId)/members/$(uid);
+    }
+
+    function bagPath(campaignId, bagId) {
+      return /databases/$(database)/documents/campaigns/$(campaignId)/bags/$(bagId);
+    }
+
+    function isMember(campaignId) {
+      return signedIn() && exists(memberPath(campaignId, request.auth.uid));
+    }
+
+    function isMemberAfter(campaignId) {
+      return signedIn() && existsAfter(memberPath(campaignId, request.auth.uid));
+    }
+
+    function currentMember(campaignId) {
+      return get(memberPath(campaignId, request.auth.uid)).data;
+    }
+
+    function currentMemberAfter(campaignId) {
+      return getAfter(memberPath(campaignId, request.auth.uid)).data;
+    }
+
+    function isDm(campaignId) {
+      return isMember(campaignId) && currentMember(campaignId).role == "dm";
+    }
+
+    function isDmAfter(campaignId) {
+      return isMemberAfter(campaignId) && currentMemberAfter(campaignId).role == "dm";
+    }
+
+    function hasAccessMap(bag) {
+      return bag.access is map;
+    }
+
+    function accessAllowed(campaignId, mode, userIds) {
+      return isDm(campaignId)
+        || mode == "all"
+        || (mode == "custom" && userIds is list && request.auth.uid in userIds);
+    }
+
+    function canTargetBagData(campaignId, bag) {
+      return hasAccessMap(bag) && accessAllowed(campaignId, bag.access.targetMode, bag.access.targetUserIds);
+    }
+
+    function canDepositBagData(campaignId, bag) {
+      return hasAccessMap(bag) && accessAllowed(campaignId, bag.access.depositMode, bag.access.depositUserIds);
+    }
+
+    function canOpenBagData(campaignId, bag) {
+      return hasAccessMap(bag) && accessAllowed(campaignId, bag.access.readMode, bag.access.readUserIds);
+    }
+
+    function canWriteBagData(campaignId, bag) {
+      return hasAccessMap(bag) && accessAllowed(campaignId, bag.access.writeMode, bag.access.writeUserIds);
+    }
+
+    function canOpenBagId(campaignId, bagId) {
+      return canOpenBagData(campaignId, get(bagPath(campaignId, bagId)).data);
+    }
+
+    function canDepositBagId(campaignId, bagId) {
+      return canDepositBagData(campaignId, get(bagPath(campaignId, bagId)).data);
+    }
+
+    function canWriteBagId(campaignId, bagId) {
+      return canWriteBagData(campaignId, get(bagPath(campaignId, bagId)).data);
+    }
+
+    match /joinCodes/{joinCodeSearch} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create, update, delete: if signedIn()
+        && request.resource.data.campaignId is string
+        && getAfter(campaignPath(request.resource.data.campaignId)).data.dmUid == request.auth.uid;
+    }
+
+    match /campaigns/{campaignId} {
+      allow create: if signedIn()
+        && request.resource.data.id == campaignId
+        && request.resource.data.dmUid == request.auth.uid;
+
+      allow get, list: if isMember(campaignId);
+      allow update, delete: if isDm(campaignId);
+
+      match /members/{uid} {
+        allow get, list: if isMember(campaignId);
+
+        allow create: if signedIn()
+          && uid == request.auth.uid
+          && (
+            request.resource.data.role == "player"
+            || (request.resource.data.role == "dm" && getAfter(campaignPath(campaignId)).data.dmUid == request.auth.uid)
+          );
+
+        allow update: if signedIn()
+          && (
+            isDm(campaignId)
+            || (
+              uid == request.auth.uid
+              && request.resource.data.role == resource.data.role
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["displayName"])
+            )
+          );
+
+        allow delete: if isDm(campaignId);
+      }
+
+      match /bags/{bagId} {
+        allow get, list: if isMember(campaignId) && canTargetBagData(campaignId, resource.data);
+
+        allow create: if isMemberAfter(campaignId)
+          && (
+            isDmAfter(campaignId)
+            || (
+              request.resource.data.ownerUid == request.auth.uid
+              && canTargetBagData(campaignId, request.resource.data)
+              && canOpenBagData(campaignId, request.resource.data)
+              && canWriteBagData(campaignId, request.resource.data)
+            )
+          );
+
+        allow update: if isMember(campaignId)
+          && (
+            isDm(campaignId)
+            || (
+              canWriteBagData(campaignId, resource.data)
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["name", "maxWeight", "maxVolume", "updatedAt"])
+            )
+          );
+
+        allow delete: if isMember(campaignId) && (isDm(campaignId) || canWriteBagData(campaignId, resource.data));
+      }
+
+      match /items/{itemId} {
+        allow get, list: if isMember(campaignId) && canOpenBagId(campaignId, resource.data.bagId);
+
+        allow create: if isMember(campaignId)
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.updatedBy == request.auth.uid
+          && canWriteBagId(campaignId, request.resource.data.bagId);
+
+        allow update: if isMember(campaignId)
+          && request.resource.data.updatedBy == request.auth.uid
+          && (
+            (
+              request.resource.data.bagId == resource.data.bagId
+              && canWriteBagId(campaignId, resource.data.bagId)
+            )
+            || (
+              request.resource.data.bagId != resource.data.bagId
+              && canWriteBagId(campaignId, resource.data.bagId)
+              && canDepositBagId(campaignId, request.resource.data.bagId)
+            )
+          );
+
+        allow delete: if isMember(campaignId) && canWriteBagId(campaignId, resource.data.bagId);
+      }
+
+      match /auditLog/{logId} {
+        allow get, list: if isMember(campaignId);
+        allow create: if isMember(campaignId)
+          && request.resource.data.actorUid == request.auth.uid
+          && request.resource.data.message is string
+          && request.resource.data.createdAt is number;
+        allow update, delete: if false;
+      }
+    }
+  }
+}

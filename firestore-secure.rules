@@ -1,0 +1,293 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function campaignPath(campaignId) {
+      return /databases/$(database)/documents/campaigns/$(campaignId);
+    }
+
+    function memberPath(campaignId, uid) {
+      return /databases/$(database)/documents/campaigns/$(campaignId)/members/$(uid);
+    }
+
+    function bagPath(campaignId, bagId) {
+      return /databases/$(database)/documents/campaigns/$(campaignId)/bags/$(bagId);
+    }
+
+    function isMember(campaignId) {
+      return signedIn() && exists(memberPath(campaignId, request.auth.uid));
+    }
+
+    function isMemberAfter(campaignId) {
+      return signedIn() && existsAfter(memberPath(campaignId, request.auth.uid));
+    }
+
+    function currentMember(campaignId) {
+      return get(memberPath(campaignId, request.auth.uid)).data;
+    }
+
+    function currentMemberAfter(campaignId) {
+      return getAfter(memberPath(campaignId, request.auth.uid)).data;
+    }
+
+    function isApprovedMember(campaignId) {
+      return isMember(campaignId) && (currentMember(campaignId).role == "dm" || currentMember(campaignId).role == "player");
+    }
+
+    function isApprovedMemberAfter(campaignId) {
+      return isMemberAfter(campaignId) && (currentMemberAfter(campaignId).role == "dm" || currentMemberAfter(campaignId).role == "player");
+    }
+
+    function isDm(campaignId) {
+      return isMember(campaignId) && currentMember(campaignId).role == "dm";
+    }
+
+    function isDmAfter(campaignId) {
+      return isMemberAfter(campaignId) && currentMemberAfter(campaignId).role == "dm";
+    }
+
+    function hasAccessMap(bag) {
+      return bag.access is map;
+    }
+
+    function accessAllowed(campaignId, mode, userIds) {
+      return isDm(campaignId)
+        || mode == "all"
+        || (mode == "custom" && userIds is list && request.auth.uid in userIds);
+    }
+
+    function canTargetBagData(campaignId, bag) {
+      return hasAccessMap(bag) && accessAllowed(campaignId, bag.access.targetMode, bag.access.targetUserIds);
+    }
+
+    function canDepositBagData(campaignId, bag) {
+      return hasAccessMap(bag) && accessAllowed(campaignId, bag.access.depositMode, bag.access.depositUserIds);
+    }
+
+    function canOpenBagData(campaignId, bag) {
+      return hasAccessMap(bag) && accessAllowed(campaignId, bag.access.readMode, bag.access.readUserIds);
+    }
+
+    function canWriteBagData(campaignId, bag) {
+      return hasAccessMap(bag) && accessAllowed(campaignId, bag.access.writeMode, bag.access.writeUserIds);
+    }
+
+    function canOpenBagId(campaignId, bagId) {
+      return canOpenBagData(campaignId, get(bagPath(campaignId, bagId)).data);
+    }
+
+    function canDepositBagId(campaignId, bagId) {
+      return canDepositBagData(campaignId, get(bagPath(campaignId, bagId)).data);
+    }
+
+    function canWriteBagId(campaignId, bagId) {
+      return canWriteBagData(campaignId, get(bagPath(campaignId, bagId)).data);
+    }
+
+    function bagWithinCapacity(bag) {
+      // Nur Behälter haben harte serverseitige Gewicht-/Volumengrenzen. Inventare dürfen überladen werden.
+      return !(bag.kind == "container")
+        || (
+          (!(bag.maxWeight is number) || !(bag.currentWeight is number) || bag.currentWeight <= bag.maxWeight)
+          && (!(bag.maxVolume is number) || !(bag.currentVolume is number) || bag.currentVolume <= bag.maxVolume)
+        );
+    }
+
+    function onlyCapacityChanged() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(["currentWeight", "currentVolume", "currentValue", "itemCount", "updatedAt"]);
+    }
+
+    function currencyMapOrEmpty(data) {
+      return (data.currency is map) ? data.currency : {};
+    }
+
+    function coinCount(currency, key) {
+      return (key in currency && currency[key] is number) ? currency[key] : 0;
+    }
+
+    function currencyCopper(data) {
+      let c = currencyMapOrEmpty(data);
+      return coinCount(c, "pp") * 1000
+        + coinCount(c, "gp") * 100
+        + coinCount(c, "ep") * 50
+        + coinCount(c, "sp") * 10
+        + coinCount(c, "cp");
+    }
+
+    function validCurrency(data) {
+      let c = currencyMapOrEmpty(data);
+      return (!("pp" in c) || (c.pp is number && c.pp >= 0))
+        && (!("gp" in c) || (c.gp is number && c.gp >= 0))
+        && (!("ep" in c) || (c.ep is number && c.ep >= 0))
+        && (!("sp" in c) || (c.sp is number && c.sp >= 0))
+        && (!("cp" in c) || (c.cp is number && c.cp >= 0));
+    }
+
+    function onlyCurrencyChanged() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(["currency", "updatedAt"]);
+    }
+
+
+    match /users/{uid} {
+      allow get, create, update, delete: if signedIn() && uid == request.auth.uid;
+
+      match /campaigns/{campaignId} {
+        allow get, list: if signedIn() && uid == request.auth.uid;
+        allow create, update: if signedIn() && (uid == request.auth.uid || isDm(campaignId));
+        allow delete: if signedIn() && (uid == request.auth.uid || isDm(campaignId));
+      }
+    }
+
+    match /joinCodes/{joinCodeSearch} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create, update: if signedIn()
+        && request.resource.data.campaignId is string
+        && getAfter(campaignPath(request.resource.data.campaignId)).data.dmUid == request.auth.uid;
+      allow delete: if signedIn()
+        && resource.data.campaignId is string
+        && get(campaignPath(resource.data.campaignId)).data.dmUid == request.auth.uid;
+    }
+
+    match /campaigns/{campaignId} {
+      allow create: if signedIn()
+        && request.resource.data.id == campaignId
+        && request.resource.data.dmUid == request.auth.uid;
+
+      allow get: if isMember(campaignId);
+      allow list: if isApprovedMember(campaignId);
+      allow update, delete: if isDm(campaignId);
+
+      match /members/{uid} {
+        allow get: if isApprovedMember(campaignId) || (signedIn() && uid == request.auth.uid && isMember(campaignId));
+        allow list: if isApprovedMember(campaignId);
+
+        allow create: if signedIn()
+          && (
+            isDm(campaignId)
+            || (
+              uid == request.auth.uid
+              && (
+                request.resource.data.role == "applicant"
+                || (request.resource.data.role == "dm" && getAfter(campaignPath(campaignId)).data.dmUid == request.auth.uid)
+              )
+            )
+          );
+
+        allow update: if signedIn()
+          && (
+            isDm(campaignId)
+            || (
+              uid == request.auth.uid
+              && request.resource.data.role == resource.data.role
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["displayName"])
+            )
+          );
+
+        allow delete: if isDm(campaignId);
+      }
+
+      match /bags/{bagId} {
+        allow get, list: if isApprovedMember(campaignId) && (isDm(campaignId) || canTargetBagData(campaignId, resource.data));
+
+        allow create: if isApprovedMemberAfter(campaignId)
+          && (
+            isDmAfter(campaignId)
+            || (
+              request.resource.data.ownerUid == request.auth.uid
+              && canTargetBagData(campaignId, request.resource.data)
+              && canOpenBagData(campaignId, request.resource.data)
+              && canWriteBagData(campaignId, request.resource.data)
+            )
+          );
+
+        allow update: if isApprovedMember(campaignId)
+          && bagWithinCapacity(request.resource.data)
+          && (
+            isDm(campaignId)
+            || (
+              canWriteBagData(campaignId, resource.data)
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["name", "kind", "maxWeight", "maxVolume", "updatedAt"])
+            )
+            || (
+              onlyCapacityChanged()
+              && (canWriteBagData(campaignId, resource.data) || canDepositBagData(campaignId, resource.data))
+            )
+            || (
+              onlyCurrencyChanged()
+              && validCurrency(request.resource.data)
+              && (
+                canWriteBagData(campaignId, resource.data)
+                || (canDepositBagData(campaignId, resource.data) && currencyCopper(request.resource.data) >= currencyCopper(resource.data))
+              )
+            )
+          );
+
+        allow delete: if isApprovedMember(campaignId) && (isDm(campaignId) || canWriteBagData(campaignId, resource.data));
+      }
+
+      match /items/{itemId} {
+        allow get, list: if isApprovedMember(campaignId) && (isDm(campaignId) || canOpenBagId(campaignId, resource.data.bagId));
+
+        allow create: if isApprovedMember(campaignId)
+          && (
+            isDm(campaignId)
+            || (
+              request.resource.data.updatedBy == request.auth.uid
+              && canDepositBagId(campaignId, request.resource.data.bagId)
+              && bagWithinCapacity(getAfter(bagPath(campaignId, request.resource.data.bagId)).data)
+            )
+          );
+
+        allow update: if isApprovedMember(campaignId)
+          && (
+            isDm(campaignId)
+            || (
+              request.resource.data.updatedBy == request.auth.uid
+              && bagWithinCapacity(getAfter(bagPath(campaignId, request.resource.data.bagId)).data)
+              && (
+            (
+              request.resource.data.bagId == resource.data.bagId
+              && canWriteBagId(campaignId, resource.data.bagId)
+            )
+            || (
+              request.resource.data.bagId != resource.data.bagId
+              && canWriteBagId(campaignId, resource.data.bagId)
+              && canDepositBagId(campaignId, request.resource.data.bagId)
+            )
+            || (
+              request.resource.data.bagId == resource.data.bagId
+              && canDepositBagId(campaignId, resource.data.bagId)
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["quantity", "updatedBy", "updatedAt"])
+              && request.resource.data.quantity >= resource.data.quantity
+            )
+              )
+            )
+          );
+
+        allow delete: if isApprovedMember(campaignId) && (isDm(campaignId) || canWriteBagId(campaignId, resource.data.bagId));
+      }
+
+      match /auditLog/{logId} {
+        allow get, list: if isApprovedMember(campaignId);
+        allow create: if (
+          isDm(campaignId)
+          || (
+            (isApprovedMember(campaignId)
+            || (isMember(campaignId) && currentMember(campaignId).role == "applicant" && request.resource.data.type == "member_join_requested"))
+            && request.resource.data.actorUid == request.auth.uid
+          )
+        )
+          && request.resource.data.type is string
+          && request.resource.data.message is string
+          && request.resource.data.createdAt is number;
+        allow update: if false;
+        allow delete: if isDm(campaignId);
+      }
+    }
+  }
+}
