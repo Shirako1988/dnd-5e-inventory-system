@@ -76,6 +76,8 @@ import {
   updateDoc,
   where,
   writeBatch,
+  type DocumentData,
+  type QuerySnapshot,
 } from "firebase/firestore";
 
 
@@ -1969,19 +1971,32 @@ export default function App() {
       );
     }
 
-    const resultMap = new Map<string, Bag>();
-    const publish = () => setBags(Array.from(resultMap.values()).sort((a, b) => a.sortIndex - b.sortIndex));
+    // Wichtig: getrennte Query-Maps benutzen.
+    // Wenn eine Tasche von „Alle“ auf „Ausgewählte Spieler“ wechselt, sendet die All-Query ein "removed",
+    // während die Custom-Query ein "added" sendet. Mit einer einzigen Map kann die spätere Removed-Meldung
+    // den korrekt sichtbaren Custom-Eintrag wieder löschen. Deshalb werden beide Quellen getrennt gehalten
+    // und erst beim Veröffentlichen zusammengeführt.
+    const allMap = new Map<string, Bag>();
+    const customMap = new Map<string, Bag>();
+    const publish = () => {
+      const merged = new Map<string, Bag>();
+      for (const [id, bag] of allMap) merged.set(id, bag);
+      for (const [id, bag] of customMap) merged.set(id, bag);
+      setBags(Array.from(merged.values()).sort((a, b) => a.sortIndex - b.sortIndex));
+    };
+
+    const applySnapshotChanges = (targetMap: Map<string, Bag>, snapshot: QuerySnapshot<DocumentData>) => {
+      for (const change of snapshot.docChanges()) {
+        if (change.type === "removed") targetMap.delete(change.doc.id);
+        else targetMap.set(change.doc.id, change.doc.data() as Bag);
+      }
+      publish();
+      setSyncStatus("online");
+    };
 
     const unsubAll = onSnapshot(
       query(bagCollection, where("access.targetMode", "==", "all")),
-      (snapshot) => {
-        for (const change of snapshot.docChanges()) {
-          if (change.type === "removed") resultMap.delete(change.doc.id);
-          else resultMap.set(change.doc.id, change.doc.data() as Bag);
-        }
-        publish();
-        setSyncStatus("online");
-      },
+      (snapshot) => applySnapshotChanges(allMap, snapshot),
       (error) => {
         setBags([]);
         setSyncStatus("error");
@@ -1991,14 +2006,7 @@ export default function App() {
 
     const unsubCustom = onSnapshot(
       query(bagCollection, where("access.targetMode", "==", "custom"), where("access.targetUserIds", "array-contains", userUid)),
-      (snapshot) => {
-        for (const change of snapshot.docChanges()) {
-          if (change.type === "removed") resultMap.delete(change.doc.id);
-          else resultMap.set(change.doc.id, change.doc.data() as Bag);
-        }
-        publish();
-        setSyncStatus("online");
-      },
+      (snapshot) => applySnapshotChanges(customMap, snapshot),
       (error) => {
         setBags([]);
         setSyncStatus("error");
