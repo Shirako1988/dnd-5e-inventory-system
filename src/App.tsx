@@ -1990,7 +1990,7 @@ export default function App() {
     );
 
     const unsubCustom = onSnapshot(
-      query(bagCollection, where("access.targetUserIds", "array-contains", userUid)),
+      query(bagCollection, where("access.targetMode", "==", "custom"), where("access.targetUserIds", "array-contains", userUid)),
       (snapshot) => {
         for (const change of snapshot.docChanges()) {
           if (change.type === "removed") resultMap.delete(change.doc.id);
@@ -2879,7 +2879,7 @@ export default function App() {
   async function addItem() {
     setSyncError(null);
     setSyncStatus(firebaseConfigured ? "online" : "local");
-    if (!selectedBag || !canDepositBag(selectedBag)) return;
+    if (!selectedBag || !canWriteBag(selectedBag)) return;
     const name = newItem.name.trim();
     if (!name) return;
     const quantity = Math.max(1, Number(newItem.quantity) || 1);
@@ -3110,7 +3110,13 @@ export default function App() {
       const nowTs = Date.now();
 
       if (targetStack) {
-        batch.update(targetStackRef, { quantity: targetStack.quantity + amount, updatedBy: activeUid, updatedAt: nowTs });
+        batch.update(targetStackRef, {
+          quantity: targetStack.quantity + amount,
+          updatedBy: activeUid,
+          updatedAt: nowTs,
+          lastTransferSourceItemId: item.id,
+          lastTransferSourceBagId: sourceBag.id,
+        });
       } else {
         const stackPayload: Record<string, unknown> = {
           id: targetStackId,
@@ -3122,6 +3128,8 @@ export default function App() {
           valuePerUnit: item.valuePerUnit ?? null,
           updatedBy: activeUid,
           updatedAt: nowTs,
+          lastTransferSourceItemId: item.id,
+          lastTransferSourceBagId: sourceBag.id,
         };
         if (canOpenBag(targetBag)) {
           stackPayload.category = normalizeItemCategory(item.category);
@@ -3744,7 +3752,7 @@ export default function App() {
                 <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
                   <div>
                     <h3 className="flex items-center gap-2 text-lg font-black"><PackagePlus className="h-5 w-5" /> Item hinzufügen</h3>
-                    <p className={`text-sm ${mutedText}`}>{canDepositBag(selectedBag) ? "Werte leer lassen, wenn Gewicht, Volumen oder Preis unbekannt sind. Behälter blocken lokal bei Überfüllung; Inventare dürfen nach Variant Encumbrance überladen werden." : canOpenBag(selectedBag) ? "Du darfst diese Tasche öffnen, aber hier keine Items hineinlegen." : "Diese Tasche ist sichtbar, aber ihr Inhalt ist gesperrt."}</p>
+                    <p className={`text-sm ${mutedText}`}>{canWriteBag(selectedBag) ? "Werte leer lassen, wenn Gewicht, Volumen oder Preis unbekannt sind. Behälter blocken lokal bei Überfüllung; Inventare dürfen nach Variant Encumbrance überladen werden." : canOpenBag(selectedBag) ? "Du darfst diese Tasche öffnen, aber hier keine Items erstellen oder bearbeiten." : "Diese Tasche ist sichtbar, aber ihr Inhalt ist gesperrt."}</p>
                   </div>
                   <input value={search} onChange={(event) => setSearch(event.target.value)} className={`rounded-xl border px-3 py-2 text-sm xl:w-72 ${inputClass}`} placeholder="In dieser Tasche suchen..." />
                 </div>
@@ -3753,7 +3761,7 @@ export default function App() {
                   <Field label="Name / D&D-Katalog" mutedText={mutedText}>
                     <div className="relative">
                       <input
-                        disabled={!canDepositBag(selectedBag)}
+                        disabled={!canWriteBag(selectedBag)}
                         className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`}
                         placeholder="z. B. Heiltrank, rope, longsword..."
                         value={newItem.name}
@@ -3765,7 +3773,7 @@ export default function App() {
                           setItemCatalogOpen(true);
                         }}
                       />
-                      {itemCatalogOpen && catalogMatches.length > 0 && canDepositBag(selectedBag) && (
+                      {itemCatalogOpen && catalogMatches.length > 0 && canWriteBag(selectedBag) && (
                         <div className={`absolute left-0 right-0 top-full z-40 mt-2 max-h-80 overflow-auto rounded-2xl border p-2 shadow-2xl ${isDark ? "border-[#8d713e]/60 bg-[#16100b]" : "border-[#9b7339]/35 bg-[#fff8df]"}`}>
                           <div className={`mb-1 px-2 text-[11px] font-bold ${mutedText}`}>2014-Katalog · {catalogMatches.length} Treffer</div>
                           {catalogMatches.map((entry) => (
@@ -3789,13 +3797,13 @@ export default function App() {
                       )}
                     </div>
                   </Field>
-                  <Field label="Kategorie" mutedText={mutedText}><select disabled={!canDepositBag(selectedBag)} className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} value={newItem.category} onChange={(e) => setNewItem((p) => ({ ...p, category: e.target.value as ItemCategory }))}>{categorySelectOptions()}</select></Field>
-                  <Field label="Menge" mutedText={mutedText}><input disabled={!canDepositBag(selectedBag)} className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} placeholder="1" type="number" min="1" value={newItem.quantity} onChange={(e) => setNewItem((p) => ({ ...p, quantity: e.target.value }))} /></Field>
-                  <Field label="Gewicht / Stück" mutedText={mutedText}><input disabled={!canDepositBag(selectedBag)} className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} placeholder="0.5" type="number" step="0.01" value={newItem.weightPerUnit} onChange={(e) => setNewItem((p) => ({ ...p, weightPerUnit: e.target.value }))} /></Field>
-                  <Field label="Volumen / Stück" mutedText={mutedText}><input disabled={!canDepositBag(selectedBag)} className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} placeholder="0.2" type="number" step="0.01" value={newItem.volumePerUnit} onChange={(e) => setNewItem((p) => ({ ...p, volumePerUnit: e.target.value }))} /></Field>
-                  <Field label="Wert / Stück (gp)" mutedText={mutedText}><input disabled={!canDepositBag(selectedBag)} className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} placeholder="50" type="number" step="0.01" value={newItem.valuePerUnit} onChange={(e) => setNewItem((p) => ({ ...p, valuePerUnit: e.target.value }))} /></Field>
-                  <Field label="Beschreibung" mutedText={mutedText} className="md:col-span-2 xl:col-span-1"><input disabled={!canDepositBag(selectedBag)} className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} placeholder="Kurze Beschreibung des Items" value={newItem.description} onChange={(e) => setNewItem((p) => ({ ...p, description: e.target.value }))} /></Field>
-                  <div className="flex items-end"><button className={`${primaryButton} w-full`} onClick={addItem} disabled={!canDepositBag(selectedBag)}><Plus className="h-4 w-4" /> Hinzufügen</button></div>
+                  <Field label="Kategorie" mutedText={mutedText}><select disabled={!canWriteBag(selectedBag)} className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} value={newItem.category} onChange={(e) => setNewItem((p) => ({ ...p, category: e.target.value as ItemCategory }))}>{categorySelectOptions()}</select></Field>
+                  <Field label="Menge" mutedText={mutedText}><input disabled={!canWriteBag(selectedBag)} className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} placeholder="1" type="number" min="1" value={newItem.quantity} onChange={(e) => setNewItem((p) => ({ ...p, quantity: e.target.value }))} /></Field>
+                  <Field label="Gewicht / Stück" mutedText={mutedText}><input disabled={!canWriteBag(selectedBag)} className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} placeholder="0.5" type="number" step="0.01" value={newItem.weightPerUnit} onChange={(e) => setNewItem((p) => ({ ...p, weightPerUnit: e.target.value }))} /></Field>
+                  <Field label="Volumen / Stück" mutedText={mutedText}><input disabled={!canWriteBag(selectedBag)} className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} placeholder="0.2" type="number" step="0.01" value={newItem.volumePerUnit} onChange={(e) => setNewItem((p) => ({ ...p, volumePerUnit: e.target.value }))} /></Field>
+                  <Field label="Wert / Stück (gp)" mutedText={mutedText}><input disabled={!canWriteBag(selectedBag)} className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} placeholder="50" type="number" step="0.01" value={newItem.valuePerUnit} onChange={(e) => setNewItem((p) => ({ ...p, valuePerUnit: e.target.value }))} /></Field>
+                  <Field label="Beschreibung" mutedText={mutedText} className="md:col-span-2 xl:col-span-1"><input disabled={!canWriteBag(selectedBag)} className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} placeholder="Kurze Beschreibung des Items" value={newItem.description} onChange={(e) => setNewItem((p) => ({ ...p, description: e.target.value }))} /></Field>
+                  <div className="flex items-end"><button className={`${primaryButton} w-full`} onClick={addItem} disabled={!canWriteBag(selectedBag)}><Plus className="h-4 w-4" /> Hinzufügen</button></div>
                 </div>
               </div>
 
