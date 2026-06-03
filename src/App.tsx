@@ -5316,7 +5316,7 @@ function ThumbnailButton({ imageUrl, imageZoom, imagePositionX, imagePositionY, 
       : size === "bag"
         ? "h-16 w-16"
         : size === "item"
-          ? "w-20 self-stretch sm:w-24"
+          ? "aspect-square w-20 self-center sm:w-24"
           : "h-12 w-12";
   const placeholderIconClass = size === "item" ? "h-7 w-7" : "h-4 w-4";
   return (
