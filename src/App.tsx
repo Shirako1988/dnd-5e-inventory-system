@@ -2601,22 +2601,21 @@ export default function App() {
     const category = normalizeItemCategory(item.category);
     const ordered = (itemsByBag.get(bag.id) ?? [])
       .filter((entry) => normalizeItemCategory(entry.category) === category)
-      .sort((a, b) => getItemOrderIndex(a) - getItemOrderIndex(b) || a.name.localeCompare(b.name, "de", { numeric: true, sensitivity: "base" }));
+      .sort((a, b) => getItemOrderIndex(a) - getItemOrderIndex(b) || a.name.localeCompare(b.name, "de", { numeric: true, sensitivity: "base" }) || a.id.localeCompare(b.id));
 
     const index = ordered.findIndex((entry) => entry.id === itemId);
-    const swapIndex = index + direction;
-    if (index < 0 || swapIndex < 0 || swapIndex >= ordered.length) return;
+    const targetIndex = index + direction;
+    if (index < 0 || targetIndex < 0 || targetIndex >= ordered.length) return;
 
-    const a = ordered[index];
-    const b = ordered[swapIndex];
-    const aIndex = getItemOrderIndex(a);
-    const bIndex = getItemOrderIndex(b);
+    const reordered = [...ordered];
+    const [moved] = reordered.splice(index, 1);
+    reordered.splice(targetIndex, 0, moved);
+    const nowTs = Date.now();
 
     if (!firebaseConfigured) {
       setItems((prev) => prev.map((entry) => {
-        if (entry.id === a.id) return { ...entry, orderIndex: bIndex };
-        if (entry.id === b.id) return { ...entry, orderIndex: aIndex };
-        return entry;
+        const nextIndex = reordered.findIndex((candidate) => candidate.id === entry.id);
+        return nextIndex >= 0 ? { ...entry, orderIndex: nextIndex, updatedAt: nowTs, updatedBy: activeUid } : entry;
       }));
       return;
     }
@@ -2624,10 +2623,14 @@ export default function App() {
     try {
       if (!firebaseDb || !activeCampaignId) throw new Error("Keine aktive Kampagne gefunden.");
       const batch = writeBatch(firebaseDb);
-      batch.update(doc(firebaseDb, "campaigns", activeCampaignId, "items", a.id), { orderIndex: bIndex, updatedAt: Date.now(), updatedBy: activeUid });
-      batch.update(doc(firebaseDb, "campaigns", activeCampaignId, "items", b.id), { orderIndex: aIndex, updatedAt: Date.now(), updatedBy: activeUid });
+      for (let nextIndex = 0; nextIndex < reordered.length; nextIndex += 1) {
+        const entry = reordered[nextIndex];
+        if (getItemOrderIndex(entry) !== nextIndex || entry.id === moved.id) {
+          batch.update(doc(firebaseDb, "campaigns", activeCampaignId, "items", entry.id), { orderIndex: nextIndex, updatedAt: nowTs, updatedBy: activeUid });
+        }
+      }
       await batch.commit();
-      logAction("item_reordered", `${member?.displayName ?? "Jemand"} hat „${a.name}“ in „${bag.name}“ ${direction < 0 ? "nach oben" : "nach unten"} sortiert.`, a.id);
+      logAction("item_reordered", `${member?.displayName ?? "Jemand"} hat „${moved.name}“ in „${bag.name}“ ${direction < 0 ? "nach oben" : "nach unten"} sortiert.`, moved.id);
       setSyncStatus("online");
       setSyncError(null);
     } catch (error) {
@@ -3552,7 +3555,14 @@ export default function App() {
       }
     }
 
-    const safePatch = { ...patch, updatedBy: activeUid, updatedAt: Date.now() };
+    const nowTs = Date.now();
+    const nextCategory = normalizeItemCategory(patch.category ?? current?.category ?? "gear");
+    const currentCategory = normalizeItemCategory(current?.category ?? "gear");
+    const categoryChanged = Boolean(current && patch.category !== undefined && nextCategory !== currentCategory);
+    const shouldAppendToTargetCategory = Boolean(current && targetBag && (isMove || categoryChanged));
+    const safePatch: Partial<InventoryItem> = { ...patch, updatedBy: activeUid, updatedAt: nowTs };
+    if (patch.category !== undefined) safePatch.category = nextCategory;
+    if (shouldAppendToTargetCategory && targetBag) safePatch.orderIndex = nextItemOrderIndex(targetBag.id, nextCategory);
 
     if (!firebaseConfigured) {
       setItems((prev) => prev.map((entry) => (entry.id === id ? { ...entry, ...safePatch } : entry)));
