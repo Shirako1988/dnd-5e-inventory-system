@@ -284,6 +284,7 @@ type Campaign = {
   dmUid: string;
   joinCode: string;
   joinCodeSearch?: string;
+  tradeRateName?: string;
   tradeBuyMultiplier?: number;
   tradeSellMultiplier?: number;
   createdAt: number;
@@ -702,22 +703,30 @@ function formatNumber(value: number | null | undefined, fallback = "—") {
   return value.toFixed(2).replace(/\.00$/, "").replace(/0$/, "");
 }
 
+const DEFAULT_TRADE_RATE_NAME = "Standardpreise";
 const DEFAULT_TRADE_BUY_MULTIPLIER = 1;
 const DEFAULT_TRADE_SELL_MULTIPLIER = 0.5;
 
 type TradeRates = {
+  name: string;
   buyMultiplier: number;
   sellMultiplier: number;
 };
 
+function normalizeTradeRateName(value: unknown) {
+  const text = typeof value === "string" ? value.trim() : "";
+  return text || DEFAULT_TRADE_RATE_NAME;
+}
+
 function normalizeTradeMultiplier(value: unknown, fallback: number) {
   const parsed = typeof value === "number" ? value : Number(String(value ?? "").replace(",", "."));
-  if (!Number.isFinite(parsed) || parsed < 0) return fallback;
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
   return Math.round(parsed * 10000) / 10000;
 }
 
 function campaignTradeRates(campaign: Campaign | null | undefined): TradeRates {
   return {
+    name: normalizeTradeRateName(campaign?.tradeRateName),
     buyMultiplier: normalizeTradeMultiplier(campaign?.tradeBuyMultiplier, DEFAULT_TRADE_BUY_MULTIPLIER),
     sellMultiplier: normalizeTradeMultiplier(campaign?.tradeSellMultiplier, DEFAULT_TRADE_SELL_MULTIPLIER),
   };
@@ -1318,6 +1327,8 @@ export default function App() {
     description: "",
     category: "gear" as ItemCategory,
   });
+  const [tradeRateModalOpen, setTradeRateModalOpen] = useState(false);
+  const [tradeRateNameInput, setTradeRateNameInput] = useState(DEFAULT_TRADE_RATE_NAME);
   const [tradeBuyInput, setTradeBuyInput] = useState(formatNumber(DEFAULT_TRADE_BUY_MULTIPLIER));
   const [tradeSellInput, setTradeSellInput] = useState(formatNumber(DEFAULT_TRADE_SELL_MULTIPLIER));
 
@@ -1646,12 +1657,13 @@ export default function App() {
   const activeUid = userUid ?? localUserId;
   const currentBagOrderStorageKey = bagOrderStorageKey(activeCampaignId, activeUid);
   const sortedMembers = useMemo(() => [...members].sort(compareCampaignMembers), [members]);
-  const tradeRates = useMemo(() => campaignTradeRates(campaign), [campaign?.tradeBuyMultiplier, campaign?.tradeSellMultiplier]);
+  const tradeRates = useMemo(() => campaignTradeRates(campaign), [campaign?.tradeRateName, campaign?.tradeBuyMultiplier, campaign?.tradeSellMultiplier]);
 
   useEffect(() => {
+    setTradeRateNameInput(tradeRates.name);
     setTradeBuyInput(formatNumber(tradeRates.buyMultiplier));
     setTradeSellInput(formatNumber(tradeRates.sellMultiplier));
-  }, [tradeRates.buyMultiplier, tradeRates.sellMultiplier]);
+  }, [tradeRates.name, tradeRates.buyMultiplier, tradeRates.sellMultiplier]);
 
   useEffect(() => {
     if (!campaign?.id || !isDm) {
@@ -2637,6 +2649,7 @@ export default function App() {
       dmUid: userUid,
       joinCode: code,
       joinCodeSearch: normalizeJoinCode(code),
+      tradeRateName: DEFAULT_TRADE_RATE_NAME,
       tradeBuyMultiplier: DEFAULT_TRADE_BUY_MULTIPLIER,
       tradeSellMultiplier: DEFAULT_TRADE_SELL_MULTIPLIER,
       createdAt,
@@ -2959,24 +2972,28 @@ export default function App() {
 
   async function updateTradeRates() {
     if (!firebaseDb || !activeCampaignId || !campaign || !isDm) return;
-    const buyMultiplier = normalizeTradeMultiplier(tradeBuyInput, tradeRates.buyMultiplier);
-    const sellMultiplier = normalizeTradeMultiplier(tradeSellInput, tradeRates.sellMultiplier);
-    if (buyMultiplier < 0 || sellMultiplier < 0) {
+    const rateName = normalizeTradeRateName(tradeRateNameInput);
+    const buyMultiplier = normalizeTradeMultiplier(tradeBuyInput, tradeRates.buyMultiplier || DEFAULT_TRADE_BUY_MULTIPLIER);
+    const sellMultiplier = normalizeTradeMultiplier(tradeSellInput, tradeRates.sellMultiplier || DEFAULT_TRADE_SELL_MULTIPLIER);
+    if (buyMultiplier <= 0 || sellMultiplier <= 0) {
       setSyncStatus("error");
-      setSyncError("Handelskurs darf nicht negativ sein.");
+      setSyncError("Handelskurs muss größer als 0 sein.");
       return;
     }
     try {
       await updateDoc(doc(firebaseDb, "campaigns", activeCampaignId), {
+        tradeRateName: rateName,
         tradeBuyMultiplier: buyMultiplier,
         tradeSellMultiplier: sellMultiplier,
         updatedAt: Date.now(),
       });
+      setTradeRateNameInput(rateName);
       setTradeBuyInput(formatNumber(buyMultiplier));
       setTradeSellInput(formatNumber(sellMultiplier));
+      setTradeRateModalOpen(false);
       setSyncStatus("online");
       setSyncError(null);
-      logAction("campaign_trade_rates_updated", `${member?.displayName ?? "DM"} hat den Handelskurs gesetzt: Kaufen ${formatMultiplier(buyMultiplier)}, Verkaufen ${formatMultiplier(sellMultiplier)}.`, activeCampaignId);
+      logAction("campaign_trade_rates_updated", `${member?.displayName ?? "DM"} hat den Handelskurs „${rateName}“ gesetzt: Kaufen ${formatMultiplier(buyMultiplier)}, Verkaufen ${formatMultiplier(sellMultiplier)}.`, activeCampaignId);
     } catch (error) {
       setSyncStatus("error");
       setSyncError(error instanceof Error ? error.message : "Handelskurs konnte nicht gespeichert werden.");
@@ -3961,88 +3978,73 @@ export default function App() {
 
       <header className={`sticky top-0 z-20 border-b backdrop-blur-xl ${isDark ? "border-[#8d713e]/30 bg-[#16110c]/85" : "border-[#8a6a35]/30 bg-[#efe3c6]/85"}`}>
         <div className="flex w-full flex-col gap-3 px-3 py-4 sm:px-4 2xl:px-6">
-          <div className="flex items-center gap-3">
-            <div className={`flex h-12 w-12 items-center justify-center rounded-2xl border shadow-lg ${isDark ? "border-[#a9843f]/60 bg-[#2c2116]" : "border-[#8a6a35]/40 bg-[#fff3cf]"}`}>
-              <ScrollText className="h-6 w-6" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-black tracking-wide">DND Inventory Manager</h1>
-              <p className={`flex flex-wrap items-center gap-x-1 gap-y-1 text-sm ${mutedText}`}>
-                <span>Kampagne: {campaign?.name ?? "Lokale Demo"} · Join-Code:</span>
-                {campaign?.joinCode ? (
-                  <span className="inline-flex items-center gap-1">
-                    <button
-                      className={`inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 font-mono font-bold transition hover:scale-[1.02] ${isDark ? "border-[#8d713e]/50 bg-[#2f2316] text-[#f3e7c8] hover:bg-[#3b2b1b]" : "border-[#9b7339]/40 bg-[#fff8df] text-[#2d2116] hover:bg-[#ead6a9]"}`}
-                      onClick={copyJoinCodeToClipboard}
-                      title={joinCodeVisible ? "Join-Code kopieren" : "Versteckten Join-Code kopieren"}
-                    >
-                      <Copy className="h-3.5 w-3.5" /> {joinCodeVisible ? campaign.joinCode : "•••-•••-•••"}
-                    </button>
-                    <button
-                      className={`inline-flex h-7 w-7 items-center justify-center rounded-lg border transition hover:scale-[1.03] ${isDark ? "border-[#8d713e]/50 bg-[#2f2316] hover:bg-[#3b2b1b]" : "border-[#9b7339]/40 bg-[#fff8df] hover:bg-[#ead6a9]"}`}
-                      onClick={joinCodeVisible ? () => setJoinCodeVisible(false) : revealJoinCodeTemporarily}
-                      title={joinCodeVisible ? "Join-Code ausblenden" : "Join-Code 7 Sekunden anzeigen"}
-                    >
-                      {joinCodeVisible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                    </button>
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+            <div className="flex min-w-0 items-start gap-3">
+              <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border shadow-lg ${isDark ? "border-[#a9843f]/60 bg-[#2c2116]" : "border-[#8a6a35]/40 bg-[#fff3cf]"}`}>
+                <ScrollText className="h-6 w-6" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-2xl font-black tracking-wide">DND Inventory Manager</h1>
+                <p className={`flex flex-wrap items-center gap-x-1 gap-y-1 text-sm ${mutedText}`}>
+                  <span>Kampagne: {campaign?.name ?? "Lokale Demo"} · Join-Code:</span>
+                  {campaign?.joinCode ? (
+                    <span className="inline-flex items-center gap-1">
+                      <button
+                        className={`inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 font-mono font-bold transition hover:scale-[1.02] ${isDark ? "border-[#8d713e]/50 bg-[#2f2316] text-[#f3e7c8] hover:bg-[#3b2b1b]" : "border-[#9b7339]/40 bg-[#fff8df] text-[#2d2116] hover:bg-[#ead6a9]"}`}
+                        onClick={copyJoinCodeToClipboard}
+                        title={joinCodeVisible ? "Join-Code kopieren" : "Versteckten Join-Code kopieren"}
+                      >
+                        <Copy className="h-3.5 w-3.5" /> {joinCodeVisible ? campaign.joinCode : "•••-•••-•••"}
+                      </button>
+                      <button
+                        className={`inline-flex h-7 w-7 items-center justify-center rounded-lg border transition hover:scale-[1.03] ${isDark ? "border-[#8d713e]/50 bg-[#2f2316] hover:bg-[#3b2b1b]" : "border-[#9b7339]/40 bg-[#fff8df] hover:bg-[#ead6a9]"}`}
+                        onClick={joinCodeVisible ? () => setJoinCodeVisible(false) : revealJoinCodeTemporarily}
+                        title={joinCodeVisible ? "Join-Code ausblenden" : "Join-Code 7 Sekunden anzeigen"}
+                      >
+                        {joinCodeVisible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                      </button>
+                    </span>
+                  ) : (
+                    <span className="font-mono font-bold">—</span>
+                  )}
+                  {joinCodeCopied && <span className="font-semibold text-emerald-500">kopiert</span>}
+                  {member && <span> · {member.displayName} ({memberRoleLabel(member.role)})</span>}
+                  <span className={`inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 font-semibold ${isDark ? "border-[#8d713e]/40 bg-[#2f2316]/70 text-[#f4dfad]" : "border-[#9b7339]/30 bg-[#fff8df]/80 text-[#4a3218]"}`} title="Aktueller lokaler Handelskurs">
+                    Kurs: {tradeRates.name} · Kauf {formatMultiplier(tradeRates.buyMultiplier)} · Verkauf {formatMultiplier(tradeRates.sellMultiplier)}
                   </span>
-                ) : (
-                  <span className="font-mono font-bold">—</span>
-                )}
-                {joinCodeCopied && <span className="font-semibold text-emerald-500">kopiert</span>}
-                {member && <span> · {member.displayName} ({memberRoleLabel(member.role)})</span>}
-              </p>
+                </p>
+              </div>
+            </div>
+
+            <div className="flex shrink-0 flex-wrap items-center justify-start gap-2 xl:justify-end">
+              <div className={`flex rounded-xl border p-1 ${isDark ? "border-[#8d713e]/50 bg-[#20170f]" : "border-[#9b7339]/40 bg-[#f8edcf]"}`}>
+                <button className={`${buttonBase} px-2 py-1 ${themeMode === "system" ? "bg-current/15" : ""}`} onClick={() => setThemeMode("system")} title="Systemmodus">
+                  <Monitor className="h-4 w-4" />
+                </button>
+                <button className={`${buttonBase} px-2 py-1 ${themeMode === "light" ? "bg-current/15" : ""}`} onClick={() => setThemeMode("light")} title="Tagmodus">
+                  <Sun className="h-4 w-4" />
+                </button>
+                <button className={`${buttonBase} px-2 py-1 ${themeMode === "dark" ? "bg-current/15" : ""}`} onClick={() => setThemeMode("dark")} title="Nachtmodus">
+                  <Moon className="h-4 w-4" />
+                </button>
+              </div>
+              <div className={`rounded-xl border px-3 py-2 text-sm ${isDark ? "border-emerald-700/50 bg-emerald-950/40 text-emerald-200" : "border-emerald-700/25 bg-emerald-100/60 text-emerald-900"}`}>
+                {syncBadge}
+              </div>
+              {authUser && (
+                <div className={`rounded-xl border px-3 py-2 text-sm ${isDark ? "border-[#8d713e]/50 bg-[#20170f]" : "border-[#9b7339]/40 bg-[#f8edcf]"}`}>
+                  <span className="font-bold">{authUser.displayName || authUser.email}</span>
+                  <span className={mutedText}> · Account</span>
+                </div>
+              )}
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <div className={`rounded-xl border px-3 py-2 text-sm ${isDark ? "border-emerald-700/50 bg-emerald-950/40 text-emerald-200" : "border-emerald-700/25 bg-emerald-100/60 text-emerald-900"}`}>
-              {syncBadge}
-            </div>
-            {authUser && (
-              <div className={`rounded-xl border px-3 py-2 text-sm ${isDark ? "border-[#8d713e]/50 bg-[#20170f]" : "border-[#9b7339]/40 bg-[#f8edcf]"}`}>
-                <span className="font-bold">{authUser.displayName || authUser.email}</span>
-                <span className={mutedText}> · Account</span>
-              </div>
-            )}
-            <div className={`flex rounded-xl border p-1 ${isDark ? "border-[#8d713e]/50 bg-[#20170f]" : "border-[#9b7339]/40 bg-[#f8edcf]"}`}>
-              <button className={`${buttonBase} px-2 py-1 ${themeMode === "system" ? "bg-current/15" : ""}`} onClick={() => setThemeMode("system")} title="Systemmodus">
-                <Monitor className="h-4 w-4" />
-              </button>
-              <button className={`${buttonBase} px-2 py-1 ${themeMode === "light" ? "bg-current/15" : ""}`} onClick={() => setThemeMode("light")} title="Tagmodus">
-                <Sun className="h-4 w-4" />
-              </button>
-              <button className={`${buttonBase} px-2 py-1 ${themeMode === "dark" ? "bg-current/15" : ""}`} onClick={() => setThemeMode("dark")} title="Nachtmodus">
-                <Moon className="h-4 w-4" />
-              </button>
-            </div>
             {isDm && activeCampaignId && campaign && (
-              <div className={`flex flex-wrap items-end gap-2 rounded-xl border px-2 py-1.5 text-xs ${isDark ? "border-[#8d713e]/50 bg-[#20170f]" : "border-[#9b7339]/40 bg-[#f8edcf]"}`} title="Globaler lokaler Handelskurs dieser Kampagne">
-                <div className="pb-1 font-black uppercase tracking-wide opacity-75">Handelskurs</div>
-                <label className="space-y-0.5">
-                  <span className={`block px-1 text-[10px] ${mutedText}`}>Kaufen</span>
-                  <input
-                    className={`h-8 w-20 rounded-lg border px-2 text-sm font-black tabular-nums ${inputClass}`}
-                    value={tradeBuyInput}
-                    onChange={(event) => setTradeBuyInput(event.target.value.replace(",", "."))}
-                    onKeyDown={(event) => { if (event.key === "Enter") updateTradeRates(); }}
-                    inputMode="decimal"
-                    placeholder="1.0"
-                  />
-                </label>
-                <label className="space-y-0.5">
-                  <span className={`block px-1 text-[10px] ${mutedText}`}>Verkaufen</span>
-                  <input
-                    className={`h-8 w-20 rounded-lg border px-2 text-sm font-black tabular-nums ${inputClass}`}
-                    value={tradeSellInput}
-                    onChange={(event) => setTradeSellInput(event.target.value.replace(",", "."))}
-                    onKeyDown={(event) => { if (event.key === "Enter") updateTradeRates(); }}
-                    inputMode="decimal"
-                    placeholder="0.5"
-                  />
-                </label>
-                <button className={`${secondaryButton} px-2 py-1.5 text-xs`} onClick={updateTradeRates}>Speichern</button>
-              </div>
+              <button className={secondaryButton} onClick={() => setTradeRateModalOpen(true)} title="Lokalen Handelskurs bearbeiten">
+                <Coins className="h-4 w-4" /> Handelskurs
+              </button>
             )}
             {firebaseConfigured ? (
               <>
@@ -4670,6 +4672,72 @@ export default function App() {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tradeRateModalOpen && isDm && activeCampaignId && campaign && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+          <div className={`w-full max-w-lg rounded-3xl border p-6 shadow-2xl ${panelClass}`}>
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-black">Handelskurs bearbeiten</h2>
+                <p className={`mt-1 text-sm ${mutedText}`}>Diese Werte ändern nur die angezeigten lokalen Kauf- und Verkaufspreise. Item-Basiswerte bleiben unverändert.</p>
+              </div>
+              <button className={secondaryButton} onClick={() => setTradeRateModalOpen(false)} title="Schließen">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <label className="block space-y-1">
+                <span className={`text-xs font-black uppercase tracking-wide ${mutedText}`}>Name des Kurses</span>
+                <input
+                  className={`w-full rounded-xl border px-3 py-2 text-sm font-bold ${inputClass}`}
+                  value={tradeRateNameInput}
+                  onChange={(event) => setTradeRateNameInput(event.target.value)}
+                  placeholder="z. B. Elturel Preise"
+                />
+              </label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block space-y-1">
+                  <span className={`text-xs font-black uppercase tracking-wide ${mutedText}`}>Kaufen-Multiplikator</span>
+                  <input
+                    className={`w-full rounded-xl border px-3 py-2 text-sm font-black tabular-nums ${inputClass}`}
+                    value={tradeBuyInput}
+                    onChange={(event) => setTradeBuyInput(event.target.value.replace(",", "."))}
+                    onKeyDown={(event) => { if (event.key === "Enter") updateTradeRates(); }}
+                    inputMode="decimal"
+                    placeholder="1.0"
+                  />
+                  <span className={`block text-xs ${mutedText}`}>Standard: ×1.0</span>
+                </label>
+                <label className="block space-y-1">
+                  <span className={`text-xs font-black uppercase tracking-wide ${mutedText}`}>Verkaufen-Multiplikator</span>
+                  <input
+                    className={`w-full rounded-xl border px-3 py-2 text-sm font-black tabular-nums ${inputClass}`}
+                    value={tradeSellInput}
+                    onChange={(event) => setTradeSellInput(event.target.value.replace(",", "."))}
+                    onKeyDown={(event) => { if (event.key === "Enter") updateTradeRates(); }}
+                    inputMode="decimal"
+                    placeholder="0.5"
+                  />
+                  <span className={`block text-xs ${mutedText}`}>Standard: ×0.5</span>
+                </label>
+              </div>
+              <div className={`rounded-2xl border p-3 text-sm ${isDark ? "border-[#8d713e]/40 bg-[#20170f]" : "border-[#9b7339]/30 bg-[#fff8df]"}`}>
+                Aktuelle Anzeige: <span className="font-black">{normalizeTradeRateName(tradeRateNameInput)}</span> · Kauf {formatMultiplier(normalizeTradeMultiplier(tradeBuyInput, DEFAULT_TRADE_BUY_MULTIPLIER))} · Verkauf {formatMultiplier(normalizeTradeMultiplier(tradeSellInput, DEFAULT_TRADE_SELL_MULTIPLIER))}
+              </div>
+              <div className="flex flex-wrap justify-end gap-2">
+                <button className={secondaryButton} onClick={() => {
+                  setTradeRateNameInput(DEFAULT_TRADE_RATE_NAME);
+                  setTradeBuyInput(formatNumber(DEFAULT_TRADE_BUY_MULTIPLIER));
+                  setTradeSellInput(formatNumber(DEFAULT_TRADE_SELL_MULTIPLIER));
+                }}>Standard einsetzen</button>
+                <button className={primaryButton} onClick={updateTradeRates}>
+                  <Save className="h-4 w-4" /> Speichern
+                </button>
+              </div>
             </div>
           </div>
         </div>
