@@ -99,7 +99,61 @@ type CatalogItem = {
   description: string;
 };
 
-const itemCatalog = itemCatalogData as CatalogItem[];
+const baseItemCatalog = itemCatalogData as CatalogItem[];
+
+type LootQualityVariant = {
+  code: "TQ" | "LQ" | "SQ";
+  label: string;
+  multiplier: number;
+  percentLabel: string;
+};
+
+const LOOT_QUALITY_VARIANTS: LootQualityVariant[] = [
+  { code: "TQ", label: "Terrible Quality", multiplier: 0.1, percentLabel: "10%" },
+  { code: "LQ", label: "Low Quality", multiplier: 0.5, percentLabel: "50%" },
+  { code: "SQ", label: "Superior Quality", multiplier: 1.5, percentLabel: "150%" },
+];
+
+function isLootQualityBaseItem(entry: CatalogItem) {
+  if (entry.valueGp === null || entry.valueGp === undefined || entry.valueGp <= 0) return false;
+  const name = normalizeSearchText(entry.name);
+  const category = normalizeSearchText(entry.category);
+  const kind = normalizeSearchText(entry.kind);
+  const haystack = `${name} ${category} ${kind}`;
+
+  if (/arrow|bolt|ammunition|ammo|needle|bullet|sling bullet|dart/.test(haystack) || ["a", "af"].includes(kind)) return false;
+  if (/shield|schild/.test(haystack) || kind === "s") return true;
+  if (/armor|armour|rüstung|mail|plate|breastplate|hide armor|leather armor|chain shirt|chain mail|splint/.test(haystack) || category.includes("rüstung")) return true;
+  if (/weapon|waffe|sword|axe|bow|crossbow|mace|dagger|spear|staff|club|hammer|flail|lance|rapier|scimitar|trident|whip|javelin|sling|blowgun/.test(haystack) || kind === "m" || kind === "r") return true;
+  return false;
+}
+
+function qualityAdjustedValue(valueGp: number, multiplier: number) {
+  return Math.round(valueGp * multiplier * 100) / 100;
+}
+
+function buildLootQualityCatalogVariants(entries: CatalogItem[]) {
+  const variants: CatalogItem[] = [];
+  for (const entry of entries) {
+    if (!isLootQualityBaseItem(entry) || entry.valueGp === null || entry.valueGp === undefined) continue;
+    for (const variant of LOOT_QUALITY_VARIANTS) {
+      const valueGp = qualityAdjustedValue(entry.valueGp, variant.multiplier);
+      variants.push({
+        ...entry,
+        id: `${entry.id}::loot-quality::${variant.code}`,
+        name: `${entry.name} (${variant.code} ${variant.label})`,
+        kind: `loot-quality-${variant.code.toLowerCase()}`,
+        category: "Verkaufsgut",
+        valueGp,
+        valueNote: `${variant.label}: ${variant.percentLabel} des normalen Wertes. Normalwert: ${formatNumber(entry.valueGp)} gp.`,
+        description: `${variant.label} (${variant.code}) von ${entry.name}. Verkaufsgut: ${variant.percentLabel} des normalen Wertes (${formatNumber(valueGp)} gp statt ${formatNumber(entry.valueGp)} gp).${entry.description ? `\n\n${entry.description}` : ""}`,
+      });
+    }
+  }
+  return variants;
+}
+
+const itemCatalog = [...baseItemCatalog, ...buildLootQualityCatalogVariants(baseItemCatalog)];
 
 const ITEM_CATEGORIES: { id: ItemCategory; label: string; shortLabel: string; hint: string }[] = [
   { id: "weapon", label: "Waffen", shortLabel: "Waffe", hint: "Nah- und Fernkampfwaffen" },
@@ -111,6 +165,7 @@ const ITEM_CATEGORIES: { id: ItemCategory; label: string; shortLabel: string; hi
   { id: "tool", label: "Werkzeuge & Instrumente", shortLabel: "Werkzeug", hint: "Werkzeugsets, Foki, Instrumente" },
   { id: "food", label: "Essen & Vorräte", shortLabel: "Vorrat", hint: "Nahrung, Getränke, Rationen" },
   { id: "wealth", label: "Geld & Wertgegenstände", shortLabel: "Wertgut", hint: "Münzen, Edelsteine, Handelswaren" },
+  { id: "sale", label: "Verkaufsgut", shortLabel: "Verkaufsgut", hint: "Loot und Gegenstände, die verkauft werden sollen" },
   { id: "vehicle", label: "Reittiere & Fahrzeuge", shortLabel: "Fahrzeug", hint: "Mounts, Fahrzeuge, Schiffe, Wagen" },
   { id: "magic", label: "Magische Gegenstände", shortLabel: "Magisch", hint: "Wundersame Gegenstände, Ringe, Stäbe, Artefakte" },
   { id: "gear", label: "Ausrüstung", shortLabel: "Ausrüstung", hint: "Normales Abenteuer- und Lagerzeug" },
@@ -142,6 +197,7 @@ function categoryIcon(category: ItemCategory | undefined | null, className = "h-
     case "tool": return <Hammer className={className} />;
     case "food": return <Utensils className={className} />;
     case "wealth": return <Gem className={className} />;
+    case "sale": return <Coins className={className} />;
     case "vehicle": return <Boxes className={className} />;
     case "magic": return <Sparkles className={className} />;
     case "gear": return <Package className={className} />;
@@ -156,6 +212,7 @@ function inferCatalogCategory(entry: CatalogItem | undefined | null): ItemCatego
   const kind = normalizeSearchText(entry.kind);
   const haystack = `${name} ${category} ${kind}`;
 
+  if (/verkaufsgut|terrible quality|low quality|superior quality|\btq\b|\blq\b|\bsq\b/.test(haystack) || kind.startsWith("loot-quality")) return "sale";
   if (/arrow|bolt|ammunition|ammo|needle|bullet|sling bullet|dart/.test(haystack) || ["a", "af"].includes(kind)) return "ammo";
   if (/shield|schild/.test(haystack) || kind === "s") return "shield";
   if (/armor|armour|rüstung|mail|plate|breastplate|hide armor|leather armor|chain shirt|chain mail|splint/.test(haystack) || category.includes("rüstung")) return "armor";
@@ -202,7 +259,7 @@ type BagType = "personal" | "shared" | "party" | "dm"; // legacy field, no longe
 type BagKind = "inventory" | "container";
 type MemberRole = "dm" | "player" | "applicant";
 type AccessMode = "all" | "dm" | "custom";
-type ItemCategory = "weapon" | "ammo" | "armor" | "shield" | "potion" | "scroll" | "tool" | "food" | "wealth" | "vehicle" | "magic" | "gear" | "misc";
+type ItemCategory = "weapon" | "ammo" | "armor" | "shield" | "potion" | "scroll" | "tool" | "food" | "wealth" | "sale" | "vehicle" | "magic" | "gear" | "misc";
 type ItemSortKey = "custom" | "name" | "quantity" | "weightUnit" | "weightStack" | "volumeUnit" | "volumeStack" | "valueUnit" | "valueStack" | "createdAt" | "updatedAt";
 type SortDirection = "asc" | "desc";
 type CurrencyKey = "pp" | "gp" | "ep" | "sp" | "cp";
