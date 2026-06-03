@@ -208,6 +208,8 @@ type SortDirection = "asc" | "desc";
 type CurrencyKey = "pp" | "gp" | "ep" | "sp" | "cp";
 type CurrencyPouch = Record<CurrencyKey, number>;
 
+const TARGET_ACCESS_ALL_KEY = "__all__";
+
 type BagAccess = {
   targetMode: AccessMode;
   targetUserIds: string[];
@@ -256,6 +258,12 @@ type Bag = {
     write: string[];
   }; // legacy fallback only
   access?: BagAccess;
+  /**
+   * Firestore-query-friendly mirror of access.targetMode/targetUserIds.
+   * "__all__" means every approved player can see the bag as a target.
+   * Custom visibility stores the allowed player UIDs directly.
+   */
+  targetAccessKeys?: string[];
   createdAt: number;
   updatedAt: number;
 };
@@ -563,6 +571,7 @@ const initialBags: Bag[] = [
     currency: emptyCurrency(),
     permissions: { read: ["all"], write: ["all"] },
     access: publicBagAccess(),
+    targetAccessKeys: targetAccessKeysForAccess(publicBagAccess()),
     createdAt: now,
     updatedAt: now,
   },
@@ -582,6 +591,7 @@ const initialBags: Bag[] = [
     currency: emptyCurrency(),
     permissions: { read: [], write: [] },
     access: dmOnlyAccess(),
+    targetAccessKeys: targetAccessKeysForAccess(dmOnlyAccess()),
     createdAt: now,
     updatedAt: now,
   },
@@ -969,6 +979,33 @@ function accessAllows(mode: AccessMode, userIds: string[], uid: string, isDm: bo
   if (mode === "all") return true;
   if (mode === "dm") return false;
   return userIds.includes(uid);
+}
+
+function targetAccessKeysForAccess(access: BagAccess) {
+  if (access.targetMode === "all") return [TARGET_ACCESS_ALL_KEY];
+  if (access.targetMode === "custom") return Array.from(new Set(access.targetUserIds.filter(Boolean))).sort();
+  return [];
+}
+
+function withBagAccessMirror<T extends Partial<Bag>>(bagOrPatch: T): T {
+  if (!bagOrPatch.access) return bagOrPatch;
+  return {
+    ...bagOrPatch,
+    targetAccessKeys: targetAccessKeysForAccess(getBagAccess(bagOrPatch as Bag)),
+  };
+}
+
+function bagTargetVisibleByMirror(bag: Bag, uid: string, isDm: boolean) {
+  if (isDm) return true;
+  const keys = bag.targetAccessKeys;
+  if (!Array.isArray(keys)) return canTargetBagByAccess(bag, uid, isDm);
+  return keys.includes(TARGET_ACCESS_ALL_KEY) || keys.includes(uid);
+}
+
+function canTargetBagByAccess(bag: Bag | undefined | null, uid: string, isDm: boolean) {
+  if (!bag) return false;
+  const access = getBagAccess(bag);
+  return accessAllows(access.targetMode, access.targetUserIds, uid, isDm);
 }
 
 function modeShortLabel(mode: AccessMode, ids: string[]) {
@@ -1606,7 +1643,8 @@ export default function App() {
       itemCount: 0,
       currency: normalizeCurrency(raw.currency),
       permissions: raw.permissions,
-      access: raw.access ?? publicBagAccess(),
+      access: getBagAccess(raw as Bag),
+      targetAccessKeys: targetAccessKeysForAccess(getBagAccess(raw as Bag)),
       createdAt: typeof raw.createdAt === "number" ? raw.createdAt : timestamp,
       updatedAt: timestamp,
     };
@@ -1707,8 +1745,11 @@ export default function App() {
       // Kapazitätsfelder aus den importierten Items neu berechnen, damit alte/kaputte Backups sauber werden.
       restoredBags = restoredBags.map((bag) => {
         const bagItems = restoredItems.filter((item) => item.bagId === bag.id);
+        const access = getBagAccess(bag);
         return {
           ...bag,
+          access,
+          targetAccessKeys: targetAccessKeysForAccess(access),
           currentWeight: Number(bagItems.reduce((sum, item) => sum + totalWeight(item), 0).toFixed(4)),
           currentVolume: Number(bagItems.reduce((sum, item) => sum + totalVolume(item), 0).toFixed(4)),
           currentValue: Number(bagItems.reduce((sum, item) => sum + totalValue(item), 0).toFixed(4)),
@@ -1839,8 +1880,7 @@ export default function App() {
 
   function canTargetBag(bag: Bag | undefined | null) {
     if (!bag) return false;
-    const access = getBagAccess(bag);
-    return accessAllows(access.targetMode, access.targetUserIds, activeUid, isDm);
+    return bagTargetVisibleByMirror(bag, activeUid, isDm);
   }
 
   function canDepositBag(bag: Bag | undefined | null) {
@@ -1955,10 +1995,11 @@ export default function App() {
         (snapshot) => {
           const loadedBags = snapshot.docs.map((entry) => entry.data() as Bag);
           setBags(loadedBags);
-          // Alte Prototyp-Taschen ohne access-Feld werden beim DM automatisch migriert.
+          // Alte Prototyp-Taschen ohne access-/Mirror-Feld werden beim DM automatisch migriert.
           for (const bag of loadedBags) {
-            if (!bag.access) {
-              updateDoc(doc(firebaseDb, "campaigns", activeCampaignId, "bags", bag.id), { access: getBagAccess(bag), updatedAt: Date.now() }).catch(() => undefined);
+            if (!bag.access || !Array.isArray(bag.targetAccessKeys)) {
+              const access = getBagAccess(bag);
+              updateDoc(doc(firebaseDb, "campaigns", activeCampaignId, "bags", bag.id), { access, targetAccessKeys: targetAccessKeysForAccess(access), updatedAt: Date.now() }).catch(() => undefined);
             }
           }
           setSyncStatus("online");
@@ -1971,18 +2012,20 @@ export default function App() {
       );
     }
 
-    // Wichtig: getrennte Query-Maps benutzen.
-    // Wenn eine Tasche von „Alle“ auf „Ausgewählte Spieler“ wechselt, sendet die All-Query ein "removed",
-    // während die Custom-Query ein "added" sendet. Mit einer einzigen Map kann die spätere Removed-Meldung
-    // den korrekt sichtbaren Custom-Eintrag wieder löschen. Deshalb werden beide Quellen getrennt gehalten
-    // und erst beim Veröffentlichen zusammengeführt.
+    // Wichtig: Query-freundliches Mirror-Feld benutzen.
+    // Die alte Custom-Query kombinierte `access.targetMode == custom` mit `array-contains`
+    // und kann je nach Firestore-Index/Security-Rules scheitern. `targetAccessKeys` erlaubt zwei
+    // einfache Single-Field-Listener: allgemeine Taschen über "__all__" und persönliche Freigaben
+    // direkt über die Spieler-UID. Die Maps bleiben getrennt, damit Mode-Wechsel kein Race verursachen.
     const allMap = new Map<string, Bag>();
+    const legacyAllMap = new Map<string, Bag>();
     const customMap = new Map<string, Bag>();
     const publish = () => {
       const merged = new Map<string, Bag>();
+      for (const [id, bag] of legacyAllMap) merged.set(id, bag);
       for (const [id, bag] of allMap) merged.set(id, bag);
       for (const [id, bag] of customMap) merged.set(id, bag);
-      setBags(Array.from(merged.values()).sort((a, b) => a.sortIndex - b.sortIndex));
+      setBags(Array.from(merged.values()).filter((bag) => canTargetBagByAccess(bag, activeUid, false)).sort((a, b) => a.sortIndex - b.sortIndex));
     };
 
     const applySnapshotChanges = (targetMap: Map<string, Bag>, snapshot: QuerySnapshot<DocumentData>) => {
@@ -1992,30 +2035,37 @@ export default function App() {
       }
       publish();
       setSyncStatus("online");
+      setSyncError(null);
+    };
+
+    const handleBagListenerError = (error: Error) => {
+      setSyncStatus("error");
+      setSyncError(error.message);
+      // Nicht `setBags([])`: Wenn einer von zwei Sichtbarkeits-Listenern wegen Index/Rules ausfällt,
+      // sollen bereits geladene Taschen nicht optisch verschwinden.
     };
 
     const unsubAll = onSnapshot(
-      query(bagCollection, where("access.targetMode", "==", "all")),
+      query(bagCollection, where("targetAccessKeys", "array-contains", TARGET_ACCESS_ALL_KEY)),
       (snapshot) => applySnapshotChanges(allMap, snapshot),
-      (error) => {
-        setBags([]);
-        setSyncStatus("error");
-        setSyncError(error.message);
-      },
+      handleBagListenerError,
+    );
+
+    const unsubLegacyAll = onSnapshot(
+      query(bagCollection, where("access.targetMode", "==", "all")),
+      (snapshot) => applySnapshotChanges(legacyAllMap, snapshot),
+      handleBagListenerError,
     );
 
     const unsubCustom = onSnapshot(
-      query(bagCollection, where("access.targetMode", "==", "custom"), where("access.targetUserIds", "array-contains", userUid)),
+      query(bagCollection, where("targetAccessKeys", "array-contains", userUid)),
       (snapshot) => applySnapshotChanges(customMap, snapshot),
-      (error) => {
-        setBags([]);
-        setSyncStatus("error");
-        setSyncError(error.message);
-      },
+      handleBagListenerError,
     );
 
     return () => {
       unsubAll();
+      unsubLegacyAll();
       unsubCustom();
     };
   }, [activeCampaignId, userUid, member?.role, campaignAccessReady]);
@@ -2278,6 +2328,7 @@ export default function App() {
       itemCount: 0,
       permissions: { read: ["all"], write: ["all"] },
       access: publicBagAccess(),
+      targetAccessKeys: targetAccessKeysForAccess(publicBagAccess()),
       createdAt,
       updatedAt: createdAt,
     };
@@ -2298,6 +2349,7 @@ export default function App() {
       currency: emptyCurrency(),
       permissions: { read: [], write: [] },
       access: dmOnlyAccess(),
+      targetAccessKeys: targetAccessKeysForAccess(dmOnlyAccess()),
       createdAt,
       updatedAt: createdAt,
     };
@@ -2509,13 +2561,13 @@ export default function App() {
   async function writeBag(bag: Bag) {
     const ref = campaignDocPath("bags", bag.id);
     if (!ref) throw new Error("Keine aktive Kampagne gefunden.");
-    await setDoc(ref, bag);
+    await setDoc(ref, withBagAccessMirror(bag));
   }
 
   async function patchBag(id: string, patch: Partial<Bag>) {
     const ref = campaignDocPath("bags", id);
     if (!ref) throw new Error("Keine aktive Kampagne gefunden.");
-    await updateDoc(ref, patch);
+    await updateDoc(ref, withBagAccessMirror(patch));
   }
 
   async function writeItem(item: InventoryItem) {
@@ -2625,6 +2677,7 @@ export default function App() {
         const patch = {
           kind: bagKind,
           access: normalizedAccess,
+          targetAccessKeys: targetAccessKeysForAccess(normalizedAccess),
           currentWeight: Math.max(0, Number(totals.weight.toFixed(4))),
           currentVolume: Math.max(0, Number(totals.volume.toFixed(4))),
           currentValue: Math.max(0, Number(totals.value.toFixed(4))),
@@ -2677,6 +2730,7 @@ export default function App() {
       currency: emptyCurrency(),
       permissions: { read: [], write: [] },
       access: privateIncomingAllowedAccess(activeUid),
+      targetAccessKeys: targetAccessKeysForAccess(privateIncomingAllowedAccess(activeUid)),
       createdAt,
       updatedAt: createdAt,
     };
@@ -3739,21 +3793,27 @@ export default function App() {
                     <BigStat icon={<Coins className="h-5 w-5" />} label="Wert" value={canOpenBag(selectedBag) ? `${formatNumber((selectedTotals?.value ?? 0) + currencyToGoldValue(bagCurrency(selectedBag)))} gp` : "—"} footer={canOpenBag(selectedBag) ? "Items + Münzen" : "Inhalt gesperrt"} />
                   </div>
                 </div>
-                <CurrencyPanel
-                  bag={selectedBag}
-                  targetBags={visibleBags.filter((bag) => bag.id !== selectedBag.id && canDepositBag(bag))}
-                  canEdit={canWriteBag(selectedBag)}
-                  inputClass={inputClass}
-                  primaryButton={primaryButton}
-                  secondaryButton={secondaryButton}
-                  mutedText={mutedText}
-                  isDark={isDark}
-                  undoAvailable={Boolean(currencyUndoByBag[selectedBag.id])}
-                  onDelta={(key, delta) => changeBagCurrency(selectedBag.id, key, delta)}
-                  onUndo={() => undoBagCurrency(selectedBag.id)}
-                  onConvert={(source, target, amount, all) => convertBagCurrency(selectedBag.id, source, target, amount, all)}
-                  onTransfer={(targetBagId, key, amount) => transferBagCurrency(selectedBag.id, targetBagId, key, amount)}
-                />
+                {canOpenBag(selectedBag) ? (
+                  <CurrencyPanel
+                    bag={selectedBag}
+                    targetBags={visibleBags.filter((bag) => bag.id !== selectedBag.id && canDepositBag(bag))}
+                    canEdit={canWriteBag(selectedBag)}
+                    inputClass={inputClass}
+                    primaryButton={primaryButton}
+                    secondaryButton={secondaryButton}
+                    mutedText={mutedText}
+                    isDark={isDark}
+                    undoAvailable={Boolean(currencyUndoByBag[selectedBag.id])}
+                    onDelta={(key, delta) => changeBagCurrency(selectedBag.id, key, delta)}
+                    onUndo={() => undoBagCurrency(selectedBag.id)}
+                    onConvert={(source, target, amount, all) => convertBagCurrency(selectedBag.id, source, target, amount, all)}
+                    onTransfer={(targetBagId, key, amount) => transferBagCurrency(selectedBag.id, targetBagId, key, amount)}
+                  />
+                ) : (
+                  <div className={`mt-4 rounded-2xl border border-current/10 bg-current/5 p-3 text-sm font-bold ${mutedText}`}>
+                    Münzen und Inhalt dieser Tasche sind für dich gesperrt.
+                  </div>
+                )}
               </div>
 
               <div className={`rounded-3xl border p-3 shadow-xl ${panelClass}`}>

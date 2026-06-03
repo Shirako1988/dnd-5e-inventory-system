@@ -52,8 +52,18 @@ service cloud.firestore {
         || (mode == "custom" && userIds is list && request.auth.uid in userIds);
     }
 
+    function hasTargetAccessMirror(bag) {
+      return bag.targetAccessKeys is list;
+    }
+
+    function targetAccessMirrorAllowed(bag) {
+      return hasTargetAccessMirror(bag)
+        && ("__all__" in bag.targetAccessKeys || request.auth.uid in bag.targetAccessKeys);
+    }
+
     function canTargetBagData(campaignId, bag) {
-      return hasAccessMap(bag) && accessAllowed(campaignId, bag.access.targetMode, bag.access.targetUserIds);
+      return (hasAccessMap(bag) && accessAllowed(campaignId, bag.access.targetMode, bag.access.targetUserIds))
+        || targetAccessMirrorAllowed(bag);
     }
 
     function canDepositBagData(campaignId, bag) {
