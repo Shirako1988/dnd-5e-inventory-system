@@ -49,6 +49,7 @@ import {
   EyeOff,
   Image as ImageIcon,
   ExternalLink,
+  Maximize2,
   RotateCcw,
 } from "lucide-react";
 import itemCatalogData from "./data/itemCatalog.json";
@@ -497,6 +498,11 @@ type ThumbnailTarget =
   | { kind: "bag"; id: string }
   | { kind: "item"; id: string }
   | null;
+
+type ImageViewerTarget = {
+  title: string;
+  imageUrl: string;
+} | null;
 
 const now = Date.now();
 const localUserId = "local_user";
@@ -1383,6 +1389,7 @@ export default function App() {
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
   const [transferTarget, setTransferTarget] = useState<TransferTarget>(null);
   const [thumbnailTarget, setThumbnailTarget] = useState<ThumbnailTarget>(null);
+  const [imageViewerTarget, setImageViewerTarget] = useState<ImageViewerTarget>(null);
   const [editingBagId, setEditingBagId] = useState<string | null>(null);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [expandedItemIds, setExpandedItemIds] = useState<string[]>([]);
@@ -4587,7 +4594,18 @@ export default function App() {
                             <div className="min-w-0 flex-1">
                               <div className="grid gap-2 xl:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto] xl:items-center">
                                 <div className="flex min-w-0 items-center gap-2">
-                                  <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border ${isDark ? "border-[#8d713e]/50 bg-[#1a130d]" : "border-[#9b7339]/35 bg-[#fff8df]"}`} title={categoryDef.label}>{categoryIcon(category, "h-4 w-4")}</span>
+                                  <button
+                                    type="button"
+                                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition disabled:cursor-not-allowed disabled:opacity-35 ${isDark ? "border-[#8d713e]/50 bg-[#1a130d] hover:bg-[#3a2a16]" : "border-[#9b7339]/35 bg-[#fff8df] hover:bg-[#ead6a9]"}`}
+                                    title={sanitizeImageUrl(item.imageUrl) ? `Bild von ${item.name} groß ansehen` : "Kein Bild gesetzt"}
+                                    disabled={!sanitizeImageUrl(item.imageUrl)}
+                                    onClick={() => {
+                                      const imageUrl = sanitizeImageUrl(item.imageUrl);
+                                      if (imageUrl) setImageViewerTarget({ title: item.name, imageUrl });
+                                    }}
+                                  >
+                                    <Maximize2 className="h-4 w-4" />
+                                  </button>
                                   <h4 className="min-w-0 truncate text-base font-black">{item.name}</h4>
                                 </div>
                                 <span className={`inline-flex w-fit items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-bold opacity-85 ${isDark ? "border-[#8d713e]/40 bg-[#1a130d]" : "border-[#9b7339]/25 bg-[#fff8df]"}`}>{categoryIcon(category, "h-3.5 w-3.5")} {categoryDef.shortLabel}</span>
@@ -4794,6 +4812,16 @@ export default function App() {
           />
         );
       })()}
+
+      {imageViewerTarget && (
+        <ImageViewerModal
+          target={imageViewerTarget}
+          panelClass={panelClass}
+          secondaryButton={secondaryButton}
+          mutedText={mutedText}
+          onClose={() => setImageViewerTarget(null)}
+        />
+      )}
 
       {auditLogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
@@ -5348,6 +5376,37 @@ function ThumbnailButton({ imageUrl, imageZoom, imagePositionX, imagePositionY, 
         <Pencil className="h-5 w-5" />
       </span>
     </button>
+  );
+}
+
+function ImageViewerModal({ target, panelClass, secondaryButton, mutedText, onClose }: { target: Exclude<ImageViewerTarget, null>; panelClass: string; secondaryButton: string; mutedText: string; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/88 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className={`flex max-h-[94vh] w-full max-w-7xl flex-col rounded-3xl border p-4 shadow-2xl ${panelClass}`} onClick={(event) => event.stopPropagation()}>
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="flex items-center gap-2 text-xl font-black"><Maximize2 className="h-5 w-5" /> Bildansicht</h2>
+            <p className={`mt-1 truncate text-sm ${mutedText}`}>{target.title}</p>
+          </div>
+          <div className="flex shrink-0 flex-wrap justify-end gap-2">
+            <a className={`${secondaryButton} px-3 py-2`} href={target.imageUrl} target="_blank" rel="noreferrer" title="Original in neuem Tab öffnen">
+              <ExternalLink className="h-4 w-4" /> Original öffnen
+            </a>
+            <button className={`${secondaryButton} px-3 py-2`} onClick={onClose} title="Schließen">
+              <X className="h-4 w-4" /> Schließen
+            </button>
+          </div>
+        </div>
+        <div className="min-h-0 flex-1 overflow-auto rounded-2xl border border-current/10 bg-black/40 p-3">
+          <img
+            src={target.imageUrl}
+            alt={target.title}
+            className="mx-auto max-h-[78vh] max-w-full rounded-xl object-contain"
+            referrerPolicy="no-referrer"
+          />
+        </div>
+      </div>
+    </div>
   );
 }
 
