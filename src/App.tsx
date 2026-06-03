@@ -546,11 +546,15 @@ function sanitizeImagePosition(value: unknown) {
 
 function thumbnailImageStyle(imageUrl: unknown, imageZoom: unknown, imagePositionX: unknown, imagePositionY: unknown): CSSProperties {
   if (!sanitizeImageUrl(imageUrl)) return {};
+  const x = sanitizeImagePosition(imagePositionX);
+  const y = sanitizeImagePosition(imagePositionY);
   return {
     objectFit: "cover",
-    objectPosition: `${sanitizeImagePosition(imagePositionX)}% ${sanitizeImagePosition(imagePositionY)}%`,
+    objectPosition: `${x}% ${y}%`,
     transform: `scale(${sanitizeImageZoom(imageZoom)})`,
-    transformOrigin: "center center",
+    transformOrigin: `${x}% ${y}%`,
+    userSelect: "none",
+    pointerEvents: "none",
   };
 }
 
@@ -4253,7 +4257,7 @@ export default function App() {
                             imagePositionY={bag.imagePositionY}
                             label={`Bild für Tasche ${bag.name}`}
                             isDark={isDark}
-                            size="sm"
+                            size="bag"
                             onClick={() => setThumbnailTarget({ kind: "bag", id: bag.id })}
                           />
                           <button className="min-w-0 flex-1 text-left" onClick={() => setSelectedBagId(bag.id)}>
@@ -4272,7 +4276,7 @@ export default function App() {
                       <div className="grid grid-cols-3 gap-2 text-xs">
                         <MiniStat label="Gewicht" value={`${formatNumber(totals?.weight ?? 0)} / ${formatNumber(bag.maxWeight)}`} tone={weightStatus?.tone ?? "neutral"} sub={openable ? weightStatus?.label : "Inhalt verborgen"} />
                         <MiniStat label="Volumen" value={`${formatNumber(totals?.volume ?? 0)} / ${formatNumber(bag.maxVolume)}`} tone={overloadedVolume ? "red" : "neutral"} sub={getBagKind(bag) === "container" ? "harte Grenze" : undefined} />
-                        <MiniStat label="Wert" value={openable ? `${formatNumber((totals?.value ?? 0) + currencyToGoldValue(bagCurrency(bag)))} gp` : "—"} sub={openable ? "Items + Münzen" : "gesperrt"} />
+                        <MiniStat label="Münzwert" value={openable ? `${formatNumber(currencyToGoldValue(bagCurrency(bag)))} gp` : "—"} sub={openable ? "nur Münzen" : "gesperrt"} />
                       </div>
 
                       <div className="mt-3 flex gap-2">
@@ -4557,67 +4561,71 @@ export default function App() {
                           />
                         </div>
                       ) : (
-                        <div key={item.id} className={`rounded-2xl border px-3 py-2 ${isDark ? "border-[#7b6237]/35 bg-[#1d150e]/70" : "border-[#9b7339]/25 bg-[#fff8df]/70"}`}>
-                          <div className="grid gap-2 xl:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto] xl:items-center">
-                            <div className="flex min-w-0 items-center gap-2">
-                              <ThumbnailButton
-                                imageUrl={item.imageUrl}
-                                imageZoom={item.imageZoom}
-                                imagePositionX={item.imagePositionX}
-                                imagePositionY={item.imagePositionY}
-                                label={`Bild für ${item.name}`}
-                                isDark={isDark}
-                                onClick={() => setThumbnailTarget({ kind: "item", id: item.id })}
-                              />
-                              <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border ${isDark ? "border-[#8d713e]/50 bg-[#1a130d]" : "border-[#9b7339]/35 bg-[#fff8df]"}`} title={categoryDef.label}>{categoryIcon(category, "h-4 w-4")}</span>
-                              <h4 className="min-w-0 truncate text-base font-black">{item.name}</h4>
-                            </div>
-                            <span className={`inline-flex w-fit items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-bold opacity-85 ${isDark ? "border-[#8d713e]/40 bg-[#1a130d]" : "border-[#9b7339]/25 bg-[#fff8df]"}`}>{categoryIcon(category, "h-3.5 w-3.5")} {categoryDef.shortLabel}</span>
-                            <select disabled={!writable} className={`min-w-0 rounded-xl border px-2 py-2 text-xs xl:w-[170px] ${inputClass}`} value={item.bagId} onChange={(event) => requestItemTransfer(item.id, event.target.value)} title="In andere Tasche verschieben">
-                              {(visibleBags.length ? visibleBags : [selectedBag]).map((bag) => <option key={bag.id} value={bag.id} disabled={!canDepositBag(bag)}>{bag.name}{canDepositBag(bag) ? "" : " (kein Hineinlegen)"}</option>)}
-                            </select>
-                            <button className={`${secondaryButton} px-3 py-2`} onClick={() => setEditingItemId(item.id)} disabled={!writable}><Pencil className="h-4 w-4" /> Bearbeiten</button>
-                            <button className={`${dangerButton} px-3 py-2`} onClick={() => setDeleteTarget({ kind: "item", id: item.id, label: item.name })} disabled={!writable}><Trash2 className="h-4 w-4" /> Löschen</button>
-                          </div>
+                        <div key={item.id} className={`rounded-2xl border px-3 py-3 ${isDark ? "border-[#7b6237]/35 bg-[#1d150e]/70" : "border-[#9b7339]/25 bg-[#fff8df]/70"}`}>
+                          <div className="flex items-stretch gap-3">
+                            <ThumbnailButton
+                              imageUrl={item.imageUrl}
+                              imageZoom={item.imageZoom}
+                              imagePositionX={item.imagePositionX}
+                              imagePositionY={item.imagePositionY}
+                              label={`Bild für ${item.name}`}
+                              isDark={isDark}
+                              size="item"
+                              onClick={() => setThumbnailTarget({ kind: "item", id: item.id })}
+                            />
 
-                          <div className="mt-2 flex flex-col gap-2 2xl:flex-row 2xl:items-center 2xl:justify-between">
-                            <div className="flex shrink-0 items-center gap-1">
-                              {itemSortKey === "custom" && (
-                                <>
-                                  <button className={`${secondaryButton} px-2 py-2`} disabled={!writable || categoryIndex <= 0} onClick={() => moveItemWithinCategory(item.id, -1)} title="In dieser Kategorie nach oben"><ArrowUp className="h-4 w-4" /></button>
-                                  <button className={`${secondaryButton} px-2 py-2`} disabled={!writable || categoryIndex >= categoryEntries.length - 1} onClick={() => moveItemWithinCategory(item.id, 1)} title="In dieser Kategorie nach unten"><ArrowDown className="h-4 w-4" /></button>
-                                </>
-                              )}
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-2 2xl:justify-end">
-                              <div className={`grid h-10 shrink-0 grid-cols-[auto_28px_56px_28px] items-center gap-1 rounded-full border px-2 text-xs shadow-inner ${isDark ? "border-[#8d713e]/50 bg-[#2f2316]" : "border-[#9b7339]/35 bg-[#f1ddb3]"}`}>
-                                <span className="pr-1 font-semibold opacity-75">Menge</span>
-                                <button disabled={!writable} className={`flex h-7 w-7 items-center justify-center rounded-full border transition hover:scale-105 disabled:opacity-30 ${isDark ? "border-[#8d713e]/60 bg-[#1a130d] hover:bg-[#3a2a16]" : "border-[#9b7339]/45 bg-[#fff8df] hover:bg-[#ead6a9]"}`} onClick={() => updateItem(item.id, { quantity: Math.max(1, item.quantity - 1) })} title="Menge verringern"><span className="relative -top-[2px] flex h-4 w-4 items-center justify-center text-lg font-black leading-none">−</span></button>
-                                <input
-                                  disabled={!writable}
-                                  className={`h-7 w-[56px] rounded-lg border px-0 text-center text-sm font-black leading-none tabular-nums ${inputClass}`}
-                                  type="text"
-                                  inputMode="numeric"
-                                  pattern="[0-9]*"
-                                  value={item.quantity}
-                                  onChange={(event) => {
-                                    const onlyDigits = event.target.value.replace(/\D/g, "");
-                                    updateItem(item.id, { quantity: Math.max(1, Number(onlyDigits) || 1) });
-                                  }}
-                                  title="Menge direkt ändern"
-                                />
-                                <button disabled={!writable} className={`flex h-7 w-7 items-center justify-center rounded-full border transition hover:scale-105 disabled:opacity-30 ${isDark ? "border-[#8d713e]/60 bg-[#1a130d] hover:bg-[#3a2a16]" : "border-[#9b7339]/45 bg-[#fff8df] hover:bg-[#ead6a9]"}`} onClick={() => updateItem(item.id, { quantity: item.quantity + 1 })} title="Menge erhöhen"><span className="relative -top-[2px] flex h-4 w-4 items-center justify-center text-lg font-black leading-none">+</span></button>
+                            <div className="min-w-0 flex-1">
+                              <div className="grid gap-2 xl:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto] xl:items-center">
+                                <div className="flex min-w-0 items-center gap-2">
+                                  <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border ${isDark ? "border-[#8d713e]/50 bg-[#1a130d]" : "border-[#9b7339]/35 bg-[#fff8df]"}`} title={categoryDef.label}>{categoryIcon(category, "h-4 w-4")}</span>
+                                  <h4 className="min-w-0 truncate text-base font-black">{item.name}</h4>
+                                </div>
+                                <span className={`inline-flex w-fit items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-bold opacity-85 ${isDark ? "border-[#8d713e]/40 bg-[#1a130d]" : "border-[#9b7339]/25 bg-[#fff8df]"}`}>{categoryIcon(category, "h-3.5 w-3.5")} {categoryDef.shortLabel}</span>
+                                <select disabled={!writable} className={`min-w-0 rounded-xl border px-2 py-2 text-xs xl:w-[170px] ${inputClass}`} value={item.bagId} onChange={(event) => requestItemTransfer(item.id, event.target.value)} title="In andere Tasche verschieben">
+                                  {(visibleBags.length ? visibleBags : [selectedBag]).map((bag) => <option key={bag.id} value={bag.id} disabled={!canDepositBag(bag)}>{bag.name}{canDepositBag(bag) ? "" : " (kein Hineinlegen)"}</option>)}
+                                </select>
+                                <button className={`${secondaryButton} px-3 py-2`} onClick={() => setEditingItemId(item.id)} disabled={!writable}><Pencil className="h-4 w-4" /> Bearbeiten</button>
+                                <button className={`${dangerButton} px-3 py-2`} onClick={() => setDeleteTarget({ kind: "item", id: item.id, label: item.name })} disabled={!writable}><Trash2 className="h-4 w-4" /> Löschen</button>
                               </div>
 
-                              <InlineItemValueStat label="Gewicht" unit="lb" single={item.weightPerUnit ?? 0} stack={totalWeight(item)} />
-                              <InlineItemValueStat label="Volumen" single={item.volumePerUnit ?? 0} stack={totalVolume(item)} />
-                              <InlineLocalTradeValueStat baseStack={totalValue(item)} rates={tradeRates} />
-                              <InlineItemValueStat label="Wert" unit="gp" single={item.valuePerUnit ?? 0} stack={totalValue(item)} />
-                            </div>
-                          </div>
+                              <div className="mt-2 flex flex-col gap-2 2xl:flex-row 2xl:items-center 2xl:justify-between">
+                                <div className="flex shrink-0 items-center gap-1">
+                                  {itemSortKey === "custom" && (
+                                    <>
+                                      <button className={`${secondaryButton} px-2 py-2`} disabled={!writable || categoryIndex <= 0} onClick={() => moveItemWithinCategory(item.id, -1)} title="In dieser Kategorie nach oben"><ArrowUp className="h-4 w-4" /></button>
+                                      <button className={`${secondaryButton} px-2 py-2`} disabled={!writable || categoryIndex >= categoryEntries.length - 1} onClick={() => moveItemWithinCategory(item.id, 1)} title="In dieser Kategorie nach unten"><ArrowDown className="h-4 w-4" /></button>
+                                    </>
+                                  )}
+                                </div>
 
-                          <div className="mt-2 flex min-w-0 items-start gap-2">
+                                <div className="flex flex-wrap items-center gap-2 2xl:justify-end">
+                                  <div className={`grid h-10 shrink-0 grid-cols-[auto_28px_56px_28px] items-center gap-1 rounded-full border px-2 text-xs shadow-inner ${isDark ? "border-[#8d713e]/50 bg-[#2f2316]" : "border-[#9b7339]/35 bg-[#f1ddb3]"}`}>
+                                    <span className="pr-1 font-semibold opacity-75">Menge</span>
+                                    <button disabled={!writable} className={`flex h-7 w-7 items-center justify-center rounded-full border transition hover:scale-105 disabled:opacity-30 ${isDark ? "border-[#8d713e]/60 bg-[#1a130d] hover:bg-[#3a2a16]" : "border-[#9b7339]/45 bg-[#fff8df] hover:bg-[#ead6a9]"}`} onClick={() => updateItem(item.id, { quantity: Math.max(1, item.quantity - 1) })} title="Menge verringern"><span className="relative -top-[2px] flex h-4 w-4 items-center justify-center text-lg font-black leading-none">−</span></button>
+                                    <input
+                                      disabled={!writable}
+                                      className={`h-7 w-[56px] rounded-lg border px-0 text-center text-sm font-black leading-none tabular-nums ${inputClass}`}
+                                      type="text"
+                                      inputMode="numeric"
+                                      pattern="[0-9]*"
+                                      value={item.quantity}
+                                      onChange={(event) => {
+                                        const onlyDigits = event.target.value.replace(/\D/g, "");
+                                        updateItem(item.id, { quantity: Math.max(1, Number(onlyDigits) || 1) });
+                                      }}
+                                      title="Menge direkt ändern"
+                                    />
+                                    <button disabled={!writable} className={`flex h-7 w-7 items-center justify-center rounded-full border transition hover:scale-105 disabled:opacity-30 ${isDark ? "border-[#8d713e]/60 bg-[#1a130d] hover:bg-[#3a2a16]" : "border-[#9b7339]/45 bg-[#fff8df] hover:bg-[#ead6a9]"}`} onClick={() => updateItem(item.id, { quantity: item.quantity + 1 })} title="Menge erhöhen"><span className="relative -top-[2px] flex h-4 w-4 items-center justify-center text-lg font-black leading-none">+</span></button>
+                                  </div>
+
+                                  <InlineItemValueStat label="Gewicht" unit="lb" single={item.weightPerUnit ?? 0} stack={totalWeight(item)} />
+                                  <InlineItemValueStat label="Volumen" single={item.volumePerUnit ?? 0} stack={totalVolume(item)} />
+                                  <InlineLocalTradeValueStat baseStack={totalValue(item)} rates={tradeRates} />
+                                  <InlineItemValueStat label="Wert" unit="gp" single={item.valuePerUnit ?? 0} stack={totalValue(item)} />
+                                </div>
+                              </div>
+
+                              <div className="mt-2 flex min-w-0 items-start gap-2">
                             <button
                               className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${isDark ? "border-[#8d713e]/50 bg-[#1a130d] hover:bg-[#3a2a16]" : "border-[#9b7339]/35 bg-[#fff8df] hover:bg-[#ead6a9]"}`}
                               onClick={() => toggleItemExpanded(item.id)}
@@ -4638,6 +4646,8 @@ export default function App() {
                             ) : (
                               <p className={`min-w-0 flex-1 truncate text-sm ${mutedText}`}>{item.description || "Keine Beschreibung."}</p>
                             )}
+                              </div>
+                            </div>
                           </div>
                         </div>
                       );
@@ -5298,26 +5308,34 @@ function CampaignGate({
   );
 }
 
-function ThumbnailButton({ imageUrl, imageZoom, imagePositionX, imagePositionY, label, isDark, onClick, size = "md" }: { imageUrl?: string; imageZoom?: number; imagePositionX?: number; imagePositionY?: number; label: string; isDark: boolean; onClick: () => void; size?: "sm" | "md" }) {
+function ThumbnailButton({ imageUrl, imageZoom, imagePositionX, imagePositionY, label, isDark, onClick, size = "md" }: { imageUrl?: string; imageZoom?: number; imagePositionX?: number; imagePositionY?: number; label: string; isDark: boolean; onClick: () => void; size?: "sm" | "md" | "bag" | "item" }) {
   const cleanUrl = sanitizeImageUrl(imageUrl);
-  const sizeClass = size === "sm" ? "h-11 w-11" : "h-12 w-12";
+  const sizeClass =
+    size === "sm"
+      ? "h-11 w-11"
+      : size === "bag"
+        ? "h-16 w-16"
+        : size === "item"
+          ? "min-h-[150px] w-24 self-stretch sm:w-28"
+          : "h-12 w-12";
+  const placeholderIconClass = size === "item" ? "h-7 w-7" : "h-4 w-4";
   return (
     <button
       type="button"
-      className={`${sizeClass} group relative flex shrink-0 items-center justify-center overflow-hidden rounded-xl border transition hover:scale-[1.03] ${isDark ? "border-[#8d713e]/50 bg-[#1a130d] hover:bg-[#3a2a16]" : "border-[#9b7339]/35 bg-[#fff8df] hover:bg-[#ead6a9]"}`}
+      className={`${sizeClass} group relative flex shrink-0 items-center justify-center overflow-hidden rounded-xl border transition hover:scale-[1.02] ${isDark ? "border-[#8d713e]/50 bg-[#1a130d] hover:bg-[#3a2a16]" : "border-[#9b7339]/35 bg-[#fff8df] hover:bg-[#ead6a9]"}`}
       onClick={(event) => { event.stopPropagation(); onClick(); }}
       title={cleanUrl ? `${label} ändern` : `${label} setzen`}
     >
       {cleanUrl ? (
-        <img src={cleanUrl} alt="" className="h-full w-full" style={thumbnailImageStyle(cleanUrl, imageZoom, imagePositionX, imagePositionY)} referrerPolicy="no-referrer" />
+        <img src={cleanUrl} alt="" draggable={false} className="h-full w-full select-none" style={thumbnailImageStyle(cleanUrl, imageZoom, imagePositionX, imagePositionY)} referrerPolicy="no-referrer" />
       ) : (
-        <div className="flex flex-col items-center justify-center gap-0.5 text-[9px] font-black uppercase tracking-wide opacity-70">
-          <ImageIcon className="h-4 w-4" />
+        <div className="flex flex-col items-center justify-center gap-1 text-[9px] font-black uppercase tracking-wide opacity-70">
+          <ImageIcon className={placeholderIconClass} />
           <span>Bild</span>
         </div>
       )}
       <span className="pointer-events-none absolute inset-0 hidden items-center justify-center bg-black/55 text-white group-hover:flex">
-        <Pencil className="h-4 w-4" />
+        <Pencil className="h-5 w-5" />
       </span>
     </button>
   );
@@ -5359,8 +5377,16 @@ function ThumbnailModal({ kind, targetName, imageUrl, imageZoom, imagePositionX,
     setPositionY(DEFAULT_IMAGE_POSITION);
   }
 
+  function handleZoomChange(nextZoom: number) {
+    const cleanZoom = sanitizeImageZoom(nextZoom);
+    // Position bleibt absichtlich erhalten. Durch den dynamischen transform-origin bleibt
+    // z. B. „ganz oben“ auch nach dem Reinzoomen wirklich oben.
+    setZoom(cleanZoom);
+  }
+
   function handlePointerDown(event: React.PointerEvent<HTMLDivElement>) {
     if (!canEdit || !cleanUrl) return;
+    event.preventDefault();
     const box = previewRef.current;
     if (!box) return;
     dragState.current = {
@@ -5409,15 +5435,14 @@ function ThumbnailModal({ kind, targetName, imageUrl, imageZoom, imagePositionX,
           <div className="space-y-3">
             <div
               ref={previewRef}
-              className={`relative flex aspect-square w-full select-none items-center justify-center overflow-hidden rounded-2xl border ${isDark ? "border-[#8d713e]/50 bg-[#1a130d]" : "border-[#9b7339]/35 bg-[#fff8df]"} ${cleanUrl && canEdit ? "cursor-grab active:cursor-grabbing" : ""}`}
+              className={`relative flex aspect-square w-full select-none items-center justify-center overflow-hidden rounded-2xl border ${isDark ? "border-[#8d713e]/50 bg-[#1a130d]" : "border-[#9b7339]/35 bg-[#fff8df]"} ${cleanUrl && canEdit ? "cursor-grab touch-none active:cursor-grabbing" : ""}`}
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
               onPointerUp={clearPointer}
               onPointerCancel={clearPointer}
-              onPointerLeave={(event) => { if (dragState.current) clearPointer(event); }}
             >
               {cleanUrl ? (
-                <img src={cleanUrl} alt="Vorschau" className="h-full w-full" style={thumbnailImageStyle(cleanUrl, zoom, positionX, positionY)} referrerPolicy="no-referrer" />
+                <img src={cleanUrl} alt="Vorschau" draggable={false} className="h-full w-full select-none" style={thumbnailImageStyle(cleanUrl, zoom, positionX, positionY)} referrerPolicy="no-referrer" />
               ) : (
                 <div className={`flex flex-col items-center gap-2 text-sm font-bold ${mutedText}`}>
                   <ImageIcon className="h-8 w-8" />
@@ -5470,16 +5495,16 @@ function ThumbnailModal({ kind, targetName, imageUrl, imageZoom, imagePositionX,
               <div className="space-y-3">
                 <label className="block space-y-1 text-xs">
                   <span className={`block px-1 ${mutedText}`}>Zoom · {formatNumber(zoom)}×</span>
-                  <input type="range" min={1} max={3} step={0.05} value={zoom} onChange={(event) => setZoom(sanitizeImageZoom(Number(event.target.value)))} disabled={!canEdit || busy || !cleanUrl} className="w-full" />
+                  <input type="range" min={1} max={3} step={0.05} value={zoom} onChange={(event) => handleZoomChange(Number(event.target.value))} disabled={!canEdit || busy || !cleanUrl} className="themed-range w-full" />
                 </label>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="block space-y-1 text-xs">
                     <span className={`block px-1 ${mutedText}`}>Horizontal · {Math.round(positionX)}%</span>
-                    <input type="range" min={0} max={100} step={1} value={positionX} onChange={(event) => setPositionX(sanitizeImagePosition(Number(event.target.value)))} disabled={!canEdit || busy || !cleanUrl} className="w-full" />
+                    <input type="range" min={0} max={100} step={1} value={positionX} onChange={(event) => setPositionX(sanitizeImagePosition(Number(event.target.value)))} disabled={!canEdit || busy || !cleanUrl} className="themed-range w-full" />
                   </label>
                   <label className="block space-y-1 text-xs">
                     <span className={`block px-1 ${mutedText}`}>Vertikal · {Math.round(positionY)}%</span>
-                    <input type="range" min={0} max={100} step={1} value={positionY} onChange={(event) => setPositionY(sanitizeImagePosition(Number(event.target.value)))} disabled={!canEdit || busy || !cleanUrl} className="w-full" />
+                    <input type="range" min={0} max={100} step={1} value={positionY} onChange={(event) => setPositionY(sanitizeImagePosition(Number(event.target.value)))} disabled={!canEdit || busy || !cleanUrl} className="themed-range w-full" />
                   </label>
                 </div>
               </div>
