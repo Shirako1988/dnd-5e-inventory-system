@@ -5316,7 +5316,7 @@ function ThumbnailButton({ imageUrl, imageZoom, imagePositionX, imagePositionY, 
       : size === "bag"
         ? "h-16 w-16"
         : size === "item"
-          ? "min-h-[150px] w-24 self-stretch sm:w-28"
+          ? "w-20 self-stretch sm:w-24"
           : "h-12 w-12";
   const placeholderIconClass = size === "item" ? "h-7 w-7" : "h-4 w-4";
   return (
@@ -5406,8 +5406,8 @@ function ThumbnailModal({ kind, targetName, imageUrl, imageZoom, imagePositionX,
     const rect = box.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
     const factor = Math.max(0.35, zoom);
-    const nextX = drag.originX + ((event.clientX - drag.startX) / rect.width) * (100 / factor);
-    const nextY = drag.originY + ((event.clientY - drag.startY) / rect.height) * (100 / factor);
+    const nextX = drag.originX - ((event.clientX - drag.startX) / rect.width) * (100 / factor);
+    const nextY = drag.originY - ((event.clientY - drag.startY) / rect.height) * (100 / factor);
     setPositionX(sanitizeImagePosition(nextX));
     setPositionY(sanitizeImagePosition(nextY));
   }
