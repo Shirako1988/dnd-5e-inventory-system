@@ -226,6 +226,11 @@ service cloud.firestore {
         allow delete: if isDm(campaignId);
       }
 
+      match /targetVisibility/{uid}/bags/{bagId} {
+        allow get, list: if signedIn() && request.auth.uid == uid && isApprovedMember(campaignId);
+        allow create, update, delete: if isDm(campaignId);
+      }
+
       match /bags/{bagId} {
         allow get, list: if isApprovedMember(campaignId) && (isDm(campaignId) || canTargetBagData(campaignId, resource.data));
 

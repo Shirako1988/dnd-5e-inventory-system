@@ -1029,6 +1029,62 @@ function bagTargetVisibleByMirror(bag: Bag, uid: string, isDm: boolean) {
   return keys.includes(TARGET_ACCESS_ALL_KEY) || keys.includes(uid);
 }
 
+function indexedVisiblePlayerIdsForBag(bag: Bag, playerUids: string[]) {
+  return playerUids.filter((uid) => canTargetBagByAccess(bag, uid, false));
+}
+
+async function syncTargetVisibilityIndex(campaignId: string, latestBags: Bag[], latestMembers: CampaignMember[]) {
+  if (!firebaseDb) return;
+
+  const playerUids = uniqueUidList(latestMembers.filter((entry) => entry.role === "player").map((entry) => entry.uid));
+  if (!playerUids.length) return;
+
+  const now = Date.now();
+  let batch = writeBatch(firebaseDb);
+  let ops = 0;
+  const commits: Promise<void>[] = [];
+
+  const commitIfNeeded = () => {
+    if (ops === 0) return;
+    commits.push(batch.commit());
+    batch = writeBatch(firebaseDb);
+    ops = 0;
+  };
+
+  for (const playerUid of playerUids) {
+    const allowedBagIds = new Set(
+      latestBags
+        .filter((bag) => canTargetBagByAccess(bag, playerUid, false))
+        .map((bag) => bag.id),
+    );
+
+    const visibilityRef = collection(firebaseDb, "campaigns", campaignId, "targetVisibility", playerUid, "bags");
+    const existingSnapshot = await getDocs(visibilityRef);
+    const existingBagIds = new Set(existingSnapshot.docs.map((entry) => entry.id));
+
+    for (const bagId of allowedBagIds) {
+      if (existingBagIds.has(bagId)) continue;
+      batch.set(doc(firebaseDb, "campaigns", campaignId, "targetVisibility", playerUid, "bags", bagId), {
+        bagId,
+        playerUid,
+        updatedAt: now,
+      });
+      ops += 1;
+      if (ops >= 450) commitIfNeeded();
+    }
+
+    for (const bagId of existingBagIds) {
+      if (allowedBagIds.has(bagId)) continue;
+      batch.delete(doc(firebaseDb, "campaigns", campaignId, "targetVisibility", playerUid, "bags", bagId));
+      ops += 1;
+      if (ops >= 450) commitIfNeeded();
+    }
+  }
+
+  commitIfNeeded();
+  await Promise.all(commits);
+}
+
 function canTargetBagByAccess(bag: Bag | undefined | null, uid: string, isDm: boolean) {
   if (!bag) return false;
   const access = getBagAccess(bag);
@@ -2050,63 +2106,111 @@ export default function App() {
       );
     }
 
-    // Wichtig: Query-freundliches Mirror-Feld benutzen.
-    // Die alte Custom-Query kombinierte `access.targetMode == custom` mit `array-contains`
-    // und kann je nach Firestore-Index/Security-Rules scheitern. `targetAccessKeys` erlaubt zwei
-    // einfache Single-Field-Listener: allgemeine Taschen über "__all__" und persönliche Freigaben
-    // direkt über die Spieler-UID. Die Maps bleiben getrennt, damit Mode-Wechsel kein Race verursachen.
-    const allMap = new Map<string, Bag>();
-    const legacyAllMap = new Map<string, Bag>();
-    const customMap = new Map<string, Bag>();
-    const publish = () => {
-      const merged = new Map<string, Bag>();
-      for (const [id, bag] of legacyAllMap) merged.set(id, bag);
-      for (const [id, bag] of allMap) merged.set(id, bag);
-      for (const [id, bag] of customMap) merged.set(id, bag);
-      setBags(Array.from(merged.values()).filter((bag) => bagTargetVisibleByMirror(bag, userUid, false)).sort((a, b) => a.sortIndex - b.sortIndex));
+    // Robuster Spielerpfad: keine Taschen-Collection-Query mehr für Custom-Sichtbarkeit.
+    // Firestore-Regeln können Collection-Queries mit dynamischer Array-Sichtbarkeit extrem zickig behandeln.
+    // Stattdessen pflegt der DM einen kleinen Sichtbarkeitsindex pro Spieler. Der Spieler liest nur seine
+    // Bag-IDs und öffnet die erlaubten Bag-Dokumente anschließend einzeln per get/listener. Einzelne Doc-Gets
+    // werden von den Rules korrekt gegen `access.targetUserIds` geprüft und brauchen keinen Query-Mirror.
+    let bagDocUnsubscribers: Array<() => void> = [];
+    let currentIndexedBagIdKey = "";
+    const indexedBagMap = new Map<string, Bag>();
+
+    const publishIndexedBags = () => {
+      setBags(
+        Array.from(indexedBagMap.values())
+          .filter((bag) => canTargetBagByAccess(bag, userUid, false))
+          .sort((a, b) => a.sortIndex - b.sortIndex),
+      );
     };
 
-    const applySnapshotChanges = (targetMap: Map<string, Bag>, snapshot: QuerySnapshot<DocumentData>) => {
-      for (const change of snapshot.docChanges()) {
-        if (change.type === "removed") targetMap.delete(change.doc.id);
-        else targetMap.set(change.doc.id, change.doc.data() as Bag);
+    const clearBagDocListeners = () => {
+      for (const unsubscribe of bagDocUnsubscribers) unsubscribe();
+      bagDocUnsubscribers = [];
+      indexedBagMap.clear();
+    };
+
+    const subscribeToIndexedBags = (bagIds: string[]) => {
+      const uniqueBagIds = uniqueUidList(bagIds);
+      const nextKey = uniqueBagIds.join("|");
+      if (nextKey === currentIndexedBagIdKey) return;
+      currentIndexedBagIdKey = nextKey;
+
+      clearBagDocListeners();
+      if (!uniqueBagIds.length) {
+        publishIndexedBags();
+        return;
       }
-      publish();
-      setSyncStatus("online");
-      setSyncError(null);
+
+      bagDocUnsubscribers = uniqueBagIds.map((bagId) =>
+        onSnapshot(
+          doc(firebaseDb, "campaigns", activeCampaignId, "bags", bagId),
+          (snapshot) => {
+            if (!snapshot.exists()) {
+              indexedBagMap.delete(bagId);
+            } else {
+              const bag = snapshot.data() as Bag;
+              if (canTargetBagByAccess(bag, userUid, false)) indexedBagMap.set(bagId, bag);
+              else indexedBagMap.delete(bagId);
+            }
+            publishIndexedBags();
+            setSyncStatus("online");
+            setSyncError(null);
+          },
+          (error) => {
+            indexedBagMap.delete(bagId);
+            publishIndexedBags();
+            console.warn("Sichtbare Tasche konnte nicht geladen werden", error.message);
+          },
+        ),
+      );
     };
 
-    const handleBagListenerError = (error: Error) => {
-      setSyncStatus("error");
-      setSyncError(error.message);
-      // Nicht `setBags([])`: Wenn einer von zwei Sichtbarkeits-Listenern wegen Index/Rules ausfällt,
-      // sollen bereits geladene Taschen nicht optisch verschwinden.
-    };
-
-    const unsubAll = onSnapshot(
-      query(bagCollection, where("targetAccessKeys", "array-contains", TARGET_ACCESS_ALL_KEY)),
-      (snapshot) => applySnapshotChanges(allMap, snapshot),
-      handleBagListenerError,
-    );
-
-    const unsubLegacyAll = onSnapshot(
-      query(bagCollection, where("access.targetMode", "==", "all")),
-      (snapshot) => applySnapshotChanges(legacyAllMap, snapshot),
-      handleBagListenerError,
-    );
-
-    const unsubCustom = onSnapshot(
-      query(bagCollection, where("targetAccessKeys", "array-contains", userUid)),
-      (snapshot) => applySnapshotChanges(customMap, snapshot),
-      handleBagListenerError,
+    const visibilityRef = collection(firebaseDb, "campaigns", activeCampaignId, "targetVisibility", userUid, "bags");
+    const unsubVisibilityIndex = onSnapshot(
+      visibilityRef,
+      (snapshot) => {
+        const bagIds = snapshot.docs
+          .map((entry) => {
+            const data = entry.data() as { bagId?: string };
+            return typeof data.bagId === "string" && data.bagId ? data.bagId : entry.id;
+          })
+          .filter(Boolean);
+        subscribeToIndexedBags(bagIds);
+        setSyncStatus("online");
+        setSyncError(null);
+      },
+      (error) => {
+        setSyncStatus("error");
+        setSyncError(error.message);
+      },
     );
 
     return () => {
-      unsubAll();
-      unsubLegacyAll();
-      unsubCustom();
+      unsubVisibilityIndex();
+      clearBagDocListeners();
     };
   }, [activeCampaignId, userUid, member?.role, campaignAccessReady]);
+
+  useEffect(() => {
+    if (!firebaseConfigured || !firebaseDb || !activeCampaignId || !campaignAccessReady || !isDm) return;
+    if (!bags.length || !members.some((entry) => entry.role === "player")) return;
+
+    let cancelled = false;
+    syncTargetVisibilityIndex(activeCampaignId, bags, members).catch((error) => {
+      if (cancelled) return;
+      console.warn("Ziel-Sichtbarkeitsindex konnte nicht synchronisiert werden", error instanceof Error ? error.message : error);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    activeCampaignId,
+    campaignAccessReady,
+    isDm,
+    bags.map((bag) => `${bag.id}:${getBagAccess(bag).targetMode}:${getBagAccess(bag).targetUserIds.join(",")}`).join("|"),
+    members.map((entry) => `${entry.uid}:${entry.role}`).join("|"),
+  ]);
 
   const visibleBags = useMemo(() => orderBagsForUser(bags.filter(canTargetBag), bagOrderIds), [bags, isDm, activeUid, bagOrderIds.join("|")]);
   const depositTargetBags = useMemo(() => visibleBags.filter(canDepositBag), [visibleBags, isDm, activeUid]);
