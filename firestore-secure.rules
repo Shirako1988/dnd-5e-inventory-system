@@ -251,7 +251,7 @@ service cloud.firestore {
             isDm(campaignId)
             || (
               canWriteBagData(campaignId, resource.data)
-              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["name", "kind", "maxWeight", "maxVolume", "updatedAt"])
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["name", "kind", "maxWeight", "maxVolume", "imageUrl", "imageZoom", "imagePositionX", "imagePositionY", "imageUpdatedAt", "imageUpdatedBy", "updatedAt"])
             )
             || (
               onlyCapacityChanged()

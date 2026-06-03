@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   Backpack,
   Boxes,
@@ -47,6 +47,9 @@ import {
   UserCheck,
   Eye,
   EyeOff,
+  Image as ImageIcon,
+  ExternalLink,
+  RotateCcw,
 } from "lucide-react";
 import itemCatalogData from "./data/itemCatalog.json";
 import { initializeApp } from "firebase/app";
@@ -324,6 +327,12 @@ type Bag = {
    * Custom visibility stores the allowed player UIDs directly.
    */
   targetAccessKeys?: string[];
+  imageUrl?: string;
+  imageZoom?: number;
+  imagePositionX?: number;
+  imagePositionY?: number;
+  imageUpdatedAt?: number;
+  imageUpdatedBy?: string;
   createdAt: number;
   updatedAt: number;
 };
@@ -340,6 +349,12 @@ type InventoryItem = {
   notes: string;
   category?: ItemCategory;
   orderIndex?: number;
+  imageUrl?: string;
+  imageZoom?: number;
+  imagePositionX?: number;
+  imagePositionY?: number;
+  imageUpdatedAt?: number;
+  imageUpdatedBy?: string;
   createdBy: string;
   updatedBy: string;
   createdAt: number;
@@ -478,14 +493,65 @@ type TransferTarget = {
   quantity: string;
 } | null;
 
+type ThumbnailTarget =
+  | { kind: "bag"; id: string }
+  | { kind: "item"; id: string }
+  | null;
+
 const now = Date.now();
 const localUserId = "local_user";
 const activeCampaignStorageKey = "dnd-inventory-active-campaign-id";
 const backupDbName = "dnd-inventory-backup-handles";
 const backupStoreName = "mirrorHandles";
+const DEFAULT_IMAGE_ZOOM = 1;
+const DEFAULT_IMAGE_POSITION = 50;
 
 function safeFileName(value: string) {
   return value.trim().replace(/[^a-z0-9äöüßÄÖÜ _.-]/gi, "_").replace(/_+/g, "_").slice(0, 80) || "kampagne";
+}
+
+function sanitizeImageUrl(value: unknown) {
+  const text = typeof value === "string" ? value.trim() : "";
+  if (!text) return "";
+  try {
+    const url = new URL(text);
+    if (url.protocol !== "https:") return "";
+    return url.toString();
+  } catch {
+    return "";
+  }
+}
+
+function looksLikeDirectImageUrl(value: string) {
+  if (!value) return false;
+  try {
+    const url = new URL(value);
+    return /\.(png|jpe?g|webp|gif|avif)(\?.*)?$/i.test(url.pathname + url.search);
+  } catch {
+    return false;
+  }
+}
+
+function sanitizeImageZoom(value: unknown) {
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numeric)) return DEFAULT_IMAGE_ZOOM;
+  return Math.max(1, Math.min(3, Math.round(numeric * 100) / 100));
+}
+
+function sanitizeImagePosition(value: unknown) {
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numeric)) return DEFAULT_IMAGE_POSITION;
+  return Math.max(0, Math.min(100, Math.round(numeric * 100) / 100));
+}
+
+function thumbnailImageStyle(imageUrl: unknown, imageZoom: unknown, imagePositionX: unknown, imagePositionY: unknown): CSSProperties {
+  if (!sanitizeImageUrl(imageUrl)) return {};
+  return {
+    objectFit: "cover",
+    objectPosition: `${sanitizeImagePosition(imagePositionX)}% ${sanitizeImagePosition(imagePositionY)}%`,
+    transform: `scale(${sanitizeImageZoom(imageZoom)})`,
+    transformOrigin: "center center",
+  };
 }
 
 function openBackupHandleDb(): Promise<IDBDatabase> {
@@ -1312,6 +1378,7 @@ export default function App() {
   const [itemSortDirection, setItemSortDirection] = useState<SortDirection>("asc");
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
   const [transferTarget, setTransferTarget] = useState<TransferTarget>(null);
+  const [thumbnailTarget, setThumbnailTarget] = useState<ThumbnailTarget>(null);
   const [editingBagId, setEditingBagId] = useState<string | null>(null);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [expandedItemIds, setExpandedItemIds] = useState<string[]>([]);
@@ -1885,6 +1952,9 @@ export default function App() {
       permissions: raw.permissions,
       access: getBagAccess(raw as Bag),
       targetAccessKeys: targetAccessKeysForAccess(getBagAccess(raw as Bag)),
+      imageUrl: sanitizeImageUrl((raw as Bag).imageUrl),
+      imageUpdatedAt: typeof (raw as Bag).imageUpdatedAt === "number" ? (raw as Bag).imageUpdatedAt : undefined,
+      imageUpdatedBy: typeof (raw as Bag).imageUpdatedBy === "string" ? (raw as Bag).imageUpdatedBy : undefined,
       createdAt: typeof raw.createdAt === "number" ? raw.createdAt : timestamp,
       updatedAt: timestamp,
     };
@@ -1904,6 +1974,9 @@ export default function App() {
       notes: typeof raw.notes === "string" ? raw.notes : "",
       category: normalizeItemCategory(raw.category),
       orderIndex: typeof raw.orderIndex === "number" ? raw.orderIndex : timestamp,
+      imageUrl: sanitizeImageUrl(raw.imageUrl),
+      imageUpdatedAt: typeof raw.imageUpdatedAt === "number" ? raw.imageUpdatedAt : undefined,
+      imageUpdatedBy: typeof raw.imageUpdatedBy === "string" ? raw.imageUpdatedBy : undefined,
       createdBy: typeof raw.createdBy === "string" ? raw.createdBy : activeUid,
       updatedBy: typeof raw.updatedBy === "string" ? raw.updatedBy : activeUid,
       createdAt: typeof raw.createdAt === "number" ? raw.createdAt : timestamp,
@@ -3135,6 +3208,10 @@ export default function App() {
       permissions: { read: [], write: [] },
       access: privateIncomingAllowedAccess(activeUid),
       targetAccessKeys: targetAccessKeysForAccess(privateIncomingAllowedAccess(activeUid)),
+      imageUrl: "",
+      imageZoom: DEFAULT_IMAGE_ZOOM,
+      imagePositionX: DEFAULT_IMAGE_POSITION,
+      imagePositionY: DEFAULT_IMAGE_POSITION,
       createdAt,
       updatedAt: createdAt,
     };
@@ -3398,6 +3475,7 @@ export default function App() {
       notes: "",
       category: itemCategory,
       orderIndex: nextOrderIndex,
+      imageUrl: "",
       createdBy: activeUid,
       updatedBy: activeUid,
       createdAt,
@@ -3514,6 +3592,26 @@ export default function App() {
     }
   }
 
+
+  async function saveThumbnailState(target: Exclude<ThumbnailTarget, null>, rawUrl: string, rawZoom: number, rawPositionX: number, rawPositionY: number) {
+    const imageUrl = sanitizeImageUrl(rawUrl);
+    const imageZoom = sanitizeImageZoom(rawZoom);
+    const imagePositionX = sanitizeImagePosition(rawPositionX);
+    const imagePositionY = sanitizeImagePosition(rawPositionY);
+    const timestamp = Date.now();
+    if (target.kind === "bag") {
+      const bag = bags.find((entry) => entry.id === target.id);
+      if (!bag || !canWriteBag(bag)) return;
+      await updateBag(target.id, { imageUrl, imageZoom, imagePositionX, imagePositionY, imageUpdatedAt: timestamp, imageUpdatedBy: activeUid } as Partial<Bag>, { silent: true });
+      logAction(imageUrl ? "bag_image_updated" : "bag_image_removed", `${member?.displayName ?? "Jemand"} hat das Bild von Tasche „${bag.name}“ ${imageUrl ? "gesetzt" : "entfernt"}.`, target.id);
+    } else {
+      const item = items.find((entry) => entry.id === target.id);
+      const bag = bags.find((entry) => entry.id === item?.bagId);
+      if (!item || !bag || !canWriteBag(bag)) return;
+      await updateItem(target.id, { imageUrl, imageZoom, imagePositionX, imagePositionY, imageUpdatedAt: timestamp, imageUpdatedBy: activeUid } as Partial<InventoryItem>);
+      logAction(imageUrl ? "item_image_updated" : "item_image_removed", `${member?.displayName ?? "Jemand"} hat das Bild von „${item.name}“ ${imageUrl ? "gesetzt" : "entfernt"}.`, target.id);
+    }
+  }
 
   function requestItemTransfer(itemId: string, targetBagId: string) {
     const item = items.find((entry) => entry.id === itemId);
@@ -4146,18 +4244,30 @@ export default function App() {
                     />
                   ) : (
                     <>
-                      <button className="mb-2 flex w-full items-start justify-between gap-2 text-left" onClick={() => setSelectedBagId(bag.id)}>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            {typeIcon(bag.type)}
-                            <h3 className="truncate font-black">{bag.name}</h3>
-                          </div>
-                          <p className={`mt-1 text-xs ${mutedText}`}>
-                            {bagAccessLine(bag)}
-                          </p>
+                      <div className="mb-2 flex w-full items-start justify-between gap-2">
+                        <div className="flex min-w-0 flex-1 items-start gap-2">
+                          <ThumbnailButton
+                            imageUrl={bag.imageUrl}
+                            imageZoom={bag.imageZoom}
+                            imagePositionX={bag.imagePositionX}
+                            imagePositionY={bag.imagePositionY}
+                            label={`Bild für Tasche ${bag.name}`}
+                            isDark={isDark}
+                            size="sm"
+                            onClick={() => setThumbnailTarget({ kind: "bag", id: bag.id })}
+                          />
+                          <button className="min-w-0 flex-1 text-left" onClick={() => setSelectedBagId(bag.id)}>
+                            <div className="flex items-center gap-2">
+                              {typeIcon(bag.type)}
+                              <h3 className="truncate font-black">{bag.name}</h3>
+                            </div>
+                            <p className={`mt-1 text-xs ${mutedText}`}>
+                              {bagAccessLine(bag)}
+                            </p>
+                          </button>
                         </div>
                         {writable ? <Unlock className="h-4 w-4 opacity-70" /> : <Lock className="h-4 w-4 opacity-70" />}
-                      </button>
+                      </div>
 
                       <div className="grid grid-cols-3 gap-2 text-xs">
                         <MiniStat label="Gewicht" value={`${formatNumber(totals?.weight ?? 0)} / ${formatNumber(bag.maxWeight)}`} tone={weightStatus?.tone ?? "neutral"} sub={openable ? weightStatus?.label : "Inhalt verborgen"} />
@@ -4450,6 +4560,15 @@ export default function App() {
                         <div key={item.id} className={`rounded-2xl border px-3 py-2 ${isDark ? "border-[#7b6237]/35 bg-[#1d150e]/70" : "border-[#9b7339]/25 bg-[#fff8df]/70"}`}>
                           <div className="grid gap-2 xl:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto] xl:items-center">
                             <div className="flex min-w-0 items-center gap-2">
+                              <ThumbnailButton
+                                imageUrl={item.imageUrl}
+                                imageZoom={item.imageZoom}
+                                imagePositionX={item.imagePositionX}
+                                imagePositionY={item.imagePositionY}
+                                label={`Bild für ${item.name}`}
+                                isDark={isDark}
+                                onClick={() => setThumbnailTarget({ kind: "item", id: item.id })}
+                              />
                               <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border ${isDark ? "border-[#8d713e]/50 bg-[#1a130d]" : "border-[#9b7339]/35 bg-[#fff8df]"}`} title={categoryDef.label}>{categoryIcon(category, "h-4 w-4")}</span>
                               <h4 className="min-w-0 truncate text-base font-black">{item.name}</h4>
                             </div>
@@ -4618,6 +4737,41 @@ export default function App() {
               </div>
             </div>
           </div>
+        );
+      })()}
+
+      {thumbnailTarget && (() => {
+        const targetBag = thumbnailTarget.kind === "bag" ? bags.find((bag) => bag.id === thumbnailTarget.id) : null;
+        const targetItem = thumbnailTarget.kind === "item" ? items.find((item) => item.id === thumbnailTarget.id) : null;
+        const itemBag = targetItem ? bags.find((bag) => bag.id === targetItem.bagId) : null;
+        const targetName = targetBag?.name ?? targetItem?.name ?? "Bild";
+        const currentUrl = targetBag?.imageUrl ?? targetItem?.imageUrl ?? "";
+        const currentZoom = targetBag?.imageZoom ?? targetItem?.imageZoom ?? DEFAULT_IMAGE_ZOOM;
+        const currentPositionX = targetBag?.imagePositionX ?? targetItem?.imagePositionX ?? DEFAULT_IMAGE_POSITION;
+        const currentPositionY = targetBag?.imagePositionY ?? targetItem?.imagePositionY ?? DEFAULT_IMAGE_POSITION;
+        const editable = thumbnailTarget.kind === "bag" ? canWriteBag(targetBag) : canWriteBag(itemBag);
+        return (
+          <ThumbnailModal
+            kind={thumbnailTarget.kind}
+            targetName={targetName}
+            imageUrl={currentUrl}
+            imageZoom={currentZoom}
+            imagePositionX={currentPositionX}
+            imagePositionY={currentPositionY}
+            canEdit={editable}
+            panelClass={panelClass}
+            inputClass={inputClass}
+            primaryButton={primaryButton}
+            secondaryButton={secondaryButton}
+            dangerButton={dangerButton}
+            mutedText={mutedText}
+            isDark={isDark}
+            onClose={() => setThumbnailTarget(null)}
+            onSave={async (url, zoom, positionX, positionY) => {
+              await saveThumbnailState(thumbnailTarget, url, zoom, positionX, positionY);
+              setThumbnailTarget(null);
+            }}
+          />
         );
       })()}
 
@@ -5139,6 +5293,205 @@ function CampaignGate({
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function ThumbnailButton({ imageUrl, imageZoom, imagePositionX, imagePositionY, label, isDark, onClick, size = "md" }: { imageUrl?: string; imageZoom?: number; imagePositionX?: number; imagePositionY?: number; label: string; isDark: boolean; onClick: () => void; size?: "sm" | "md" }) {
+  const cleanUrl = sanitizeImageUrl(imageUrl);
+  const sizeClass = size === "sm" ? "h-11 w-11" : "h-12 w-12";
+  return (
+    <button
+      type="button"
+      className={`${sizeClass} group relative flex shrink-0 items-center justify-center overflow-hidden rounded-xl border transition hover:scale-[1.03] ${isDark ? "border-[#8d713e]/50 bg-[#1a130d] hover:bg-[#3a2a16]" : "border-[#9b7339]/35 bg-[#fff8df] hover:bg-[#ead6a9]"}`}
+      onClick={(event) => { event.stopPropagation(); onClick(); }}
+      title={cleanUrl ? `${label} ändern` : `${label} setzen`}
+    >
+      {cleanUrl ? (
+        <img src={cleanUrl} alt="" className="h-full w-full" style={thumbnailImageStyle(cleanUrl, imageZoom, imagePositionX, imagePositionY)} referrerPolicy="no-referrer" />
+      ) : (
+        <div className="flex flex-col items-center justify-center gap-0.5 text-[9px] font-black uppercase tracking-wide opacity-70">
+          <ImageIcon className="h-4 w-4" />
+          <span>Bild</span>
+        </div>
+      )}
+      <span className="pointer-events-none absolute inset-0 hidden items-center justify-center bg-black/55 text-white group-hover:flex">
+        <Pencil className="h-4 w-4" />
+      </span>
+    </button>
+  );
+}
+
+function ThumbnailModal({ kind, targetName, imageUrl, imageZoom, imagePositionX, imagePositionY, canEdit, panelClass, inputClass, primaryButton, secondaryButton, dangerButton, mutedText, isDark, onClose, onSave }: { kind: "bag" | "item"; targetName: string; imageUrl?: string; imageZoom?: number; imagePositionX?: number; imagePositionY?: number; canEdit: boolean; panelClass: string; inputClass: string; primaryButton: string; secondaryButton: string; dangerButton: string; mutedText: string; isDark: boolean; onClose: () => void; onSave: (url: string, zoom: number, positionX: number, positionY: number) => Promise<void> | void }) {
+  const [url, setUrl] = useState(imageUrl ?? "");
+  const [zoom, setZoom] = useState<number>(sanitizeImageZoom(imageZoom));
+  const [positionX, setPositionX] = useState<number>(sanitizeImagePosition(imagePositionX));
+  const [positionY, setPositionY] = useState<number>(sanitizeImagePosition(imagePositionY));
+  const [busy, setBusy] = useState(false);
+  const previewRef = useRef<HTMLDivElement | null>(null);
+  const dragState = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number } | null>(null);
+  const cleanUrl = sanitizeImageUrl(url);
+  const hasInvalidInput = url.trim().length > 0 && !cleanUrl;
+  const directWarning = cleanUrl && !looksLikeDirectImageUrl(cleanUrl);
+
+  useEffect(() => {
+    setUrl(imageUrl ?? "");
+    setZoom(sanitizeImageZoom(imageZoom));
+    setPositionX(sanitizeImagePosition(imagePositionX));
+    setPositionY(sanitizeImagePosition(imagePositionY));
+  }, [imageUrl, imageZoom, imagePositionX, imagePositionY, kind, targetName]);
+
+  async function save(nextUrl: string) {
+    const clean = sanitizeImageUrl(nextUrl);
+    if (nextUrl.trim() && !clean) return;
+    setBusy(true);
+    try {
+      await onSave(clean, zoom, positionX, positionY);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function resetView() {
+    setZoom(DEFAULT_IMAGE_ZOOM);
+    setPositionX(DEFAULT_IMAGE_POSITION);
+    setPositionY(DEFAULT_IMAGE_POSITION);
+  }
+
+  function handlePointerDown(event: React.PointerEvent<HTMLDivElement>) {
+    if (!canEdit || !cleanUrl) return;
+    const box = previewRef.current;
+    if (!box) return;
+    dragState.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: positionX,
+      originY: positionY,
+    };
+    box.setPointerCapture(event.pointerId);
+  }
+
+  function handlePointerMove(event: React.PointerEvent<HTMLDivElement>) {
+    const box = previewRef.current;
+    const drag = dragState.current;
+    if (!box || !drag || drag.pointerId !== event.pointerId) return;
+    const rect = box.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const factor = Math.max(0.35, zoom);
+    const nextX = drag.originX + ((event.clientX - drag.startX) / rect.width) * (100 / factor);
+    const nextY = drag.originY + ((event.clientY - drag.startY) / rect.height) * (100 / factor);
+    setPositionX(sanitizeImagePosition(nextX));
+    setPositionY(sanitizeImagePosition(nextY));
+  }
+
+  function clearPointer(event?: React.PointerEvent<HTMLDivElement>) {
+    const box = previewRef.current;
+    if (box && dragState.current && event && box.hasPointerCapture(event.pointerId)) {
+      box.releasePointerCapture(event.pointerId);
+    }
+    dragState.current = null;
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+      <div className={`w-full max-w-4xl rounded-3xl border p-6 shadow-2xl ${panelClass}`}>
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <h2 className="flex items-center gap-2 text-xl font-black"><ImageIcon className="h-5 w-5" /> Bild für {kind === "bag" ? "Tasche" : "Item"}</h2>
+            <p className={`mt-1 text-sm ${mutedText}`}>{targetName}</p>
+          </div>
+          <button className={secondaryButton} onClick={onClose} disabled={busy} title="Schließen"><X className="h-4 w-4" /></button>
+        </div>
+
+        <div className="grid gap-5 lg:grid-cols-[240px_minmax(0,1fr)]">
+          <div className="space-y-3">
+            <div
+              ref={previewRef}
+              className={`relative flex aspect-square w-full select-none items-center justify-center overflow-hidden rounded-2xl border ${isDark ? "border-[#8d713e]/50 bg-[#1a130d]" : "border-[#9b7339]/35 bg-[#fff8df]"} ${cleanUrl && canEdit ? "cursor-grab active:cursor-grabbing" : ""}`}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={clearPointer}
+              onPointerCancel={clearPointer}
+              onPointerLeave={(event) => { if (dragState.current) clearPointer(event); }}
+            >
+              {cleanUrl ? (
+                <img src={cleanUrl} alt="Vorschau" className="h-full w-full" style={thumbnailImageStyle(cleanUrl, zoom, positionX, positionY)} referrerPolicy="no-referrer" />
+              ) : (
+                <div className={`flex flex-col items-center gap-2 text-sm font-bold ${mutedText}`}>
+                  <ImageIcon className="h-8 w-8" />
+                  Keine Bild-URL
+                </div>
+              )}
+              {cleanUrl && canEdit && <div className="pointer-events-none absolute inset-x-2 bottom-2 rounded-lg bg-black/60 px-2 py-1 text-[11px] font-semibold text-white/90">Zum Ausrichten im Vorschaubild ziehen · Zoom per Regler</div>}
+            </div>
+            {cleanUrl && (
+              <div className={`rounded-2xl border border-current/10 p-3 text-xs ${mutedText}`}>
+                Das fertige Thumbnail benutzt genau diesen Ausschnitt. Beim späteren Großbild bleibt das Original natürlich unverändert.
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            <div className={`rounded-2xl border border-current/10 p-3 text-sm ${mutedText}`}>
+              Lade dein Bild bei einem externen Bildhost hoch, kopiere den direkten Bildlink und füge ihn hier ein. Gespeichert wird nur die URL, keine Datei in Firebase.
+            </div>
+            <a
+              className={`${secondaryButton} w-full px-4 py-2`}
+              href="https://postimages.org/"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <ExternalLink className="h-4 w-4" /> Bild bei Postimages hochladen
+            </a>
+            <label className="block space-y-1 text-xs">
+              <span className={`block px-1 ${mutedText}`}>Direkte Bild-URL</span>
+              <input
+                className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`}
+                value={url}
+                onChange={(event) => setUrl(event.target.value)}
+                disabled={!canEdit || busy}
+                placeholder="https://i.postimg.cc/.../bild.webp"
+              />
+            </label>
+            {hasInvalidInput && <div className="rounded-xl border border-red-500/40 bg-red-950/30 px-3 py-2 text-xs font-bold text-red-100">Bitte eine gültige https:// Bild-URL einfügen.</div>}
+            {directWarning && <div className={`rounded-xl border border-yellow-500/35 px-3 py-2 text-xs font-semibold ${isDark ? "bg-yellow-950/25 text-yellow-100" : "bg-yellow-100/70 text-yellow-950"}`}>Der Link sieht nicht wie ein direkter Bildlink aus. Er kann funktionieren, aber zuverlässiger sind Links, die auf .jpg, .png, .webp, .gif oder .avif enden.</div>}
+            {!canEdit && <div className={`rounded-xl border border-current/10 px-3 py-2 text-xs font-semibold ${mutedText}`}>Du kannst dieses Bild ansehen, aber nicht ändern.</div>}
+
+            <div className={`rounded-2xl border border-current/10 p-4 ${cleanUrl ? "" : "opacity-60"}`}>
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <div>
+                  <div className="text-sm font-black">Thumbnail-Ausschnitt</div>
+                  <div className={`text-xs ${mutedText}`}>Hier legst du Zoom und Bildposition für das kleine Vorschaubild fest.</div>
+                </div>
+                <button type="button" className={`${secondaryButton} px-3 py-2`} onClick={resetView} disabled={!canEdit || busy || !cleanUrl}><RotateCcw className="h-4 w-4" /> Zurücksetzen</button>
+              </div>
+              <div className="space-y-3">
+                <label className="block space-y-1 text-xs">
+                  <span className={`block px-1 ${mutedText}`}>Zoom · {formatNumber(zoom)}×</span>
+                  <input type="range" min={1} max={3} step={0.05} value={zoom} onChange={(event) => setZoom(sanitizeImageZoom(Number(event.target.value)))} disabled={!canEdit || busy || !cleanUrl} className="w-full" />
+                </label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block space-y-1 text-xs">
+                    <span className={`block px-1 ${mutedText}`}>Horizontal · {Math.round(positionX)}%</span>
+                    <input type="range" min={0} max={100} step={1} value={positionX} onChange={(event) => setPositionX(sanitizeImagePosition(Number(event.target.value)))} disabled={!canEdit || busy || !cleanUrl} className="w-full" />
+                  </label>
+                  <label className="block space-y-1 text-xs">
+                    <span className={`block px-1 ${mutedText}`}>Vertikal · {Math.round(positionY)}%</span>
+                    <input type="range" min={0} max={100} step={1} value={positionY} onChange={(event) => setPositionY(sanitizeImagePosition(Number(event.target.value)))} disabled={!canEdit || busy || !cleanUrl} className="w-full" />
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5 flex flex-wrap justify-end gap-2">
+          <button className={secondaryButton} onClick={onClose} disabled={busy}><X className="h-4 w-4" /> Abbrechen</button>
+          {canEdit && cleanUrl && <button className={`${dangerButton} px-4 py-2`} onClick={() => save("")} disabled={busy}><Trash2 className="h-4 w-4" /> Entfernen</button>}
+          {canEdit && <button className={`${primaryButton} px-4 py-2`} onClick={() => save(url)} disabled={busy || hasInvalidInput}><Save className="h-4 w-4" /> Speichern</button>}
+        </div>
       </div>
     </div>
   );
