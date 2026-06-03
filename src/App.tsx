@@ -2023,11 +2023,21 @@ export default function App() {
         (snapshot) => {
           const loadedBags = snapshot.docs.map((entry) => entry.data() as Bag);
           setBags(loadedBags);
-          // Alte Prototyp-Taschen ohne access-/Mirror-Feld werden beim DM automatisch migriert.
+          // Access/Mirror-Feld beim DM konsequent synchron halten.
+          // Der Ziel-Sichtbarkeits-Listener der Spieler kann nur über `targetAccessKeys` arbeiten.
+          // Wenn dieses Mirror-Feld fehlt oder stale ist, funktionieren alle anderen Custom-Rechte,
+          // aber „Als Ziel sichtbar für → Ausgewählte Spieler“ liefert keine Tasche an den Spieler.
           for (const bag of loadedBags) {
-            if (!bag.access || !Array.isArray(bag.targetAccessKeys)) {
-              const access = getBagAccess(bag);
-              updateDoc(doc(firebaseDb, "campaigns", activeCampaignId, "bags", bag.id), { access, targetAccessKeys: targetAccessKeysForAccess(access), updatedAt: Date.now() }).catch(() => undefined);
+            const access = getBagAccess(bag);
+            const expectedTargetAccessKeys = targetAccessKeysForAccess(access);
+            const needsAccessRepair = JSON.stringify(bag.access ?? null) !== JSON.stringify(access);
+            const needsMirrorRepair = JSON.stringify(bag.targetAccessKeys ?? null) !== JSON.stringify(expectedTargetAccessKeys);
+            if (needsAccessRepair || needsMirrorRepair) {
+              updateDoc(doc(firebaseDb, "campaigns", activeCampaignId, "bags", bag.id), {
+                access,
+                targetAccessKeys: expectedTargetAccessKeys,
+                updatedAt: Date.now(),
+              }).catch(() => undefined);
             }
           }
           setSyncStatus("online");
@@ -2053,7 +2063,7 @@ export default function App() {
       for (const [id, bag] of legacyAllMap) merged.set(id, bag);
       for (const [id, bag] of allMap) merged.set(id, bag);
       for (const [id, bag] of customMap) merged.set(id, bag);
-      setBags(Array.from(merged.values()).filter((bag) => canTargetBagByAccess(bag, activeUid, false)).sort((a, b) => a.sortIndex - b.sortIndex));
+      setBags(Array.from(merged.values()).filter((bag) => bagTargetVisibleByMirror(bag, userUid, false)).sort((a, b) => a.sortIndex - b.sortIndex));
     };
 
     const applySnapshotChanges = (targetMap: Map<string, Bag>, snapshot: QuerySnapshot<DocumentData>) => {
@@ -2807,6 +2817,7 @@ export default function App() {
     if (safePatch.access && isDm) {
       const validPlayerIds = new Set(members.filter((entry) => entry.role === "player").map((entry) => entry.uid));
       safePatch.access = sanitizeAccessUserLists(safePatch.access, validPlayerIds);
+      safePatch.targetAccessKeys = targetAccessKeysForAccess(safePatch.access);
     }
     if (!isDm) {
       delete safePatch.access;
