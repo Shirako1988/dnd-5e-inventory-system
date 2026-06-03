@@ -644,6 +644,7 @@ function formatNumber(value: number | null | undefined, fallback = "—") {
 
 const currencyKeys: CurrencyKey[] = ["pp", "gp", "ep", "sp", "cp"];
 const currencyValueInCopper: Record<CurrencyKey, number> = { pp: 1000, gp: 100, ep: 50, sp: 10, cp: 1 };
+const COIN_WEIGHT_LB = 0.02;
 const currencyDefs: Record<CurrencyKey, { label: string; short: string; icon: string }> = {
   pp: { label: "Platin", short: "PP", icon: "♕" },
   gp: { label: "Gold", short: "GP", icon: "●" },
@@ -677,6 +678,14 @@ function currencyToCopper(currency: CurrencyPouch): number {
 
 function currencyToGoldValue(currency: CurrencyPouch): number {
   return currencyToCopper(currency) / 100;
+}
+
+function currencyCoinCount(currency: CurrencyPouch): number {
+  return currencyKeys.reduce((sum, key) => sum + currency[key], 0);
+}
+
+function currencyWeight(currency: CurrencyPouch): number {
+  return currencyCoinCount(currency) * COIN_WEIGHT_LB;
 }
 
 function normalizeCoinInput(value: string): number {
@@ -1872,7 +1881,7 @@ export default function App() {
           ...bag,
           access,
           targetAccessKeys: targetAccessKeysForAccess(access),
-          currentWeight: Number(bagItems.reduce((sum, item) => sum + totalWeight(item), 0).toFixed(4)),
+          currentWeight: Number((bagItems.reduce((sum, item) => sum + totalWeight(item), 0) + currencyWeight(bagCurrency(bag))).toFixed(4)),
           currentVolume: Number(bagItems.reduce((sum, item) => sum + totalVolume(item), 0).toFixed(4)),
           currentValue: Number(bagItems.reduce((sum, item) => sum + totalValue(item), 0).toFixed(4)),
           itemCount: bagItems.reduce((sum, item) => sum + item.quantity, 0),
@@ -2030,10 +2039,10 @@ export default function App() {
     return `${bagKindLabel(getBagKind(bag))} · ${open} · ${write} · Ziel: ${modeShortLabel(access.targetMode, access.targetUserIds)}`;
   }
 
-  function getKnownBagTotals(bagId: string) {
-    const bagItems = items.filter((entry) => entry.bagId === bagId);
+  function getKnownBagTotals(bag: Bag) {
+    const bagItems = items.filter((entry) => entry.bagId === bag.id);
     return {
-      weight: bagItems.reduce((sum, entry) => sum + totalWeight(entry), 0),
+      weight: bagItems.reduce((sum, entry) => sum + totalWeight(entry), 0) + currencyWeight(bagCurrency(bag)),
       volume: bagItems.reduce((sum, entry) => sum + totalVolume(entry), 0),
       value: bagItems.reduce((sum, entry) => sum + totalValue(entry), 0),
       count: bagItems.reduce((sum, entry) => sum + entry.quantity, 0),
@@ -2042,12 +2051,22 @@ export default function App() {
 
   function getBagCapacityTotals(bag: Bag | undefined | null) {
     if (!bag) return { weight: 0, volume: 0, value: 0, count: 0 };
-    if (canOpenBag(bag)) return getKnownBagTotals(bag.id);
+    if (canOpenBag(bag)) return getKnownBagTotals(bag);
     return {
       weight: bag.currentWeight ?? 0,
       volume: bag.currentVolume ?? 0,
       value: bag.currentValue ?? 0,
       count: bag.itemCount ?? 0,
+    };
+  }
+
+  function currencyWeightPatchForBag(bag: Bag, nextCurrency: CurrencyPouch) {
+    const currentCurrency = bagCurrency(bag);
+    const base = getBagCapacityTotals(bag);
+    const nextWeight = base.weight - currencyWeight(currentCurrency) + currencyWeight(nextCurrency);
+    return {
+      currency: nextCurrency,
+      currentWeight: Math.max(0, Number(nextWeight.toFixed(4))),
     };
   }
 
@@ -2481,7 +2500,7 @@ export default function App() {
     for (const bag of bags) {
       const bagItems = itemsByBag.get(bag.id) ?? [];
       totals.set(bag.id, {
-        weight: bagItems.reduce((sum, item) => sum + totalWeight(item), 0),
+        weight: bagItems.reduce((sum, item) => sum + totalWeight(item), 0) + currencyWeight(bagCurrency(bag)),
         volume: bagItems.reduce((sum, item) => sum + totalVolume(item), 0),
         value: bagItems.reduce((sum, item) => sum + totalValue(item), 0),
         count: bagItems.reduce((sum, item) => sum + item.quantity, 0),
@@ -2884,7 +2903,7 @@ export default function App() {
 
       const totalsByBag = new Map<string, { weight: number; volume: number; value: number; count: number }>();
       for (const bag of latestBags) {
-        totalsByBag.set(bag.id, { weight: 0, volume: 0, value: 0, count: 0 });
+        totalsByBag.set(bag.id, { weight: currencyWeight(bagCurrency(bag)), volume: 0, value: 0, count: 0 });
       }
 
       let orphanItems = 0;
@@ -3504,8 +3523,16 @@ export default function App() {
     if (!bag) return;
     if (!canWriteBag(bag) && !isDm) return;
     const safeCurrency = normalizeCurrency(nextCurrency);
+    const addedCoinWeight = currencyWeight(safeCurrency) - currencyWeight(bagCurrency(bag));
+    if (addedCoinWeight > 0) {
+      const fit = canFitIntoContainer(bag, addedCoinWeight, 0);
+      if (!fit.ok) {
+        blockWithCapacityMessage(fit.reason ?? "Der Behälter ist voll.");
+        return;
+      }
+    }
     rememberCurrencyUndo(bagId, bagCurrency(bag));
-    await updateBag(bagId, { currency: safeCurrency }, { silent: true });
+    await updateBag(bagId, currencyWeightPatchForBag(bag, safeCurrency), { silent: true });
     logAction(logType, logMessage, bagId);
   }
 
@@ -3516,8 +3543,16 @@ export default function App() {
     const nextAmount = current[key] + delta;
     if (nextAmount < 0) return;
     const next = { ...current, [key]: nextAmount };
+    const addedCoinWeight = delta > 0 ? delta * COIN_WEIGHT_LB : 0;
+    if (addedCoinWeight > 0) {
+      const fit = canFitIntoContainer(bag, addedCoinWeight, 0);
+      if (!fit.ok) {
+        blockWithCapacityMessage(fit.reason ?? "Der Behälter ist voll.");
+        return;
+      }
+    }
     rememberCurrencyUndo(bagId, current);
-    await updateBag(bagId, { currency: next }, { silent: true });
+    await updateBag(bagId, currencyWeightPatchForBag(bag, next), { silent: true });
     logAction(
       delta >= 0 ? "currency_added" : "currency_removed",
       `${member?.displayName ?? "Jemand"} hat ${Math.abs(delta)} ${currencyDefs[key].short} ${delta >= 0 ? "in" : "aus"} „${bag.name}“ ${delta >= 0 ? "gelegt" : "entnommen"}.`,
@@ -3529,7 +3564,15 @@ export default function App() {
     const bag = bags.find((entry) => entry.id === bagId);
     const previous = currencyUndoByBag[bagId];
     if (!bag || !previous || !canWriteBag(bag)) return;
-    await updateBag(bagId, { currency: previous }, { silent: true });
+    const addedCoinWeight = currencyWeight(previous) - currencyWeight(bagCurrency(bag));
+    if (addedCoinWeight > 0) {
+      const fit = canFitIntoContainer(bag, addedCoinWeight, 0);
+      if (!fit.ok) {
+        blockWithCapacityMessage(fit.reason ?? "Der Behälter ist voll.");
+        return;
+      }
+    }
+    await updateBag(bagId, currencyWeightPatchForBag(bag, previous), { silent: true });
     setCurrencyUndoByBag((prev) => {
       const next = { ...prev };
       delete next[bagId];
@@ -3604,6 +3647,12 @@ export default function App() {
     const sourceCurrency = bagCurrency(sourceBag);
     const targetCurrency = bagCurrency(targetBag);
     if (sourceCurrency[key] < amount) return;
+    const addedCoinWeight = amount * COIN_WEIGHT_LB;
+    const fit = canFitIntoContainer(targetBag, addedCoinWeight, 0);
+    if (!fit.ok) {
+      blockWithCapacityMessage(fit.reason ?? "Der Zielbehälter ist voll.");
+      return;
+    }
     const nextSource = { ...sourceCurrency, [key]: sourceCurrency[key] - amount };
     const nextTarget = { ...targetCurrency, [key]: targetCurrency[key] + amount };
     rememberCurrencyUndo(sourceBag.id, sourceCurrency);
@@ -3611,8 +3660,8 @@ export default function App() {
 
     if (!firebaseConfigured) {
       setBags((prev) => prev.map((entry) => {
-        if (entry.id === sourceBag.id) return { ...entry, currency: nextSource, updatedAt: Date.now() };
-        if (entry.id === targetBag.id) return { ...entry, currency: nextTarget, updatedAt: Date.now() };
+        if (entry.id === sourceBag.id) return { ...entry, ...currencyWeightPatchForBag(sourceBag, nextSource), updatedAt: Date.now() };
+        if (entry.id === targetBag.id) return { ...entry, ...currencyWeightPatchForBag(targetBag, nextTarget), updatedAt: Date.now() };
         return entry;
       }));
       return;
@@ -3622,8 +3671,8 @@ export default function App() {
       if (!firebaseDb || !activeCampaignId) throw new Error("Keine aktive Kampagne gefunden.");
       const batch = writeBatch(firebaseDb);
       const nowTs = Date.now();
-      batch.update(doc(firebaseDb, "campaigns", activeCampaignId, "bags", sourceBag.id), { currency: nextSource, updatedAt: nowTs });
-      batch.update(doc(firebaseDb, "campaigns", activeCampaignId, "bags", targetBag.id), { currency: nextTarget, updatedAt: nowTs });
+      batch.update(doc(firebaseDb, "campaigns", activeCampaignId, "bags", sourceBag.id), { ...currencyWeightPatchForBag(sourceBag, nextSource), updatedAt: nowTs });
+      batch.update(doc(firebaseDb, "campaigns", activeCampaignId, "bags", targetBag.id), { ...currencyWeightPatchForBag(targetBag, nextTarget), updatedAt: nowTs });
       await batch.commit();
       logAction("currency_transferred", `${member?.displayName ?? "Jemand"} hat ${amount} ${currencyDefs[key].short} von „${sourceBag.name}“ nach „${targetBag.name}“ übertragen.`, sourceBag.id);
       setSyncStatus("online");
@@ -5207,7 +5256,7 @@ function CurrencyPanel({
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="flex items-center gap-2 text-base font-black"><Coins className="h-5 w-5" /> Münzen</h3>
-          <p className={`text-xs ${mutedText}`}>Gesamtwert: {formatNumber(currencyToGoldValue(currency))} gp · {currencyText(currency)}</p>
+          <p className={`text-xs ${mutedText}`}>Gesamtwert: {formatNumber(currencyToGoldValue(currency))} gp · Gewicht: {formatNumber(currencyWeight(currency))} lb · {currencyText(currency)}</p>
         </div>
         <button className={`${secondaryButton} px-3 py-1.5 text-xs`} disabled={!canEdit || !undoAvailable} onClick={onUndo} title="Letzte Münzänderung zurücksetzen"><History className="h-4 w-4" /> Rückgängig</button>
       </div>

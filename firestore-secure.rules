@@ -163,7 +163,7 @@ service cloud.firestore {
     }
 
     function onlyCurrencyChanged() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(["currency", "updatedAt"]);
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(["currency", "currentWeight", "updatedAt"]);
     }
 
 
