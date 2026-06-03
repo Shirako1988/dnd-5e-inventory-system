@@ -284,6 +284,8 @@ type Campaign = {
   dmUid: string;
   joinCode: string;
   joinCodeSearch?: string;
+  tradeBuyMultiplier?: number;
+  tradeSellMultiplier?: number;
   createdAt: number;
   updatedAt: number;
 };
@@ -418,6 +420,7 @@ function auditTypeLabel(type: string) {
     campaign_backup_mirror_disconnected: "Backup-Mirror getrennt",
     campaign_backup_import_selected: "Backup-Import vorbereitet",
     campaign_backup_imported: "Backup wiederhergestellt",
+    campaign_trade_rates_updated: "Handelskurs geändert",
     member_join_requested: "Beitritt angefragt",
     member_approved: "Spieler bestätigt",
     member_removed: "Spieler entfernt",
@@ -697,6 +700,35 @@ function formatNumber(value: number | null | undefined, fallback = "—") {
   if (value === null || value === undefined) return fallback;
   if (Number.isInteger(value)) return `${value}`;
   return value.toFixed(2).replace(/\.00$/, "").replace(/0$/, "");
+}
+
+const DEFAULT_TRADE_BUY_MULTIPLIER = 1;
+const DEFAULT_TRADE_SELL_MULTIPLIER = 0.5;
+
+type TradeRates = {
+  buyMultiplier: number;
+  sellMultiplier: number;
+};
+
+function normalizeTradeMultiplier(value: unknown, fallback: number) {
+  const parsed = typeof value === "number" ? value : Number(String(value ?? "").replace(",", "."));
+  if (!Number.isFinite(parsed) || parsed < 0) return fallback;
+  return Math.round(parsed * 10000) / 10000;
+}
+
+function campaignTradeRates(campaign: Campaign | null | undefined): TradeRates {
+  return {
+    buyMultiplier: normalizeTradeMultiplier(campaign?.tradeBuyMultiplier, DEFAULT_TRADE_BUY_MULTIPLIER),
+    sellMultiplier: normalizeTradeMultiplier(campaign?.tradeSellMultiplier, DEFAULT_TRADE_SELL_MULTIPLIER),
+  };
+}
+
+function tradeAdjustedValue(value: number, multiplier: number) {
+  return Math.round(value * multiplier * 100) / 100;
+}
+
+function formatMultiplier(value: number) {
+  return `×${formatNumber(value)}`;
 }
 
 const currencyKeys: CurrencyKey[] = ["pp", "gp", "ep", "sp", "cp"];
@@ -1286,6 +1318,8 @@ export default function App() {
     description: "",
     category: "gear" as ItemCategory,
   });
+  const [tradeBuyInput, setTradeBuyInput] = useState(formatNumber(DEFAULT_TRADE_BUY_MULTIPLIER));
+  const [tradeSellInput, setTradeSellInput] = useState(formatNumber(DEFAULT_TRADE_SELL_MULTIPLIER));
 
   async function syncUserProfile(user: User, displayNameOverride?: string) {
     if (!firebaseDb) return;
@@ -1612,6 +1646,12 @@ export default function App() {
   const activeUid = userUid ?? localUserId;
   const currentBagOrderStorageKey = bagOrderStorageKey(activeCampaignId, activeUid);
   const sortedMembers = useMemo(() => [...members].sort(compareCampaignMembers), [members]);
+  const tradeRates = useMemo(() => campaignTradeRates(campaign), [campaign?.tradeBuyMultiplier, campaign?.tradeSellMultiplier]);
+
+  useEffect(() => {
+    setTradeBuyInput(formatNumber(tradeRates.buyMultiplier));
+    setTradeSellInput(formatNumber(tradeRates.sellMultiplier));
+  }, [tradeRates.buyMultiplier, tradeRates.sellMultiplier]);
 
   useEffect(() => {
     if (!campaign?.id || !isDm) {
@@ -2597,6 +2637,8 @@ export default function App() {
       dmUid: userUid,
       joinCode: code,
       joinCodeSearch: normalizeJoinCode(code),
+      tradeBuyMultiplier: DEFAULT_TRADE_BUY_MULTIPLIER,
+      tradeSellMultiplier: DEFAULT_TRADE_SELL_MULTIPLIER,
       createdAt,
       updatedAt: createdAt,
     };
@@ -2913,6 +2955,32 @@ export default function App() {
       createdAt: Date.now(),
     };
     setDoc(doc(firebaseDb, "campaigns", activeCampaignId, "auditLog", entry.id), entry).catch(() => undefined);
+  }
+
+  async function updateTradeRates() {
+    if (!firebaseDb || !activeCampaignId || !campaign || !isDm) return;
+    const buyMultiplier = normalizeTradeMultiplier(tradeBuyInput, tradeRates.buyMultiplier);
+    const sellMultiplier = normalizeTradeMultiplier(tradeSellInput, tradeRates.sellMultiplier);
+    if (buyMultiplier < 0 || sellMultiplier < 0) {
+      setSyncStatus("error");
+      setSyncError("Handelskurs darf nicht negativ sein.");
+      return;
+    }
+    try {
+      await updateDoc(doc(firebaseDb, "campaigns", activeCampaignId), {
+        tradeBuyMultiplier: buyMultiplier,
+        tradeSellMultiplier: sellMultiplier,
+        updatedAt: Date.now(),
+      });
+      setTradeBuyInput(formatNumber(buyMultiplier));
+      setTradeSellInput(formatNumber(sellMultiplier));
+      setSyncStatus("online");
+      setSyncError(null);
+      logAction("campaign_trade_rates_updated", `${member?.displayName ?? "DM"} hat den Handelskurs gesetzt: Kaufen ${formatMultiplier(buyMultiplier)}, Verkaufen ${formatMultiplier(sellMultiplier)}.`, activeCampaignId);
+    } catch (error) {
+      setSyncStatus("error");
+      setSyncError(error instanceof Error ? error.message : "Handelskurs konnte nicht gespeichert werden.");
+    }
   }
 
   function auditBadgeClass(entry: AuditLogEntry) {
@@ -3948,6 +4016,34 @@ export default function App() {
                 <Moon className="h-4 w-4" />
               </button>
             </div>
+            {isDm && activeCampaignId && campaign && (
+              <div className={`flex flex-wrap items-end gap-2 rounded-xl border px-2 py-1.5 text-xs ${isDark ? "border-[#8d713e]/50 bg-[#20170f]" : "border-[#9b7339]/40 bg-[#f8edcf]"}`} title="Globaler lokaler Handelskurs dieser Kampagne">
+                <div className="pb-1 font-black uppercase tracking-wide opacity-75">Handelskurs</div>
+                <label className="space-y-0.5">
+                  <span className={`block px-1 text-[10px] ${mutedText}`}>Kaufen</span>
+                  <input
+                    className={`h-8 w-20 rounded-lg border px-2 text-sm font-black tabular-nums ${inputClass}`}
+                    value={tradeBuyInput}
+                    onChange={(event) => setTradeBuyInput(event.target.value.replace(",", "."))}
+                    onKeyDown={(event) => { if (event.key === "Enter") updateTradeRates(); }}
+                    inputMode="decimal"
+                    placeholder="1.0"
+                  />
+                </label>
+                <label className="space-y-0.5">
+                  <span className={`block px-1 text-[10px] ${mutedText}`}>Verkaufen</span>
+                  <input
+                    className={`h-8 w-20 rounded-lg border px-2 text-sm font-black tabular-nums ${inputClass}`}
+                    value={tradeSellInput}
+                    onChange={(event) => setTradeSellInput(event.target.value.replace(",", "."))}
+                    onKeyDown={(event) => { if (event.key === "Enter") updateTradeRates(); }}
+                    inputMode="decimal"
+                    placeholder="0.5"
+                  />
+                </label>
+                <button className={`${secondaryButton} px-2 py-1.5 text-xs`} onClick={updateTradeRates}>Speichern</button>
+              </div>
+            )}
             {firebaseConfigured ? (
               <>
                 {isDm && activeCampaignId && campaign && (
@@ -4296,13 +4392,17 @@ export default function App() {
                     groupedSelectedItems.flatMap(({ category, entries }) => {
                       const categoryDef = getCategoryDef(category);
                       const saleTotal = category === "sale" ? entries.reduce((sum, entry) => sum + totalValue(entry), 0) : 0;
+                      const saleLocalSellTotal = category === "sale" ? tradeAdjustedValue(saleTotal, tradeRates.sellMultiplier) : 0;
                       const saleQuantity = category === "sale" ? entries.reduce((sum, entry) => sum + entry.quantity, 0) : 0;
                       const sectionHeader = (
                         <div key={`category-${category}`} className={`mt-3 flex flex-wrap items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-black ${isDark ? "border-[#8d713e]/35 bg-[#2a1f14]/70" : "border-[#9b7339]/25 bg-[#f1ddb3]/80"}`}>
                           <span className={`flex h-8 w-8 items-center justify-center rounded-full border ${isDark ? "border-[#8d713e]/50 bg-[#1a130d]" : "border-[#9b7339]/35 bg-[#fff8df]"}`}>{categoryIcon(category, "h-4 w-4")}</span>
                           <span>{categoryDef.label}</span>
                           {category === "sale" && (
-                            <span className={`rounded-full border px-2 py-0.5 text-xs ${isDark ? "border-emerald-700/50 bg-emerald-950/35 text-emerald-100" : "border-emerald-700/25 bg-emerald-100/70 text-emerald-950"}`}>Verkaufswert: {formatNumber(saleTotal)} gp</span>
+                            <>
+                              <span className={`rounded-full border px-2 py-0.5 text-xs ${isDark ? "border-emerald-700/50 bg-emerald-950/35 text-emerald-100" : "border-emerald-700/25 bg-emerald-100/70 text-emerald-950"}`}>Basiswert: {formatNumber(saleTotal)} gp</span>
+                              <span className={`rounded-full border px-2 py-0.5 text-xs ${isDark ? "border-yellow-700/50 bg-yellow-950/35 text-yellow-100" : "border-yellow-700/25 bg-yellow-100/70 text-yellow-950"}`}>Lokaler Verkauf: {formatNumber(saleLocalSellTotal)} gp</span>
+                            </>
                           )}
                           <span className={`ml-auto rounded-full border px-2 py-0.5 text-xs ${isDark ? "border-[#8d713e]/40 bg-[#1a130d]" : "border-[#9b7339]/25 bg-[#fff8df]"}`}>{entries.length}</span>
                         </div>
@@ -4311,9 +4411,12 @@ export default function App() {
                         <div key={`category-${category}-summary`} className={`rounded-2xl border px-4 py-3 text-sm ${isDark ? "border-emerald-700/40 bg-emerald-950/20 text-emerald-100" : "border-emerald-700/20 bg-emerald-100/55 text-emerald-950"}`}>
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="font-black">Verkaufsgut gesamt</div>
-                            <div className="text-lg font-black tabular-nums">{formatNumber(saleTotal)} gp</div>
+                            <div className="text-right">
+                              <div className="text-lg font-black tabular-nums">{formatNumber(saleLocalSellTotal)} gp</div>
+                              <div className="text-[11px] font-bold opacity-75">lokaler Verkaufspreis · Basis {formatNumber(saleTotal)} gp</div>
+                            </div>
                           </div>
-                          <div className="mt-1 text-xs font-semibold opacity-80">{entries.length} Stapel · {saleQuantity} Gegenstände mit dem Tag „Verkaufsgut“.</div>
+                          <div className="mt-1 text-xs font-semibold opacity-80">{entries.length} Stapel · {saleQuantity} Gegenstände mit dem Tag „Verkaufsgut“ · Verkaufskurs {formatMultiplier(tradeRates.sellMultiplier)}.</div>
                         </div>
                       ) : null;
                       return [
@@ -4388,6 +4491,7 @@ export default function App() {
 
                               <InlineItemValueStat label="Gewicht" unit="lb" single={item.weightPerUnit ?? 0} stack={totalWeight(item)} />
                               <InlineItemValueStat label="Volumen" single={item.volumePerUnit ?? 0} stack={totalVolume(item)} />
+                              <InlineLocalTradeValueStat baseStack={totalValue(item)} rates={tradeRates} />
                               <InlineItemValueStat label="Wert" unit="gp" single={item.valuePerUnit ?? 0} stack={totalValue(item)} />
                             </div>
                           </div>
@@ -5032,6 +5136,21 @@ function InlineItemValueStat({ label, single, stack, unit = "" }: { label: strin
       <div className="mt-0.5 grid grid-cols-[max-content_max-content] gap-2 leading-4">
         <div className="whitespace-nowrap"><span className="opacity-60">1x </span><span className="font-black tabular-nums">{singleText}</span></div>
         <div className="whitespace-nowrap border-l border-current/10 pl-2"><span className="opacity-60">Stack </span><span className="font-black tabular-nums">{stackText}</span></div>
+      </div>
+    </div>
+  );
+}
+
+function InlineLocalTradeValueStat({ baseStack, rates }: { baseStack: number; rates: TradeRates }) {
+  const buyText = `${formatNumber(tradeAdjustedValue(baseStack, rates.buyMultiplier))} gp`;
+  const sellText = `${formatNumber(tradeAdjustedValue(baseStack, rates.sellMultiplier))} gp`;
+  const minWidth = Math.min(420, Math.max(210, Math.max(buyText.length, sellText.length) * 8 + 118));
+  return (
+    <div className="h-12 shrink-0 rounded-lg border border-current/10 bg-current/5 px-2 py-1 text-[11px]" style={{ minWidth }}>
+      <div className="whitespace-nowrap font-black leading-4 opacity-75">Lokaler Wert</div>
+      <div className="mt-0.5 grid grid-cols-[max-content_max-content] gap-2 leading-4">
+        <div className="whitespace-nowrap"><span className="opacity-60">Kauf </span><span className="font-black tabular-nums">{buyText}</span></div>
+        <div className="whitespace-nowrap border-l border-current/10 pl-2"><span className="opacity-60">Verkauf </span><span className="font-black tabular-nums">{sellText}</span></div>
       </div>
     </div>
   );
