@@ -981,9 +981,36 @@ function accessAllows(mode: AccessMode, userIds: string[], uid: string, isDm: bo
   return userIds.includes(uid);
 }
 
+function uniqueUidList(ids: string[], allowedUserIds?: Set<string>) {
+  return Array.from(new Set(ids.filter((id) => typeof id === "string" && id.trim()).map((id) => id.trim())))
+    .filter((id) => !allowedUserIds || allowedUserIds.has(id))
+    .sort();
+}
+
+function sanitizeAccessUserLists(access: BagAccess, allowedUserIds?: Set<string>): BagAccess {
+  return {
+    ...access,
+    targetUserIds: uniqueUidList(access.targetUserIds ?? [], allowedUserIds),
+    depositUserIds: uniqueUidList(access.depositUserIds ?? [], allowedUserIds),
+    readUserIds: uniqueUidList(access.readUserIds ?? [], allowedUserIds),
+    writeUserIds: uniqueUidList(access.writeUserIds ?? [], allowedUserIds),
+  };
+}
+
+function removeUserFromAccess(access: BagAccess, uidToRemove: string): BagAccess {
+  const cleaned = (ids: string[]) => (ids ?? []).filter((id) => id !== uidToRemove);
+  return sanitizeAccessUserLists({
+    ...access,
+    targetUserIds: cleaned(access.targetUserIds),
+    depositUserIds: cleaned(access.depositUserIds),
+    readUserIds: cleaned(access.readUserIds),
+    writeUserIds: cleaned(access.writeUserIds),
+  });
+}
+
 function targetAccessKeysForAccess(access: BagAccess) {
   if (access.targetMode === "all") return [TARGET_ACCESS_ALL_KEY];
-  if (access.targetMode === "custom") return Array.from(new Set(access.targetUserIds.filter(Boolean))).sort();
+  if (access.targetMode === "custom") return uniqueUidList(access.targetUserIds);
   return [];
 }
 
@@ -1045,6 +1072,7 @@ export default function App() {
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [member, setMember] = useState<CampaignMember | null>(null);
   const [campaignAccessReady, setCampaignAccessReady] = useState(false);
+  const [campaignAccessRefreshKey, setCampaignAccessRefreshKey] = useState(0);
   const [members, setMembers] = useState<CampaignMember[]>([]);
   const [userCampaigns, setUserCampaigns] = useState<UserCampaignSummary[]>([]);
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
@@ -1309,7 +1337,7 @@ export default function App() {
       cancelled = true;
       setCampaignAccessReady(false);
     };
-  }, [activeCampaignId, userUid]);
+  }, [activeCampaignId, userUid, campaignAccessRefreshKey]);
 
   useEffect(() => {
     if (!firebaseConfigured || !firebaseDb || !userUid || !activeCampaignId || !campaignAccessReady) return;
@@ -2462,7 +2490,19 @@ export default function App() {
       { merge: true },
     );
 
+    // Wichtig beim Wiederbeitritt nach Kick: activeCampaignId kann identisch bleiben.
+    // Dann feuert React keinen neuen Selection-Wechsel, obwohl das Mitgliedsdokument neu existiert.
+    // Wir setzen den lokalen Status sofort und erzwingen zusätzlich eine neue Mitgliedschaftsprüfung.
+    setMember(savedMember);
+    setCampaign(campaignData);
+    setCampaignAccessReady(true);
+    setBags([]);
+    setItems([]);
+    setAuditLog([]);
+    setSyncStatus("connecting");
+    setSyncError(null);
     setActiveCampaignId(campaignId);
+    setCampaignAccessRefreshKey((value) => value + 1);
   }
 
   function leaveCampaignSelection() {
@@ -2635,9 +2675,16 @@ export default function App() {
 
       const bagSnapshot = await getDocs(collection(firebaseDb, "campaigns", activeCampaignId, "bags"));
       const itemSnapshot = await getDocs(collection(firebaseDb, "campaigns", activeCampaignId, "items"));
+      const memberSnapshot = await getDocs(collection(firebaseDb, "campaigns", activeCampaignId, "members"));
 
       const latestBags = bagSnapshot.docs.map((entry) => entry.data() as Bag);
       const latestItems = itemSnapshot.docs.map((entry) => entry.data() as InventoryItem);
+      const validPlayerIds = new Set(
+        memberSnapshot.docs
+          .map((entry) => entry.data() as CampaignMember)
+          .filter((entry) => entry.role === "player")
+          .map((entry) => entry.uid),
+      );
 
       const totalsByBag = new Map<string, { weight: number; volume: number; value: number; count: number }>();
       for (const bag of latestBags) {
@@ -2673,7 +2720,7 @@ export default function App() {
       for (const bag of latestBags) {
         const totals = totalsByBag.get(bag.id) ?? { weight: 0, volume: 0, value: 0, count: 0 };
         const bagKind = getBagKind(bag);
-        const normalizedAccess = getBagAccess(bag);
+        const normalizedAccess = sanitizeAccessUserLists(getBagAccess(bag), validPlayerIds);
         const patch = {
           kind: bagKind,
           access: normalizedAccess,
@@ -2757,6 +2804,10 @@ export default function App() {
     if (!canWriteBag(bag)) return;
 
     const safePatch: Partial<Bag> = { ...patch, updatedAt: Date.now() };
+    if (safePatch.access && isDm) {
+      const validPlayerIds = new Set(members.filter((entry) => entry.role === "player").map((entry) => entry.uid));
+      safePatch.access = sanitizeAccessUserLists(safePatch.access, validPlayerIds);
+    }
     if (!isDm) {
       delete safePatch.access;
       delete safePatch.permissions;
@@ -2846,6 +2897,17 @@ export default function App() {
         const batch = writeBatch(firebaseDb);
         batch.delete(doc(firebaseDb, "campaigns", activeCampaignId, "members", deleteTarget.id));
         batch.delete(doc(firebaseDb, "users", deleteTarget.id, "campaigns", activeCampaignId));
+        for (const bag of bags) {
+          const oldAccess = getBagAccess(bag);
+          const cleanedAccess = removeUserFromAccess(oldAccess, deleteTarget.id);
+          if (JSON.stringify(oldAccess) !== JSON.stringify(cleanedAccess)) {
+            batch.update(doc(firebaseDb, "campaigns", activeCampaignId, "bags", bag.id), {
+              access: cleanedAccess,
+              targetAccessKeys: targetAccessKeysForAccess(cleanedAccess),
+              updatedAt: now,
+            });
+          }
+        }
         if (oldJoinCodeSearch) batch.delete(doc(firebaseDb, "joinCodes", oldJoinCodeSearch));
         batch.set(doc(firebaseDb, "joinCodes", nextJoinCodeSearch), {
           campaignId: activeCampaignId,
