@@ -4561,8 +4561,8 @@ export default function App() {
                           />
                         </div>
                       ) : (
-                        <div key={item.id} className={`rounded-2xl border px-3 py-3 ${isDark ? "border-[#7b6237]/35 bg-[#1d150e]/70" : "border-[#9b7339]/25 bg-[#fff8df]/70"}`}>
-                          <div className="flex items-stretch gap-3">
+                        <div key={item.id} className={`rounded-2xl border px-3 py-2 ${isDark ? "border-[#7b6237]/35 bg-[#1d150e]/70" : "border-[#9b7339]/25 bg-[#fff8df]/70"}`}>
+                          <div className="flex items-stretch gap-4">
                             <ThumbnailButton
                               imageUrl={item.imageUrl}
                               imageZoom={item.imageZoom}
@@ -5316,7 +5316,7 @@ function ThumbnailButton({ imageUrl, imageZoom, imagePositionX, imagePositionY, 
       : size === "bag"
         ? "h-16 w-16"
         : size === "item"
-          ? "aspect-square w-20 self-center sm:w-24"
+          ? "aspect-square w-24 self-center sm:w-28"
           : "h-12 w-12";
   const placeholderIconClass = size === "item" ? "h-7 w-7" : "h-4 w-4";
   return (
