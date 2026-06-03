@@ -165,17 +165,17 @@ const ITEM_CATEGORIES: { id: ItemCategory; label: string; shortLabel: string; hi
   { id: "tool", label: "Werkzeuge & Instrumente", shortLabel: "Werkzeug", hint: "Werkzeugsets, Foki, Instrumente" },
   { id: "food", label: "Essen & Vorräte", shortLabel: "Vorrat", hint: "Nahrung, Getränke, Rationen" },
   { id: "wealth", label: "Geld & Wertgegenstände", shortLabel: "Wertgut", hint: "Münzen, Edelsteine, Handelswaren" },
-  { id: "sale", label: "Verkaufsgut", shortLabel: "Verkaufsgut", hint: "Loot und Gegenstände, die verkauft werden sollen" },
   { id: "vehicle", label: "Reittiere & Fahrzeuge", shortLabel: "Fahrzeug", hint: "Mounts, Fahrzeuge, Schiffe, Wagen" },
   { id: "magic", label: "Magische Gegenstände", shortLabel: "Magisch", hint: "Wundersame Gegenstände, Ringe, Stäbe, Artefakte" },
   { id: "gear", label: "Ausrüstung", shortLabel: "Ausrüstung", hint: "Normales Abenteuer- und Lagerzeug" },
   { id: "misc", label: "Sonstiges", shortLabel: "Sonstiges", hint: "Nicht eindeutig einsortierbar" },
+  { id: "sale", label: "Verkaufsgut", shortLabel: "Verkaufsgut", hint: "Loot und Gegenstände, die verkauft werden sollen" },
 ];
 
 const CATEGORY_ORDER = new Map<ItemCategory, number>(ITEM_CATEGORIES.map((entry, index) => [entry.id, index]));
 
 function getCategoryDef(category: ItemCategory | undefined | null) {
-  return ITEM_CATEGORIES.find((entry) => entry.id === category) ?? ITEM_CATEGORIES[ITEM_CATEGORIES.length - 1];
+  return ITEM_CATEGORIES.find((entry) => entry.id === category) ?? ITEM_CATEGORIES.find((entry) => entry.id === "misc")!;
 }
 
 function normalizeItemCategory(category: unknown): ItemCategory {
@@ -3892,7 +3892,7 @@ export default function App() {
       />
 
       <header className={`sticky top-0 z-20 border-b backdrop-blur-xl ${isDark ? "border-[#8d713e]/30 bg-[#16110c]/85" : "border-[#8a6a35]/30 bg-[#efe3c6]/85"}`}>
-        <div className="flex w-full flex-col gap-3 px-3 py-3 sm:px-4 lg:flex-row lg:items-center lg:justify-between 2xl:px-6">
+        <div className="flex w-full flex-col gap-3 px-3 py-4 sm:px-4 2xl:px-6">
           <div className="flex items-center gap-3">
             <div className={`flex h-12 w-12 items-center justify-center rounded-2xl border shadow-lg ${isDark ? "border-[#a9843f]/60 bg-[#2c2116]" : "border-[#8a6a35]/40 bg-[#fff3cf]"}`}>
               <ScrollText className="h-6 w-6" />
@@ -4295,12 +4295,30 @@ export default function App() {
                   ) : (
                     groupedSelectedItems.flatMap(({ category, entries }) => {
                       const categoryDef = getCategoryDef(category);
-                      return [
-                        <div key={`category-${category}`} className={`mt-3 flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-black ${isDark ? "border-[#8d713e]/35 bg-[#2a1f14]/70" : "border-[#9b7339]/25 bg-[#f1ddb3]/80"}`}>
+                      const saleTotal = category === "sale" ? entries.reduce((sum, entry) => sum + totalValue(entry), 0) : 0;
+                      const saleQuantity = category === "sale" ? entries.reduce((sum, entry) => sum + entry.quantity, 0) : 0;
+                      const sectionHeader = (
+                        <div key={`category-${category}`} className={`mt-3 flex flex-wrap items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-black ${isDark ? "border-[#8d713e]/35 bg-[#2a1f14]/70" : "border-[#9b7339]/25 bg-[#f1ddb3]/80"}`}>
                           <span className={`flex h-8 w-8 items-center justify-center rounded-full border ${isDark ? "border-[#8d713e]/50 bg-[#1a130d]" : "border-[#9b7339]/35 bg-[#fff8df]"}`}>{categoryIcon(category, "h-4 w-4")}</span>
                           <span>{categoryDef.label}</span>
+                          {category === "sale" && (
+                            <span className={`rounded-full border px-2 py-0.5 text-xs ${isDark ? "border-emerald-700/50 bg-emerald-950/35 text-emerald-100" : "border-emerald-700/25 bg-emerald-100/70 text-emerald-950"}`}>Verkaufswert: {formatNumber(saleTotal)} gp</span>
+                          )}
                           <span className={`ml-auto rounded-full border px-2 py-0.5 text-xs ${isDark ? "border-[#8d713e]/40 bg-[#1a130d]" : "border-[#9b7339]/25 bg-[#fff8df]"}`}>{entries.length}</span>
-                        </div>,
+                        </div>
+                      );
+                      const saleSummary = category === "sale" ? (
+                        <div key={`category-${category}-summary`} className={`rounded-2xl border px-4 py-3 text-sm ${isDark ? "border-emerald-700/40 bg-emerald-950/20 text-emerald-100" : "border-emerald-700/20 bg-emerald-100/55 text-emerald-950"}`}>
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="font-black">Verkaufsgut gesamt</div>
+                            <div className="text-lg font-black tabular-nums">{formatNumber(saleTotal)} gp</div>
+                          </div>
+                          <div className="mt-1 text-xs font-semibold opacity-80">{entries.length} Stapel · {saleQuantity} Gegenstände mit dem Tag „Verkaufsgut“.</div>
+                        </div>
+                      ) : null;
+                      return [
+                        sectionHeader,
+                        ...(saleSummary ? [saleSummary] : []),
                         ...entries.map((item) => {
                       const editing = editingItemId === item.id;
                       const currentBag = bags.find((bag) => bag.id === item.bagId);
@@ -5003,12 +5021,17 @@ function MiniMarkdown({ text }: { text: string }) {
 
 function InlineItemValueStat({ label, single, stack, unit = "" }: { label: string; single: number; stack: number; unit?: string }) {
   const suffix = unit ? ` ${unit}` : "";
+  const singleText = `${formatNumber(single)}${suffix}`;
+  const stackText = `${formatNumber(stack)}${suffix}`;
+  const minWidth = label === "Wert"
+    ? Math.min(360, Math.max(170, Math.max(singleText.length + 3, stackText.length + 8) * 8 + 42))
+    : Math.min(280, Math.max(150, Math.max(singleText.length + 3, stackText.length + 8) * 7 + 34));
   return (
-    <div className="h-12 w-[150px] shrink-0 rounded-lg border border-current/10 bg-current/5 px-2 py-1 text-[11px]">
-      <div className="truncate font-black leading-4 opacity-75">{label}</div>
-      <div className="mt-0.5 grid grid-cols-2 gap-1 leading-4">
-        <div className="min-w-0 truncate"><span className="opacity-60">1x </span><span className="font-black">{formatNumber(single)}{suffix}</span></div>
-        <div className="min-w-0 truncate border-l border-current/10 pl-2"><span className="opacity-60">Stack </span><span className="font-black">{formatNumber(stack)}{suffix}</span></div>
+    <div className="h-12 shrink-0 rounded-lg border border-current/10 bg-current/5 px-2 py-1 text-[11px]" style={{ minWidth }}>
+      <div className="whitespace-nowrap font-black leading-4 opacity-75">{label}</div>
+      <div className="mt-0.5 grid grid-cols-[max-content_max-content] gap-2 leading-4">
+        <div className="whitespace-nowrap"><span className="opacity-60">1x </span><span className="font-black tabular-nums">{singleText}</span></div>
+        <div className="whitespace-nowrap border-l border-current/10 pl-2"><span className="opacity-60">Stack </span><span className="font-black tabular-nums">{stackText}</span></div>
       </div>
     </div>
   );
