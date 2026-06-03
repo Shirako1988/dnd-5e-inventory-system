@@ -2592,8 +2592,14 @@ export default function App() {
     } satisfies UserCampaignSummary);
     batch.set(doc(firebaseDb, "campaigns", id, "bags", groupBag.id), groupBag);
     batch.set(doc(firebaseDb, "campaigns", id, "bags", dmBag.id), dmBag);
+    await batch.commit();
+
+    // Der initiale Auditlog darf nicht Teil des Erstellungs-Batches sein:
+    // Firestore Rules prüfen auditLog.create mit isDm(campaignId), und bei einer neuen
+    // Kampagne existiert die DM-Mitgliedschaft erst nach dem ersten Commit.
+    // Deshalb wird der Log direkt danach geschrieben, wenn der DM-Member bereits existiert.
     const firstLogId = uid("log");
-    batch.set(doc(firebaseDb, "campaigns", id, "auditLog", firstLogId), {
+    await setDoc(doc(firebaseDb, "campaigns", id, "auditLog", firstLogId), {
       id: firstLogId,
       actorUid: userUid,
       actorName: cleanDisplayName,
@@ -2602,8 +2608,7 @@ export default function App() {
       targetId: id,
       message: `${cleanDisplayName} hat die Kampagne „${cleanCampaignName}“ erstellt.`,
       createdAt,
-    } satisfies AuditLogEntry);
-    await batch.commit();
+    } satisfies AuditLogEntry).catch(() => undefined);
 
     setSelectedBagId(groupBag.id);
     setActiveCampaignId(id);
