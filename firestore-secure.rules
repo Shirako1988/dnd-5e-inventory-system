@@ -166,6 +166,21 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(["currency", "currentWeight", "updatedAt"]);
     }
 
+    function saleSettlementChanged() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(["currency", "currentWeight", "currentVolume", "currentValue", "itemCount", "updatedAt"])
+        && validCurrency(request.resource.data)
+        && currencyCopper(request.resource.data) >= currencyCopper(resource.data)
+        && request.resource.data.currentValue is number
+        && resource.data.currentValue is number
+        && request.resource.data.currentValue <= resource.data.currentValue
+        && request.resource.data.itemCount is number
+        && resource.data.itemCount is number
+        && request.resource.data.itemCount <= resource.data.itemCount
+        && request.resource.data.currentVolume is number
+        && resource.data.currentVolume is number
+        && request.resource.data.currentVolume <= resource.data.currentVolume;
+    }
+
 
     match /users/{uid} {
       allow get, create, update, delete: if signedIn() && uid == request.auth.uid;
@@ -251,11 +266,15 @@ service cloud.firestore {
             isDm(campaignId)
             || (
               canWriteBagData(campaignId, resource.data)
-              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["name", "kind", "maxWeight", "maxVolume", "imageUrl", "imageZoom", "imagePositionX", "imagePositionY", "imageUpdatedAt", "imageUpdatedBy", "updatedAt"])
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["name", "description", "kind", "maxWeight", "maxVolume", "imageUrl", "imageZoom", "imagePositionX", "imagePositionY", "imageUpdatedAt", "imageUpdatedBy", "updatedAt"])
             )
             || (
               onlyCapacityChanged()
               && (canWriteBagData(campaignId, resource.data) || canDepositBagData(campaignId, resource.data))
+            )
+            || (
+              saleSettlementChanged()
+              && canWriteBagData(campaignId, resource.data)
             )
             || (
               onlyCurrencyChanged()

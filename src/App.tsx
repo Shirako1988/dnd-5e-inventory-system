@@ -306,6 +306,7 @@ type CampaignMember = {
 type Bag = {
   id: string;
   name: string;
+  description?: string;
   ownerUid: string | null;
   type?: BagType; // legacy/display fallback only
   kind?: BagKind;
@@ -453,6 +454,7 @@ function auditTypeLabel(type: string) {
     item_stacked: "Item gestackt",
     item_quantity_changed: "Menge geändert",
     item_reordered: "Item sortiert",
+    item_sold: "Verkaufsgut verkauft",
     currency_added: "Münzen hinzugefügt",
     currency_removed: "Münzen entnommen",
     currency_converted: "Münzen gewechselt",
@@ -493,6 +495,10 @@ type TransferTarget = {
   itemId: string;
   targetBagId: string;
   quantity: string;
+} | null;
+
+type SaleConfirmTarget = {
+  bagId: string;
 } | null;
 
 type ThumbnailTarget =
@@ -879,6 +885,33 @@ function bagCurrency(bag: Bag | undefined | null): CurrencyPouch {
 
 function currencyToCopper(currency: CurrencyPouch): number {
   return currencyKeys.reduce((sum, key) => sum + currency[key] * currencyValueInCopper[key], 0);
+}
+
+function copperToCurrency(totalCopper: number): CurrencyPouch {
+  let remaining = Math.max(0, Math.round(totalCopper));
+  const pp = Math.floor(remaining / currencyValueInCopper.pp);
+  remaining -= pp * currencyValueInCopper.pp;
+  const gp = Math.floor(remaining / currencyValueInCopper.gp);
+  remaining -= gp * currencyValueInCopper.gp;
+  const ep = Math.floor(remaining / currencyValueInCopper.ep);
+  remaining -= ep * currencyValueInCopper.ep;
+  const sp = Math.floor(remaining / currencyValueInCopper.sp);
+  remaining -= sp * currencyValueInCopper.sp;
+  return { pp, gp, ep, sp, cp: remaining };
+}
+
+function addCurrency(left: CurrencyPouch, right: CurrencyPouch): CurrencyPouch {
+  return {
+    pp: left.pp + right.pp,
+    gp: left.gp + right.gp,
+    ep: left.ep + right.ep,
+    sp: left.sp + right.sp,
+    cp: left.cp + right.cp,
+  };
+}
+
+function currencyDeltaText(currency: CurrencyPouch) {
+  return currencyText(currency);
 }
 
 function currencyToGoldValue(currency: CurrencyPouch): number {
@@ -1419,6 +1452,7 @@ export default function App() {
   const [itemSortDirection, setItemSortDirection] = useState<SortDirection>("asc");
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
   const [transferTarget, setTransferTarget] = useState<TransferTarget>(null);
+  const [saleConfirmTarget, setSaleConfirmTarget] = useState<SaleConfirmTarget>(null);
   const [thumbnailTarget, setThumbnailTarget] = useState<ThumbnailTarget>(null);
   const [imageViewerTarget, setImageViewerTarget] = useState<ImageViewerTarget>(null);
   const [editingBagId, setEditingBagId] = useState<string | null>(null);
@@ -1984,6 +2018,7 @@ export default function App() {
     return {
       id: typeof raw.id === "string" && raw.id ? raw.id : uid("bag_restore"),
       name: typeof raw.name === "string" && raw.name.trim() ? raw.name.trim() : `Wiederhergestellte Tasche ${fallbackIndex + 1}`,
+      description: typeof (raw as Bag).description === "string" ? (raw as Bag).description : "",
       ownerUid: typeof raw.ownerUid === "string" ? raw.ownerUid : null,
       type: raw.type,
       kind: raw.kind === "container" ? "container" : "inventory",
@@ -2098,6 +2133,7 @@ export default function App() {
         restoredBags.push({
           id: "bag_restored_orphans",
           name: "Wiederhergestellte Items",
+          description: "Automatisch angelegte Rettungstasche für Items aus einem Backup, deren ursprüngliche Tasche fehlt.",
           ownerUid: activeUid,
           type: "dm",
           kind: "inventory",
@@ -2872,6 +2908,7 @@ export default function App() {
     const groupBag: Bag = {
       id: uid("bag_party"),
       name: "Gruppentasche",
+      description: "Gemeinsames Inventar der Gruppe.",
       ownerUid: null,
       type: "party",
       kind: "inventory",
@@ -2892,6 +2929,7 @@ export default function App() {
     const dmBag: Bag = {
       id: uid("bag_dm"),
       name: "DM-Reservebeutel",
+      description: "Verdeckte Reserve und DM-Verwaltung.",
       ownerUid: userUid,
       type: "dm",
       kind: "container",
@@ -3359,6 +3397,7 @@ export default function App() {
     const newBag: Bag = {
       id: uid("bag"),
       name: cleanName,
+      description: "",
       ownerUid: activeUid,
       type: "personal",
       kind: newBagKind,
@@ -3956,6 +3995,95 @@ export default function App() {
     } catch (error) {
       setSyncStatus("error");
       setSyncError(error instanceof Error ? error.message : "Item konnte nicht übertragen werden.");
+    }
+  }
+
+
+  function saleEntriesForBag(bagId: string) {
+    return (itemsByBag.get(bagId) ?? []).filter((item) => normalizeItemCategory(item.category) === "sale" && item.quantity > 0);
+  }
+
+  function saleTotalsForEntries(entries: InventoryItem[]) {
+    const baseValue = entries.reduce((sum, item) => sum + totalValue(item), 0);
+    const localSellValue = tradeAdjustedValue(baseValue, tradeRates.sellMultiplier);
+    const payoutCopper = Math.max(0, Math.round(localSellValue * 100));
+    const payoutCurrency = copperToCurrency(payoutCopper);
+    return {
+      baseValue,
+      localSellValue: payoutCopper / 100,
+      payoutCopper,
+      payoutCurrency,
+      weight: entries.reduce((sum, item) => sum + totalWeight(item), 0),
+      volume: entries.reduce((sum, item) => sum + totalVolume(item), 0),
+      quantity: entries.reduce((sum, item) => sum + item.quantity, 0),
+    };
+  }
+
+  async function confirmSellSaleGoods(bagId: string) {
+    const bag = bags.find((entry) => entry.id === bagId);
+    if (!bag || !canWriteBag(bag)) return;
+    const saleEntries = saleEntriesForBag(bag.id);
+    if (!saleEntries.length) {
+      setSaleConfirmTarget(null);
+      return;
+    }
+
+    const totals = saleTotalsForEntries(saleEntries);
+    const currentCurrency = bagCurrency(bag);
+    const nextCurrency = addCurrency(currentCurrency, totals.payoutCurrency);
+    const coinWeightDelta = currencyWeight(nextCurrency) - currencyWeight(currentCurrency);
+    const finalTotals = bagTotalsAfterDelta(bag, {
+      weight: -totals.weight + coinWeightDelta,
+      volume: -totals.volume,
+      value: -totals.baseValue,
+      count: -totals.quantity,
+    });
+    const fit = canFitIntoContainer(bag, -totals.weight + coinWeightDelta, -totals.volume);
+    if (!fit.ok) {
+      blockWithCapacityMessage(fit.reason ?? "Der Behälter ist voll.");
+      return;
+    }
+
+    const nowTs = Date.now();
+    const saleList = saleEntries.map((item) => `${item.quantity}x ${item.name}`).join("; ");
+    const payoutText = currencyDeltaText(totals.payoutCurrency);
+    const message = `${member?.displayName ?? "Jemand"} hat Verkaufsgut aus „${bag.name}“ verkauft: ${saleList}. Gutgeschrieben: ${payoutText} (${formatNumber(totals.localSellValue)} gp).`;
+    const bagPatch = cleanFirestorePayload({
+      ...capacityPatchFromTotals(finalTotals),
+      currency: nextCurrency,
+      updatedAt: nowTs,
+    } as any);
+
+    setSyncError(null);
+    setSyncStatus(firebaseConfigured ? "online" : "local");
+
+    if (!firebaseConfigured) {
+      const soldIds = new Set(saleEntries.map((item) => item.id));
+      setItems((prev) => prev.filter((item) => !soldIds.has(item.id)));
+      setBags((prev) => prev.map((entry) => entry.id === bag.id ? { ...entry, ...bagPatch } : entry));
+      logAction("item_sold", message, bag.id);
+      setSaleConfirmTarget(null);
+      return;
+    }
+
+    try {
+      if (!firebaseDb || !activeCampaignId) throw new Error("Keine aktive Kampagne gefunden.");
+      if (saleEntries.length > 430) throw new Error("Zu viele Verkaufsgut-Stacks auf einmal. Bitte verkaufe vorher einen Teil oder lösche alte Stapel.");
+      const batch = writeBatch(firebaseDb);
+      for (const item of saleEntries) {
+        batch.delete(doc(firebaseDb, "campaigns", activeCampaignId, "items", item.id));
+      }
+      batch.update(doc(firebaseDb, "campaigns", activeCampaignId, "bags", bag.id), bagPatch);
+      const logEntry = makeAuditLogEntry("item_sold", message, bag.id);
+      if (logEntry) batch.set(doc(firebaseDb, "campaigns", activeCampaignId, "auditLog", logEntry.id), cleanFirestorePayload(logEntry as any));
+      await batch.commit();
+      if (logEntry) addAuditLogLocally(logEntry);
+      setSaleConfirmTarget(null);
+      setSyncStatus("online");
+      setSyncError(null);
+    } catch (error) {
+      setSyncStatus("error");
+      setSyncError(error instanceof Error ? error.message : "Verkaufsgut konnte nicht verkauft werden.");
     }
   }
 
@@ -4610,6 +4738,9 @@ export default function App() {
                       <h2 className="text-2xl font-black">{selectedBag.name}</h2>
                     </div>
                     <p className={`${mutedText}`}>Ausgewählte Tasche · {canOpenBag(selectedBag) ? `${selectedItems.length} sichtbare Item-Zeilen` : "Inhalt gesperrt"}</p>
+                    {selectedBag.description?.trim() && (
+                      <p className={`mt-2 max-w-3xl whitespace-pre-wrap text-sm leading-relaxed ${mutedText}`}>{selectedBag.description.trim()}</p>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 xl:min-w-[520px] xl:max-w-[620px]">
@@ -4691,7 +4822,7 @@ export default function App() {
                     </div>
                   </Field>
                   <Field label="Kategorie" mutedText={mutedText}><select disabled={!canWriteBag(selectedBag)} className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} value={newItem.category} onChange={(e) => setNewItem((p) => ({ ...p, category: e.target.value as ItemCategory }))}>{categorySelectOptions()}</select></Field>
-                  <Field label="Menge" mutedText={mutedText}><input disabled={!canWriteBag(selectedBag)} className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} placeholder="1" type="number" min="1" value={newItem.quantity} onChange={(e) => setNewItem((p) => ({ ...p, quantity: e.target.value }))} /></Field>
+                  <Field label="Menge" mutedText={mutedText}><input disabled={!canWriteBag(selectedBag)} className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} placeholder="0" type="number" min="0" value={newItem.quantity} onChange={(e) => setNewItem((p) => ({ ...p, quantity: e.target.value }))} /></Field>
                   <Field label="Gewicht / Stück" mutedText={mutedText}><input disabled={!canWriteBag(selectedBag)} className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} placeholder="0.5" type="number" step="0.01" value={newItem.weightPerUnit} onChange={(e) => setNewItem((p) => ({ ...p, weightPerUnit: e.target.value }))} /></Field>
                   <Field label="Volumen / Stück" mutedText={mutedText}><input disabled={!canWriteBag(selectedBag)} className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} placeholder="0.2" type="number" step="0.01" value={newItem.volumePerUnit} onChange={(e) => setNewItem((p) => ({ ...p, volumePerUnit: e.target.value }))} /></Field>
                   <Field label="Wert / Stück (gp)" mutedText={mutedText}><input disabled={!canWriteBag(selectedBag)} className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} placeholder="50" type="number" step="0.01" value={newItem.valuePerUnit} onChange={(e) => setNewItem((p) => ({ ...p, valuePerUnit: e.target.value }))} /></Field>
@@ -4744,30 +4875,47 @@ export default function App() {
                   ) : (
                     groupedSelectedItems.flatMap(({ category, entries }) => {
                       const categoryDef = getCategoryDef(category);
+                      const categoryWeight = entries.reduce((sum, entry) => sum + totalWeight(entry), 0);
+                      const categoryVolume = entries.reduce((sum, entry) => sum + totalVolume(entry), 0);
                       const saleTotal = category === "sale" ? entries.reduce((sum, entry) => sum + totalValue(entry), 0) : 0;
                       const saleLocalSellTotal = category === "sale" ? tradeAdjustedValue(saleTotal, tradeRates.sellMultiplier) : 0;
                       const saleQuantity = category === "sale" ? entries.reduce((sum, entry) => sum + entry.quantity, 0) : 0;
                       const collapseKey = selectedBag ? inventoryCategoryKey(selectedBag.id, category) : category;
                       const categoryCollapsed = collapsedCategoryKeys.includes(collapseKey);
                       const sectionHeader = (
-                        <button
+                        <div
                           key={`category-${category}`}
-                          type="button"
-                          className={`mt-3 flex w-full flex-wrap items-center gap-2 rounded-2xl border px-3 py-2 text-left text-sm font-black transition ${isDark ? "border-[#8d713e]/35 bg-[#2a1f14]/70 hover:bg-[#3a2a16]/85" : "border-[#9b7339]/25 bg-[#f1ddb3]/80 hover:bg-[#ead6a9]"}`}
-                          onClick={() => selectedBag && toggleCategoryCollapsed(selectedBag.id, category)}
-                          title={categoryCollapsed ? "Kategorie ausklappen" : "Kategorie einklappen"}
+                          className={`mt-3 flex w-full flex-wrap items-center gap-2 rounded-2xl border px-3 py-2 text-left text-sm font-black ${isDark ? "border-[#8d713e]/35 bg-[#2a1f14]/70" : "border-[#9b7339]/25 bg-[#f1ddb3]/80"}`}
                         >
-                          <span className={`flex h-8 w-8 items-center justify-center rounded-full border ${isDark ? "border-[#8d713e]/50 bg-[#1a130d]" : "border-[#9b7339]/35 bg-[#fff8df]"}`}>{categoryCollapsed ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</span>
+                          <button
+                            type="button"
+                            className={`flex h-8 w-8 items-center justify-center rounded-full border transition ${isDark ? "border-[#8d713e]/50 bg-[#1a130d] hover:bg-[#3a2a16]" : "border-[#9b7339]/35 bg-[#fff8df] hover:bg-[#ead6a9]"}`}
+                            onClick={() => selectedBag && toggleCategoryCollapsed(selectedBag.id, category)}
+                            title={categoryCollapsed ? "Kategorie ausklappen" : "Kategorie einklappen"}
+                          >
+                            {categoryCollapsed ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          </button>
                           <span className={`flex h-8 w-8 items-center justify-center rounded-full border ${isDark ? "border-[#8d713e]/50 bg-[#1a130d]" : "border-[#9b7339]/35 bg-[#fff8df]"}`}>{categoryIcon(category, "h-4 w-4")}</span>
                           <span>{categoryDef.label}</span>
+                          <span className={`rounded-full border px-2 py-0.5 text-xs ${isDark ? "border-[#8d713e]/40 bg-[#1a130d]" : "border-[#9b7339]/25 bg-[#fff8df]"}`}>Gewicht: {formatNumber(categoryWeight)} lb</span>
+                          {categoryVolume > 0 && <span className={`rounded-full border px-2 py-0.5 text-xs ${isDark ? "border-[#8d713e]/40 bg-[#1a130d]" : "border-[#9b7339]/25 bg-[#fff8df]"}`}>Volumen: {formatNumber(categoryVolume)}</span>}
                           {category === "sale" && (
                             <>
                               <span className={`rounded-full border px-2 py-0.5 text-xs ${isDark ? "border-emerald-700/50 bg-emerald-950/35 text-emerald-100" : "border-emerald-700/25 bg-emerald-100/70 text-emerald-950"}`}>Basiswert: {formatNumber(saleTotal)} gp</span>
                               <span className={`rounded-full border px-2 py-0.5 text-xs ${isDark ? "border-yellow-700/50 bg-yellow-950/35 text-yellow-100" : "border-yellow-700/25 bg-yellow-100/70 text-yellow-950"}`}>Lokaler Verkauf: {formatNumber(saleLocalSellTotal)} gp</span>
+                              <button
+                                type="button"
+                                className={`${primaryButton} px-3 py-1.5 text-xs`}
+                                disabled={!selectedBag || !canWriteBag(selectedBag) || saleQuantity <= 0}
+                                onClick={() => selectedBag && setSaleConfirmTarget({ bagId: selectedBag.id })}
+                                title="Verkaufsgut dieser Tasche verkaufen"
+                              >
+                                <Coins className="h-4 w-4" /> Sell
+                              </button>
                             </>
                           )}
                           <span className={`ml-auto rounded-full border px-2 py-0.5 text-xs ${isDark ? "border-[#8d713e]/40 bg-[#1a130d]" : "border-[#9b7339]/25 bg-[#fff8df]"}`}>{entries.length}</span>
-                        </button>
+                        </div>
                       );
                       const saleSummary = category === "sale" ? (
                         <div key={`category-${category}-summary`} className={`rounded-2xl border px-4 py-3 text-sm ${isDark ? "border-emerald-700/40 bg-emerald-950/20 text-emerald-100" : "border-emerald-700/20 bg-emerald-100/55 text-emerald-950"}`}>
@@ -4923,6 +5071,66 @@ export default function App() {
           )}
         </section>
       </main>
+
+      {saleConfirmTarget && (() => {
+        const saleBag = visibleBags.find((bag) => bag.id === saleConfirmTarget.bagId) ?? bags.find((bag) => bag.id === saleConfirmTarget.bagId);
+        const saleEntries = saleBag ? saleEntriesForBag(saleBag.id) : [];
+        const saleTotals = saleTotalsForEntries(saleEntries);
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+            <div className={`w-full max-w-3xl rounded-3xl border p-6 shadow-2xl ${isDark ? "border-[#8d713e]/55 bg-[#1b140e]/98" : "border-[#8a6a35]/35 bg-[#f8edd2]/98"}`}>
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="flex items-center gap-2 text-xl font-black"><Coins className="h-5 w-5" /> Verkaufsgut verkaufen</h3>
+                  <p className={`mt-1 text-sm ${mutedText}`}>{saleBag?.name ?? "Unbekannte Tasche"}</p>
+                </div>
+                <button className={secondaryButton} onClick={() => setSaleConfirmTarget(null)}><X className="h-4 w-4" /></button>
+              </div>
+
+              <div className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${isDark ? "border-yellow-700/45 bg-yellow-950/25 text-yellow-100" : "border-yellow-700/25 bg-yellow-100/70 text-yellow-950"}`}>
+                <div className="font-black">Auszahlung nach aktuellem Verkaufskurs</div>
+                <div className="mt-1 flex flex-wrap gap-2 text-xs font-bold">
+                  <span>Basiswert: {formatNumber(saleTotals.baseValue)} gp</span>
+                  <span>·</span>
+                  <span>Lokaler Verkauf: {formatNumber(saleTotals.localSellValue)} gp</span>
+                  <span>·</span>
+                  <span>Münzen: {currencyDeltaText(saleTotals.payoutCurrency)}</span>
+                  <span>·</span>
+                  <span>Verkaufskurs {formatMultiplier(tradeRates.sellMultiplier)}</span>
+                </div>
+              </div>
+
+              <div className={`mb-4 max-h-72 overflow-auto rounded-2xl border p-2 ${isDark ? "border-[#7b6237]/35 bg-[#1d150e]/70" : "border-[#9b7339]/25 bg-[#fff8df]/70"}`}>
+                {saleEntries.length === 0 ? (
+                  <div className={`p-4 text-center text-sm ${mutedText}`}>Kein Verkaufsgut mit Menge über 0 vorhanden.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {saleEntries.map((item) => {
+                      const itemBase = totalValue(item);
+                      const itemLocalSell = tradeAdjustedValue(itemBase, tradeRates.sellMultiplier);
+                      return (
+                        <div key={item.id} className="grid gap-2 rounded-xl border border-current/10 px-3 py-2 text-sm sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center">
+                          <div className="min-w-0">
+                            <div className="truncate font-black">{item.quantity}x {item.name}</div>
+                            <div className={`text-xs ${mutedText}`}>{getCategoryDef(normalizeItemCategory(item.category)).label} · {formatNumber(totalWeight(item))} lb</div>
+                          </div>
+                          <div className="text-xs font-bold tabular-nums opacity-80">Basis {formatNumber(itemBase)} gp</div>
+                          <div className="text-sm font-black tabular-nums">{formatNumber(itemLocalSell)} gp</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-wrap justify-end gap-2">
+                <button className={secondaryButton} onClick={() => setSaleConfirmTarget(null)}><X className="h-4 w-4" /> Abbrechen</button>
+                <button className={`${dangerButton} px-4 py-2`} disabled={!saleBag || !canWriteBag(saleBag) || saleEntries.length === 0} onClick={() => saleBag && confirmSellSaleGoods(saleBag.id)}><Trash2 className="h-4 w-4" /> Verkaufen und löschen</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {transferTarget && (() => {
         const item = items.find((entry) => entry.id === transferTarget.itemId);
@@ -5954,6 +6162,7 @@ function BagEditor({
 }) {
   const access = getBagAccess(bag);
   const [name, setName] = useState(bag.name);
+  const [description, setDescription] = useState(typeof bag.description === "string" ? bag.description : "");
   const [kind, setKind] = useState<BagKind>(getBagKind(bag));
   const [maxWeight, setMaxWeight] = useState(bag.maxWeight?.toString() ?? "");
   const [maxVolume, setMaxVolume] = useState(bag.maxVolume?.toString() ?? "");
@@ -5978,6 +6187,16 @@ function BagEditor({
       <div className="space-y-3">
         <Field label="Taschenname" mutedText={mutedText}>
           <input className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} value={name} onChange={(e) => setName(e.target.value)} placeholder="z. B. Ariralis Rucksack, Gruppenwagen, DM-Reserve" />
+        </Field>
+
+        <Field label="Beschreibung" mutedText={mutedText}>
+          <textarea
+            className={`w-full rounded-xl border px-3 py-2 text-sm leading-relaxed ${inputClass}`}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={3}
+            placeholder="Kurze Beschreibung, Hinweise, Besitzer, Inhaltsschwerpunkt ..."
+          />
         </Field>
 
         <div className="grid gap-2 md:grid-cols-3 md:items-start">
@@ -6065,6 +6284,7 @@ function BagEditor({
           onClick={() =>
             onSave({
               name: name.trim() || bag.name,
+              description: description.trim(),
               kind,
               maxWeight: numberOrNull(maxWeight),
               maxVolume: numberOrNull(maxVolume),
