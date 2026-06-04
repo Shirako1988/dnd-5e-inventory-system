@@ -773,6 +773,10 @@ function numberOrNull(value: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function cleanFirestorePayload<T extends Record<string, any>>(payload: T): T {
+  return Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined)) as T;
+}
+
 function normalizeItemQuantity(value: unknown, fallback = 1) {
   const numeric = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(numeric)) return Math.max(0, Math.round(fallback));
@@ -1981,8 +1985,8 @@ export default function App() {
       imageZoom: sanitizeImageZoom((raw as Bag).imageZoom),
       imagePositionX: sanitizeImagePosition((raw as Bag).imagePositionX),
       imagePositionY: sanitizeImagePosition((raw as Bag).imagePositionY),
-      imageUpdatedAt: typeof (raw as Bag).imageUpdatedAt === "number" ? (raw as Bag).imageUpdatedAt : undefined,
-      imageUpdatedBy: typeof (raw as Bag).imageUpdatedBy === "string" ? (raw as Bag).imageUpdatedBy : undefined,
+      ...(typeof (raw as Bag).imageUpdatedAt === "number" ? { imageUpdatedAt: (raw as Bag).imageUpdatedAt } : {}),
+      ...(typeof (raw as Bag).imageUpdatedBy === "string" ? { imageUpdatedBy: (raw as Bag).imageUpdatedBy } : {}),
       createdAt: typeof raw.createdAt === "number" ? raw.createdAt : timestamp,
       updatedAt: timestamp,
     };
@@ -2006,8 +2010,8 @@ export default function App() {
       imageZoom: sanitizeImageZoom(source.imageZoom),
       imagePositionX: sanitizeImagePosition(source.imagePositionX),
       imagePositionY: sanitizeImagePosition(source.imagePositionY),
-      imageUpdatedAt: typeof source.imageUpdatedAt === "number" ? source.imageUpdatedAt : undefined,
-      imageUpdatedBy: typeof source.imageUpdatedBy === "string" ? source.imageUpdatedBy : undefined,
+      ...(typeof source.imageUpdatedAt === "number" ? { imageUpdatedAt: source.imageUpdatedAt } : {}),
+      ...(typeof source.imageUpdatedBy === "string" ? { imageUpdatedBy: source.imageUpdatedBy } : {}),
       createdBy: typeof source.createdBy === "string" ? source.createdBy : activeUid,
       updatedBy: typeof source.updatedBy === "string" ? source.updatedBy : activeUid,
       createdAt: typeof source.createdAt === "number" ? source.createdAt : timestamp,
@@ -2163,8 +2167,8 @@ export default function App() {
 
       const writeOps: ((batch: ReturnType<typeof writeBatch>) => void)[] = [];
       writeOps.push((batch) => batch.set(doc(db, "campaigns", activeCampaignId), restoredCampaign, { merge: true }));
-      for (const bag of restoredBags) writeOps.push((batch) => batch.set(doc(db, "campaigns", activeCampaignId, "bags", bag.id), bag));
-      for (const item of restoredItems) writeOps.push((batch) => batch.set(doc(db, "campaigns", activeCampaignId, "items", item.id), item));
+      for (const bag of restoredBags) writeOps.push((batch) => batch.set(doc(db, "campaigns", activeCampaignId, "bags", bag.id), cleanFirestorePayload(bag as any)));
+      for (const item of restoredItems) writeOps.push((batch) => batch.set(doc(db, "campaigns", activeCampaignId, "items", item.id), cleanFirestorePayload(item as any)));
       for (const restoredMember of restoredMembers) {
         writeOps.push((batch) => batch.set(doc(db, "campaigns", activeCampaignId, "members", restoredMember.uid), restoredMember));
         writeOps.push((batch) => batch.set(doc(db, "users", restoredMember.uid, "campaigns", activeCampaignId), {
@@ -3051,19 +3055,19 @@ export default function App() {
   async function patchBag(id: string, patch: Partial<Bag>) {
     const ref = campaignDocPath("bags", id);
     if (!ref) throw new Error("Keine aktive Kampagne gefunden.");
-    await updateDoc(ref, withBagAccessMirror(patch));
+    await updateDoc(ref, cleanFirestorePayload(withBagAccessMirror(patch) as any));
   }
 
   async function writeItem(item: InventoryItem) {
     const ref = campaignDocPath("items", item.id);
     if (!ref) throw new Error("Keine aktive Kampagne gefunden.");
-    await setDoc(ref, item);
+    await setDoc(ref, cleanFirestorePayload(item as any));
   }
 
   async function patchItem(id: string, patch: Partial<InventoryItem>) {
     const ref = campaignDocPath("items", id);
     if (!ref) throw new Error("Keine aktive Kampagne gefunden.");
-    await updateDoc(ref, patch);
+    await updateDoc(ref, cleanFirestorePayload(patch as any));
   }
 
   async function deleteItemDoc(id: string) {
@@ -3290,7 +3294,7 @@ export default function App() {
     const bag = bags.find((entry) => entry.id === id);
     if (!canWriteBag(bag)) return;
 
-    const safePatch: Partial<Bag> = { ...patch, updatedAt: Date.now() };
+    const safePatch: Partial<Bag> = cleanFirestorePayload({ ...patch, updatedAt: Date.now() } as any);
     if (safePatch.access && isDm) {
       const validPlayerIds = new Set(members.filter((entry) => entry.role === "player").map((entry) => entry.uid));
       safePatch.access = sanitizeAccessUserLists(safePatch.access, validPlayerIds);
@@ -3562,7 +3566,7 @@ export default function App() {
       } else {
         const itemRef = campaignDocPath("items", item.id);
         if (!itemRef) throw new Error("Keine aktive Kampagne gefunden.");
-        batch.set(itemRef, item);
+        batch.set(itemRef, cleanFirestorePayload(item as any));
       }
       batch.update(bagRef, capacityPatchFromTotals(bagTotalsAfterDelta(selectedBag, { weight: totalWeight(item), volume: totalVolume(item), value: totalValue(item), count: item.quantity })));
       await batch.commit();
@@ -3606,7 +3610,7 @@ export default function App() {
     const currentCategory = normalizeItemCategory(current?.category ?? "gear");
     const categoryChanged = Boolean(current && patch.category !== undefined && nextCategory !== currentCategory);
     const shouldAppendToTargetCategory = Boolean(current && targetBag && (isMove || categoryChanged));
-    const safePatch: Partial<InventoryItem> = { ...patch, updatedBy: activeUid, updatedAt: nowTs };
+    const safePatch: Partial<InventoryItem> = cleanFirestorePayload({ ...patch, updatedBy: activeUid, updatedAt: nowTs } as any);
     if (patch.category !== undefined) safePatch.category = nextCategory;
     if (shouldAppendToTargetCategory && targetBag) safePatch.orderIndex = nextItemOrderIndex(targetBag.id, nextCategory);
 
@@ -3698,7 +3702,7 @@ export default function App() {
   }
 
   function transferredStackPayloadFromSource(item: InventoryItem, targetStackId: string, targetBagId: string, amount: number | ReturnType<typeof increment>, nowTs: number): Record<string, any> {
-    return {
+    return cleanFirestorePayload({
       id: targetStackId,
       bagId: targetBagId,
       name: item.name,
@@ -3714,15 +3718,15 @@ export default function App() {
       imageZoom: sanitizeImageZoom(item.imageZoom),
       imagePositionX: sanitizeImagePosition(item.imagePositionX),
       imagePositionY: sanitizeImagePosition(item.imagePositionY),
-      imageUpdatedAt: typeof item.imageUpdatedAt === "number" ? item.imageUpdatedAt : undefined,
-      imageUpdatedBy: typeof item.imageUpdatedBy === "string" ? item.imageUpdatedBy : undefined,
+      ...(typeof item.imageUpdatedAt === "number" ? { imageUpdatedAt: item.imageUpdatedAt } : {}),
+      ...(typeof item.imageUpdatedBy === "string" ? { imageUpdatedBy: item.imageUpdatedBy } : {}),
       createdBy: typeof item.createdBy === "string" ? item.createdBy : activeUid,
       createdAt: typeof item.createdAt === "number" ? item.createdAt : nowTs,
       updatedBy: activeUid,
       updatedAt: nowTs,
       lastTransferSourceItemId: item.id,
       lastTransferSourceBagId: item.bagId,
-    };
+    });
   }
 
   async function confirmItemTransfer() {
@@ -3814,10 +3818,10 @@ export default function App() {
         if (itemNeedsMetadataRepair(targetStack)) {
           Object.assign(stackUpdate, transferredStackPayloadFromSource(item, targetStack.id, targetBag.id, targetStack.quantity + amount, nowTs));
         }
-        batch.update(targetStackRef, stackUpdate);
+        batch.update(targetStackRef, cleanFirestorePayload(stackUpdate));
       } else {
         const stackPayload = transferredStackPayloadFromSource(item, targetStackId, targetBag.id, increment(amount), nowTs);
-        batch.set(targetStackRef, stackPayload, { merge: true });
+        batch.set(targetStackRef, cleanFirestorePayload(stackPayload), { merge: true });
       }
 
       if (amount >= item.quantity) {
