@@ -394,6 +394,7 @@ type CampaignBackup = {
     bagOrderIds: string[];
     itemSortKey: ItemSortKey;
     itemSortDirection: SortDirection;
+    collapsedCategoryKeys?: string[];
   };
 };
 
@@ -643,7 +644,7 @@ function validateCampaignBackupPayload(payload: unknown): CampaignBackup {
   if (!Array.isArray(backup.items)) throw new Error("Im Backup fehlen die Items.");
   if (!Array.isArray(backup.auditLog)) backup.auditLog = [];
   if (!backup.localState) {
-    backup.localState = { selectedBagId: "", bagOrderIds: [], itemSortKey: "custom", itemSortDirection: "asc" };
+    backup.localState = { selectedBagId: "", bagOrderIds: [], itemSortKey: "custom", itemSortDirection: "asc", collapsedCategoryKeys: [] };
   }
   return backup as CampaignBackup;
 }
@@ -659,6 +660,18 @@ function backupCounts(backup: CampaignBackup) {
 
 function bagOrderStorageKey(campaignId: string | null, uid: string) {
   return `dnd-inventory-bag-order:${campaignId ?? "local"}:${uid}`;
+}
+
+function selectedBagStorageKey(campaignId: string | null, uid: string) {
+  return `dnd-inventory-selected-bag:${campaignId ?? "local"}:${uid}`;
+}
+
+function collapsedCategoriesStorageKey(campaignId: string | null, uid: string) {
+  return `dnd-inventory-collapsed-categories:${campaignId ?? "local"}:${uid}`;
+}
+
+function inventoryCategoryKey(bagId: string, category: ItemCategory) {
+  return `${bagId}:${category}`;
 }
 
 function orderBagsForUser(bagList: Bag[], orderIds: string[]) {
@@ -1411,6 +1424,7 @@ export default function App() {
   const [editingBagId, setEditingBagId] = useState<string | null>(null);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [expandedItemIds, setExpandedItemIds] = useState<string[]>([]);
+  const [collapsedCategoryKeys, setCollapsedCategoryKeys] = useState<string[]>([]);
   const [itemCatalogOpen, setItemCatalogOpen] = useState(false);
   const [newBagName, setNewBagName] = useState("");
   const [newBagKind, setNewBagKind] = useState<BagKind>("inventory");
@@ -1752,6 +1766,8 @@ export default function App() {
   const isApprovedMember = !firebaseConfigured || member?.role === "dm" || member?.role === "player";
   const activeUid = userUid ?? localUserId;
   const currentBagOrderStorageKey = bagOrderStorageKey(activeCampaignId, activeUid);
+  const currentSelectedBagStorageKey = selectedBagStorageKey(activeCampaignId, activeUid);
+  const currentCollapsedCategoriesStorageKey = collapsedCategoriesStorageKey(activeCampaignId, activeUid);
   const sortedMembers = useMemo(() => [...members].sort(compareCampaignMembers), [members]);
   const tradeRates = useMemo(() => campaignTradeRates(campaign), [campaign?.tradeRateName, campaign?.tradeBuyMultiplier, campaign?.tradeSellMultiplier]);
 
@@ -1846,6 +1862,7 @@ export default function App() {
         bagOrderIds: [...bagOrderIds],
         itemSortKey,
         itemSortDirection,
+        collapsedCategoryKeys: [...collapsedCategoryKeys],
       },
     };
   }
@@ -2205,6 +2222,15 @@ export default function App() {
       if (restoredSortKey && (["custom", "name", "quantity", "weightUnit", "weightStack", "volumeUnit", "volumeStack", "valueUnit", "valueStack", "createdAt", "updatedAt"] as string[]).includes(restoredSortKey)) setItemSortKey(restoredSortKey);
       const restoredSortDirection = backup.localState?.itemSortDirection;
       if (restoredSortDirection && (["asc", "desc"] as string[]).includes(restoredSortDirection)) setItemSortDirection(restoredSortDirection);
+      if (Array.isArray(backup.localState?.collapsedCategoryKeys)) {
+        const restoredCollapsed = backup.localState.collapsedCategoryKeys.filter((entry) => typeof entry === "string");
+        setCollapsedCategoryKeys(restoredCollapsed);
+        try {
+          localStorage.setItem(currentCollapsedCategoriesStorageKey, JSON.stringify(restoredCollapsed));
+        } catch {
+          // Collapse-Zustand ist nur lokale UI.
+        }
+      }
       setRestoreCandidate(null);
       setRestoreConfirmCampaignName("");
       setRestoreConfirmWord("");
@@ -2227,6 +2253,34 @@ export default function App() {
     }
   }, [currentBagOrderStorageKey]);
 
+  useEffect(() => {
+    try {
+      const storedBagId = localStorage.getItem(currentSelectedBagStorageKey);
+      setSelectedBagId(storedBagId || "");
+    } catch {
+      setSelectedBagId("");
+    }
+  }, [currentSelectedBagStorageKey]);
+
+  useEffect(() => {
+    if (!selectedBagId) return;
+    try {
+      localStorage.setItem(currentSelectedBagStorageKey, selectedBagId);
+    } catch {
+      // Zuletzt geöffnete Tasche ist nur lokale UI.
+    }
+  }, [selectedBagId, currentSelectedBagStorageKey]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(currentCollapsedCategoriesStorageKey);
+      const parsed = raw ? JSON.parse(raw) : [];
+      setCollapsedCategoryKeys(Array.isArray(parsed) ? parsed.filter((entry) => typeof entry === "string") : []);
+    } catch {
+      setCollapsedCategoryKeys([]);
+    }
+  }, [currentCollapsedCategoriesStorageKey]);
+
   function saveBagOrder(nextOrderIds: string[]) {
     setBagOrderIds(nextOrderIds);
     try {
@@ -2234,6 +2288,25 @@ export default function App() {
     } catch {
       // Lokale Sortierung ist Komfort. Wenn localStorage blockiert, darf die App weiterlaufen.
     }
+  }
+
+  function saveCollapsedCategoryKeys(nextKeys: string[]) {
+    const uniqueKeys = Array.from(new Set(nextKeys));
+    setCollapsedCategoryKeys(uniqueKeys);
+    try {
+      localStorage.setItem(currentCollapsedCategoriesStorageKey, JSON.stringify(uniqueKeys));
+    } catch {
+      // Collapse-Zustand ist nur lokale UI.
+    }
+  }
+
+  function toggleCategoryCollapsed(bagId: string, category: ItemCategory) {
+    const key = inventoryCategoryKey(bagId, category);
+    saveCollapsedCategoryKeys(
+      collapsedCategoryKeys.includes(key)
+        ? collapsedCategoryKeys.filter((entry) => entry !== key)
+        : [...collapsedCategoryKeys, key],
+    );
   }
 
   function canTargetBag(bag: Bag | undefined | null) {
@@ -2602,9 +2675,21 @@ export default function App() {
   }, [campaign?.id, campaign?.name, campaign?.joinCode, member?.role, member?.displayName, userUid]);
 
   useEffect(() => {
-    if (!selectedBagId && visibleBags[0]) setSelectedBagId(visibleBags[0].id);
-    if (selectedBagId && !visibleBags.some((bag) => bag.id === selectedBagId) && visibleBags[0]) setSelectedBagId(visibleBags[0].id);
-  }, [visibleBags, selectedBagId]);
+    if (!visibleBags.length) {
+      if (selectedBagId) setSelectedBagId("");
+      return;
+    }
+    if (!selectedBagId || !visibleBags.some((bag) => bag.id === selectedBagId)) {
+      let storedBagId = "";
+      try {
+        storedBagId = localStorage.getItem(currentSelectedBagStorageKey) || "";
+      } catch {
+        storedBagId = "";
+      }
+      const restoredBag = storedBagId ? visibleBags.find((bag) => bag.id === storedBagId) : null;
+      setSelectedBagId(restoredBag?.id ?? visibleBags[0].id);
+    }
+  }, [visibleBags, selectedBagId, currentSelectedBagStorageKey]);
 
   const itemsByBag = useMemo(() => {
     const map = new Map<string, InventoryItem[]>();
@@ -3076,11 +3161,12 @@ export default function App() {
     await deleteDoc(ref);
   }
 
-  function logAction(type: string, message: string, targetId: string | null = null) {
-    if (!firebaseDb || !activeCampaignId || !userUid) return;
-    const entry: AuditLogEntry = {
+  function makeAuditLogEntry(type: string, message: string, targetId: string | null = null): AuditLogEntry | null {
+    const actorUid = firebaseConfigured ? userUid : activeUid;
+    if (!actorUid) return null;
+    return {
       id: uid("log"),
-      actorUid: userUid,
+      actorUid,
       actorName: member?.displayName ?? authUser?.displayName ?? authUser?.email ?? "Unbekannt",
       type,
       category: auditCategoryFromType(type),
@@ -3088,7 +3174,29 @@ export default function App() {
       message,
       createdAt: Date.now(),
     };
-    setDoc(doc(firebaseDb, "campaigns", activeCampaignId, "auditLog", entry.id), entry).catch(() => undefined);
+  }
+
+  function addAuditLogLocally(entry: AuditLogEntry) {
+    setAuditLog((prev) => {
+      if (prev.some((existing) => existing.id === entry.id)) return prev;
+      return [entry, ...prev].sort((a, b) => b.createdAt - a.createdAt).slice(0, 200);
+    });
+  }
+
+  function logAction(type: string, message: string, targetId: string | null = null) {
+    const entry = makeAuditLogEntry(type, message, targetId);
+    if (!entry) return;
+    if (!firebaseDb || !activeCampaignId || !userUid) {
+      addAuditLogLocally(entry);
+      return;
+    }
+    setDoc(doc(firebaseDb, "campaigns", activeCampaignId, "auditLog", entry.id), cleanFirestorePayload(entry as any))
+      .then(() => addAuditLogLocally(entry))
+      .catch((error) => {
+        console.warn("Aktivitätslog konnte nicht geschrieben werden", error instanceof Error ? error.message : error);
+        setSyncStatus("error");
+        setSyncError(error instanceof Error ? `Aktivitätslog konnte nicht geschrieben werden: ${error.message}` : "Aktivitätslog konnte nicht geschrieben werden.");
+      });
   }
 
   async function updateTradeRates() {
@@ -3794,6 +3902,7 @@ export default function App() {
           setItems((prev) => prev.map((entry) => (entry.id === item.id ? { ...entry, quantity: item.quantity - amount, updatedBy: activeUid, updatedAt: nowTs } : entry)).concat(newStackItem));
         }
       }
+      logAction(targetStack ? "item_stacked" : "item_moved", `${member?.displayName ?? "Jemand"} hat ${amount}x „${item.name}“ von „${sourceBag.name}“ nach „${targetBag.name}“ übertragen${targetStack ? " und mit einem vorhandenen Stapel zusammengeführt" : ""}.`, targetStackId);
       setTransferTarget(null);
       return;
     }
@@ -3832,9 +3941,15 @@ export default function App() {
 
       batch.update(sourceBagRef, capacityPatchFromTotals(bagTotalsAfterDelta(sourceBag, { weight: -movedWeight, volume: -movedVolume, value: -movedValue, count: -amount })));
       batch.update(targetBagRef, capacityPatchFromTotals(bagTotalsAfterDelta(targetBag, { weight: movedWeight, volume: movedVolume, value: movedValue, count: amount })));
+
+      const transferLog = makeAuditLogEntry(targetStack ? "item_stacked" : "item_moved", `${member?.displayName ?? "Jemand"} hat ${amount}x „${item.name}“ von „${sourceBag.name}“ nach „${targetBag.name}“ übertragen${targetStack ? " und mit einem vorhandenen Stapel zusammengeführt" : ""}.`, targetStackId);
+      if (transferLog) {
+        batch.set(doc(firebaseDb, "campaigns", activeCampaignId, "auditLog", transferLog.id), cleanFirestorePayload(transferLog as any));
+      }
+
       await batch.commit();
 
-      logAction(targetStack ? "item_stacked" : "item_moved", `${member?.displayName ?? "Jemand"} hat ${amount}x „${item.name}“ von „${sourceBag.name}“ nach „${targetBag.name}“ übertragen${targetStack ? " und mit einem vorhandenen Stapel zusammengeführt" : ""}.`, targetStackId);
+      if (transferLog) addAuditLogLocally(transferLog);
       setTransferTarget(null);
       setSyncStatus("online");
       setSyncError(null);
@@ -4632,8 +4747,17 @@ export default function App() {
                       const saleTotal = category === "sale" ? entries.reduce((sum, entry) => sum + totalValue(entry), 0) : 0;
                       const saleLocalSellTotal = category === "sale" ? tradeAdjustedValue(saleTotal, tradeRates.sellMultiplier) : 0;
                       const saleQuantity = category === "sale" ? entries.reduce((sum, entry) => sum + entry.quantity, 0) : 0;
+                      const collapseKey = selectedBag ? inventoryCategoryKey(selectedBag.id, category) : category;
+                      const categoryCollapsed = collapsedCategoryKeys.includes(collapseKey);
                       const sectionHeader = (
-                        <div key={`category-${category}`} className={`mt-3 flex flex-wrap items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-black ${isDark ? "border-[#8d713e]/35 bg-[#2a1f14]/70" : "border-[#9b7339]/25 bg-[#f1ddb3]/80"}`}>
+                        <button
+                          key={`category-${category}`}
+                          type="button"
+                          className={`mt-3 flex w-full flex-wrap items-center gap-2 rounded-2xl border px-3 py-2 text-left text-sm font-black transition ${isDark ? "border-[#8d713e]/35 bg-[#2a1f14]/70 hover:bg-[#3a2a16]/85" : "border-[#9b7339]/25 bg-[#f1ddb3]/80 hover:bg-[#ead6a9]"}`}
+                          onClick={() => selectedBag && toggleCategoryCollapsed(selectedBag.id, category)}
+                          title={categoryCollapsed ? "Kategorie ausklappen" : "Kategorie einklappen"}
+                        >
+                          <span className={`flex h-8 w-8 items-center justify-center rounded-full border ${isDark ? "border-[#8d713e]/50 bg-[#1a130d]" : "border-[#9b7339]/35 bg-[#fff8df]"}`}>{categoryCollapsed ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</span>
                           <span className={`flex h-8 w-8 items-center justify-center rounded-full border ${isDark ? "border-[#8d713e]/50 bg-[#1a130d]" : "border-[#9b7339]/35 bg-[#fff8df]"}`}>{categoryIcon(category, "h-4 w-4")}</span>
                           <span>{categoryDef.label}</span>
                           {category === "sale" && (
@@ -4643,7 +4767,7 @@ export default function App() {
                             </>
                           )}
                           <span className={`ml-auto rounded-full border px-2 py-0.5 text-xs ${isDark ? "border-[#8d713e]/40 bg-[#1a130d]" : "border-[#9b7339]/25 bg-[#fff8df]"}`}>{entries.length}</span>
-                        </div>
+                        </button>
                       );
                       const saleSummary = category === "sale" ? (
                         <div key={`category-${category}-summary`} className={`rounded-2xl border px-4 py-3 text-sm ${isDark ? "border-emerald-700/40 bg-emerald-950/20 text-emerald-100" : "border-emerald-700/20 bg-emerald-100/55 text-emerald-950"}`}>
@@ -4657,7 +4781,7 @@ export default function App() {
                           <div className="mt-1 text-xs font-semibold opacity-80">{entries.length} Stapel · {saleQuantity} Gegenstände mit dem Tag „Verkaufsgut“ · Verkaufskurs {formatMultiplier(tradeRates.sellMultiplier)}.</div>
                         </div>
                       ) : null;
-                      return [
+                      return categoryCollapsed ? [sectionHeader] : [
                         sectionHeader,
                         ...(saleSummary ? [saleSummary] : []),
                         ...entries.map((item) => {
