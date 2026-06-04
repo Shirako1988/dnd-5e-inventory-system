@@ -4648,8 +4648,8 @@ export default function App() {
 
                                   <InlineItemValueStat label="Gewicht" unit="lb" single={item.weightPerUnit ?? 0} stack={totalWeight(item)} />
                                   <InlineItemValueStat label="Volumen" single={item.volumePerUnit ?? 0} stack={totalVolume(item)} />
-                                  <InlineLocalTradeValueStat baseStack={totalValue(item)} rates={tradeRates} />
                                   <InlineItemValueStat label="Wert" unit="gp" single={item.valuePerUnit ?? 0} stack={totalValue(item)} />
+                                  <InlineLocalTradeValueStat baseSingle={item.valuePerUnit ?? 0} baseStack={totalValue(item)} rates={tradeRates} />
                                 </div>
                               </div>
 
@@ -5656,16 +5656,16 @@ function InlineItemValueStat({ label, single, stack, unit = "" }: { label: strin
   );
 }
 
-function InlineLocalTradeValueStat({ baseStack, rates }: { baseStack: number; rates: TradeRates }) {
-  const buyText = `${formatNumber(tradeAdjustedValue(baseStack, rates.buyMultiplier))} gp`;
-  const sellText = `${formatNumber(tradeAdjustedValue(baseStack, rates.sellMultiplier))} gp`;
-  const minWidth = Math.min(420, Math.max(210, Math.max(buyText.length, sellText.length) * 8 + 118));
+function InlineLocalTradeValueStat({ baseSingle, baseStack, rates }: { baseSingle: number; baseStack: number; rates: TradeRates }) {
+  const singleText = `${formatNumber(tradeAdjustedValue(baseSingle, rates.sellMultiplier))} gp`;
+  const stackText = `${formatNumber(tradeAdjustedValue(baseStack, rates.sellMultiplier))} gp`;
+  const minWidth = Math.min(360, Math.max(170, Math.max(singleText.length + 3, stackText.length + 8) * 8 + 42));
   return (
     <div className="h-12 shrink-0 rounded-lg border border-current/10 bg-current/5 px-2 py-1 text-[11px]" style={{ minWidth }}>
       <div className="whitespace-nowrap font-black leading-4 opacity-75">Lokaler Wert</div>
       <div className="mt-0.5 grid grid-cols-[max-content_max-content] gap-2 leading-4">
-        <div className="whitespace-nowrap"><span className="opacity-60">Kauf </span><span className="font-black tabular-nums">{buyText}</span></div>
-        <div className="whitespace-nowrap border-l border-current/10 pl-2"><span className="opacity-60">Verkauf </span><span className="font-black tabular-nums">{sellText}</span></div>
+        <div className="whitespace-nowrap"><span className="opacity-60">1x </span><span className="font-black tabular-nums">{singleText}</span></div>
+        <div className="whitespace-nowrap border-l border-current/10 pl-2"><span className="opacity-60">Stack </span><span className="font-black tabular-nums">{stackText}</span></div>
       </div>
     </div>
   );
