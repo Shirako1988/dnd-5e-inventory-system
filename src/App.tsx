@@ -773,6 +773,20 @@ function numberOrNull(value: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function normalizeItemQuantity(value: unknown, fallback = 1) {
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numeric)) return Math.max(0, Math.round(fallback));
+  return Math.max(0, Math.round(numeric));
+}
+
+function clampedTransferAmount(value: unknown, available: unknown) {
+  const availableQuantity = normalizeItemQuantity(available, 0);
+  if (availableQuantity <= 0) return 0;
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numeric)) return 1;
+  return Math.max(1, Math.min(availableQuantity, Math.round(numeric)));
+}
+
 function formatNumber(value: number | null | undefined, fallback = "—") {
   if (value === null || value === undefined) return fallback;
   if (Number.isInteger(value)) return `${value}`;
@@ -1964,6 +1978,9 @@ export default function App() {
       access: getBagAccess(raw as Bag),
       targetAccessKeys: targetAccessKeysForAccess(getBagAccess(raw as Bag)),
       imageUrl: sanitizeImageUrl((raw as Bag).imageUrl),
+      imageZoom: sanitizeImageZoom((raw as Bag).imageZoom),
+      imagePositionX: sanitizeImagePosition((raw as Bag).imagePositionX),
+      imagePositionY: sanitizeImagePosition((raw as Bag).imagePositionY),
       imageUpdatedAt: typeof (raw as Bag).imageUpdatedAt === "number" ? (raw as Bag).imageUpdatedAt : undefined,
       imageUpdatedBy: typeof (raw as Bag).imageUpdatedBy === "string" ? (raw as Bag).imageUpdatedBy : undefined,
       createdAt: typeof raw.createdAt === "number" ? raw.createdAt : timestamp,
@@ -1971,26 +1988,39 @@ export default function App() {
     };
   }
 
+  function normalizeLiveItem(raw: Partial<InventoryItem> | undefined, fallbackId: string, timestamp = Date.now()): InventoryItem {
+    const source = raw ?? {};
+    return {
+      id: typeof source.id === "string" && source.id ? source.id : fallbackId,
+      bagId: typeof source.bagId === "string" ? source.bagId : "",
+      name: typeof source.name === "string" && source.name.trim() ? source.name.trim() : "Unbenanntes Item",
+      quantity: normalizeItemQuantity(source.quantity, 1),
+      weightPerUnit: typeof source.weightPerUnit === "number" && Number.isFinite(source.weightPerUnit) ? source.weightPerUnit : null,
+      volumePerUnit: typeof source.volumePerUnit === "number" && Number.isFinite(source.volumePerUnit) ? source.volumePerUnit : null,
+      valuePerUnit: typeof source.valuePerUnit === "number" && Number.isFinite(source.valuePerUnit) ? source.valuePerUnit : null,
+      description: typeof source.description === "string" ? source.description : "",
+      notes: typeof source.notes === "string" ? source.notes : "",
+      category: normalizeItemCategory(source.category),
+      orderIndex: typeof source.orderIndex === "number" && Number.isFinite(source.orderIndex) ? source.orderIndex : (typeof source.createdAt === "number" ? source.createdAt : timestamp),
+      imageUrl: sanitizeImageUrl(source.imageUrl),
+      imageZoom: sanitizeImageZoom(source.imageZoom),
+      imagePositionX: sanitizeImagePosition(source.imagePositionX),
+      imagePositionY: sanitizeImagePosition(source.imagePositionY),
+      imageUpdatedAt: typeof source.imageUpdatedAt === "number" ? source.imageUpdatedAt : undefined,
+      imageUpdatedBy: typeof source.imageUpdatedBy === "string" ? source.imageUpdatedBy : undefined,
+      createdBy: typeof source.createdBy === "string" ? source.createdBy : activeUid,
+      updatedBy: typeof source.updatedBy === "string" ? source.updatedBy : activeUid,
+      createdAt: typeof source.createdAt === "number" ? source.createdAt : timestamp,
+      updatedAt: typeof source.updatedAt === "number" ? source.updatedAt : timestamp,
+    };
+  }
+
   function normalizeImportedItem(raw: InventoryItem, knownBagIds: Set<string>, rescueBagId: string | null, timestamp: number): InventoryItem {
     const targetBagId = knownBagIds.has(raw.bagId) ? raw.bagId : rescueBagId ?? Array.from(knownBagIds)[0] ?? "restored_items";
+    const normalized = normalizeLiveItem(raw, typeof raw.id === "string" && raw.id ? raw.id : uid("item_restore"), timestamp);
     return {
-      id: typeof raw.id === "string" && raw.id ? raw.id : uid("item_restore"),
+      ...normalized,
       bagId: targetBagId,
-      name: typeof raw.name === "string" && raw.name.trim() ? raw.name.trim() : "Unbenanntes Item",
-      quantity: Math.max(1, Math.round(Number(raw.quantity) || 1)),
-      weightPerUnit: typeof raw.weightPerUnit === "number" ? raw.weightPerUnit : null,
-      volumePerUnit: typeof raw.volumePerUnit === "number" ? raw.volumePerUnit : null,
-      valuePerUnit: typeof raw.valuePerUnit === "number" ? raw.valuePerUnit : null,
-      description: typeof raw.description === "string" ? raw.description : "",
-      notes: typeof raw.notes === "string" ? raw.notes : "",
-      category: normalizeItemCategory(raw.category),
-      orderIndex: typeof raw.orderIndex === "number" ? raw.orderIndex : timestamp,
-      imageUrl: sanitizeImageUrl(raw.imageUrl),
-      imageUpdatedAt: typeof raw.imageUpdatedAt === "number" ? raw.imageUpdatedAt : undefined,
-      imageUpdatedBy: typeof raw.imageUpdatedBy === "string" ? raw.imageUpdatedBy : undefined,
-      createdBy: typeof raw.createdBy === "string" ? raw.createdBy : activeUid,
-      updatedBy: typeof raw.updatedBy === "string" ? raw.updatedBy : activeUid,
-      createdAt: typeof raw.createdAt === "number" ? raw.createdAt : timestamp,
       updatedAt: timestamp,
     };
   }
@@ -2525,7 +2555,7 @@ export default function App() {
       onSnapshot(
         query(collection(firebaseDb, "campaigns", activeCampaignId, "items"), where("bagId", "in", chunk)),
         (snapshot) => {
-          chunkResults.set(index, snapshot.docs.map((entry) => entry.data() as InventoryItem));
+          chunkResults.set(index, snapshot.docs.map((entry) => normalizeLiveItem(entry.data() as Partial<InventoryItem>, entry.id)));
           setItems(Array.from(chunkResults.values()).flat());
           setSyncStatus("online");
         },
@@ -3122,7 +3152,8 @@ export default function App() {
       const memberSnapshot = await getDocs(collection(firebaseDb, "campaigns", activeCampaignId, "members"));
 
       const latestBags = bagSnapshot.docs.map((entry) => entry.data() as Bag);
-      const latestItems = itemSnapshot.docs.map((entry) => entry.data() as InventoryItem);
+      const repairTimestamp = Date.now();
+      const latestItems = itemSnapshot.docs.map((entry) => normalizeLiveItem(entry.data() as Partial<InventoryItem>, entry.id, repairTimestamp));
       const validPlayerIds = new Set(
         memberSnapshot.docs
           .map((entry) => entry.data() as CampaignMember)
@@ -3152,6 +3183,7 @@ export default function App() {
       let batch = writeBatch(firebaseDb);
       let ops = 0;
       let repairedBags = 0;
+      let repairedItems = 0;
       const now = Date.now();
 
       const commitIfNeeded = () => {
@@ -3183,12 +3215,19 @@ export default function App() {
         if (ops >= 450) commitIfNeeded();
       }
 
+      for (const item of latestItems) {
+        batch.set(doc(firebaseDb, "campaigns", activeCampaignId, "items", item.id), { ...item, updatedAt: now, updatedBy: activeUid }, { merge: true });
+        ops += 1;
+        repairedItems += 1;
+        if (ops >= 450) commitIfNeeded();
+      }
+
       commitIfNeeded();
       await Promise.all(commits);
 
       logAction(
         "campaign_repaired",
-        `${member?.displayName ?? "DM"} hat die Kampagnendaten repariert: ${repairedBags} Taschen neu berechnet${orphanItems ? `, ${orphanItems} verwaiste Items ignoriert` : ""}.`,
+        `${member?.displayName ?? "DM"} hat die Kampagnendaten repariert: ${repairedBags} Taschen neu berechnet, ${repairedItems} Items normalisiert${orphanItems ? `, ${orphanItems} verwaiste Items ignoriert` : ""}.`,
         activeCampaignId,
       );
 
@@ -3466,7 +3505,7 @@ export default function App() {
     if (!selectedBag || !canWriteBag(selectedBag)) return;
     const name = newItem.name.trim();
     if (!name) return;
-    const quantity = Math.max(1, Number(newItem.quantity) || 1);
+    const quantity = normalizeItemQuantity(newItem.quantity, 1);
     const createdAt = Date.now();
     const itemBase = {
       bagId: selectedBag.id,
@@ -3644,6 +3683,48 @@ export default function App() {
     setTransferTarget({ itemId, targetBagId, quantity: String(item.quantity) });
   }
 
+  function itemNeedsMetadataRepair(item: InventoryItem | undefined | null) {
+    if (!item) return true;
+    return (
+      typeof item.description !== "string" ||
+      typeof item.notes !== "string" ||
+      item.category === undefined ||
+      typeof item.weightPerUnit === "undefined" ||
+      typeof item.volumePerUnit === "undefined" ||
+      typeof item.valuePerUnit === "undefined" ||
+      typeof item.createdBy !== "string" ||
+      typeof item.createdAt !== "number"
+    );
+  }
+
+  function transferredStackPayloadFromSource(item: InventoryItem, targetStackId: string, targetBagId: string, amount: number | ReturnType<typeof increment>, nowTs: number): Record<string, any> {
+    return {
+      id: targetStackId,
+      bagId: targetBagId,
+      name: item.name,
+      quantity: amount,
+      weightPerUnit: item.weightPerUnit ?? null,
+      volumePerUnit: item.volumePerUnit ?? null,
+      valuePerUnit: item.valuePerUnit ?? null,
+      description: typeof item.description === "string" ? item.description : "",
+      notes: typeof item.notes === "string" ? item.notes : "",
+      category: normalizeItemCategory(item.category),
+      orderIndex: nextItemOrderIndex(targetBagId, normalizeItemCategory(item.category)),
+      imageUrl: sanitizeImageUrl(item.imageUrl),
+      imageZoom: sanitizeImageZoom(item.imageZoom),
+      imagePositionX: sanitizeImagePosition(item.imagePositionX),
+      imagePositionY: sanitizeImagePosition(item.imagePositionY),
+      imageUpdatedAt: typeof item.imageUpdatedAt === "number" ? item.imageUpdatedAt : undefined,
+      imageUpdatedBy: typeof item.imageUpdatedBy === "string" ? item.imageUpdatedBy : undefined,
+      createdBy: typeof item.createdBy === "string" ? item.createdBy : activeUid,
+      createdAt: typeof item.createdAt === "number" ? item.createdAt : nowTs,
+      updatedBy: activeUid,
+      updatedAt: nowTs,
+      lastTransferSourceItemId: item.id,
+      lastTransferSourceBagId: item.bagId,
+    };
+  }
+
   async function confirmItemTransfer() {
     if (!transferTarget) return;
 
@@ -3655,7 +3736,8 @@ export default function App() {
       return;
     }
 
-    const amount = Math.max(1, Math.min(item.quantity, Number(transferTarget.quantity) || 1));
+    const amount = clampedTransferAmount(transferTarget.quantity, item.quantity);
+    if (amount <= 0) return;
     if (!canWriteBag(sourceBag) || !canDepositBag(targetBag)) return;
 
     const movedItem: InventoryItem = { ...item, bagId: targetBag.id, quantity: amount };
@@ -3722,35 +3804,19 @@ export default function App() {
       const nowTs = Date.now();
 
       if (targetStack) {
-        batch.update(targetStackRef, {
+        const stackUpdate: Record<string, any> = {
           quantity: targetStack.quantity + amount,
           updatedBy: activeUid,
           updatedAt: nowTs,
           lastTransferSourceItemId: item.id,
           lastTransferSourceBagId: sourceBag.id,
-        });
-      } else {
-        const stackPayload: Record<string, unknown> = {
-          id: targetStackId,
-          bagId: targetBag.id,
-          name: item.name,
-          quantity: increment(amount),
-          weightPerUnit: item.weightPerUnit ?? null,
-          volumePerUnit: item.volumePerUnit ?? null,
-          valuePerUnit: item.valuePerUnit ?? null,
-          updatedBy: activeUid,
-          updatedAt: nowTs,
-          lastTransferSourceItemId: item.id,
-          lastTransferSourceBagId: sourceBag.id,
         };
-        if (canOpenBag(targetBag)) {
-          stackPayload.category = normalizeItemCategory(item.category);
-          stackPayload.orderIndex = nextItemOrderIndex(targetBag.id, normalizeItemCategory(item.category));
-          stackPayload.description = item.description;
-          stackPayload.notes = item.notes;
-          stackPayload.createdBy = activeUid;
-          stackPayload.createdAt = nowTs;
+        if (itemNeedsMetadataRepair(targetStack)) {
+          Object.assign(stackUpdate, transferredStackPayloadFromSource(item, targetStack.id, targetBag.id, targetStack.quantity + amount, nowTs));
         }
+        batch.update(targetStackRef, stackUpdate);
+      } else {
+        const stackPayload = transferredStackPayloadFromSource(item, targetStackId, targetBag.id, increment(amount), nowTs);
         batch.set(targetStackRef, stackPayload, { merge: true });
       }
 
@@ -4664,7 +4730,7 @@ export default function App() {
                                 <div className="flex flex-wrap items-center gap-2 2xl:justify-end">
                                   <div className={`grid h-10 shrink-0 grid-cols-[auto_28px_56px_28px] items-center gap-1 rounded-full border px-2 text-xs shadow-inner ${isDark ? "border-[#8d713e]/50 bg-[#2f2316]" : "border-[#9b7339]/35 bg-[#f1ddb3]"}`}>
                                     <span className="pr-1 font-semibold opacity-75">Menge</span>
-                                    <button disabled={!writable} className={`flex h-7 w-7 items-center justify-center rounded-full border transition hover:scale-105 disabled:opacity-30 ${isDark ? "border-[#8d713e]/60 bg-[#1a130d] hover:bg-[#3a2a16]" : "border-[#9b7339]/45 bg-[#fff8df] hover:bg-[#ead6a9]"}`} onClick={() => updateItem(item.id, { quantity: Math.max(1, item.quantity - 1) })} title="Menge verringern"><span className="relative -top-[2px] flex h-4 w-4 items-center justify-center text-lg font-black leading-none">−</span></button>
+                                    <button disabled={!writable} className={`flex h-7 w-7 items-center justify-center rounded-full border transition hover:scale-105 disabled:opacity-30 ${isDark ? "border-[#8d713e]/60 bg-[#1a130d] hover:bg-[#3a2a16]" : "border-[#9b7339]/45 bg-[#fff8df] hover:bg-[#ead6a9]"}`} onClick={() => updateItem(item.id, { quantity: Math.max(0, item.quantity - 1) })} title="Menge verringern"><span className="relative -top-[2px] flex h-4 w-4 items-center justify-center text-lg font-black leading-none">−</span></button>
                                     <input
                                       disabled={!writable}
                                       className={`h-7 w-[56px] rounded-lg border px-0 text-center text-sm font-black leading-none tabular-nums ${inputClass}`}
@@ -4674,7 +4740,7 @@ export default function App() {
                                       value={item.quantity}
                                       onChange={(event) => {
                                         const onlyDigits = event.target.value.replace(/\D/g, "");
-                                        updateItem(item.id, { quantity: Math.max(1, Number(onlyDigits) || 1) });
+                                        updateItem(item.id, { quantity: normalizeItemQuantity(onlyDigits, 0) });
                                       }}
                                       title="Menge direkt ändern"
                                     />
@@ -4734,7 +4800,7 @@ export default function App() {
         const item = items.find((entry) => entry.id === transferTarget.itemId);
         const sourceBag = bags.find((bag) => bag.id === item?.bagId);
         const targetBag = bags.find((bag) => bag.id === transferTarget.targetBagId);
-        const amount = Math.max(1, Math.min(item?.quantity ?? 1, Number(transferTarget.quantity) || 1));
+        const amount = clampedTransferAmount(transferTarget.quantity, item?.quantity ?? 0);
         const previewItem = item ? { ...item, quantity: amount } as InventoryItem : null;
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
@@ -4761,8 +4827,8 @@ export default function App() {
                   <button
                     className={`flex h-8 w-8 items-center justify-center rounded-full border transition hover:scale-105 ${isDark ? "border-[#8d713e]/60 bg-[#1a130d] hover:bg-[#3a2a16]" : "border-[#9b7339]/45 bg-[#fff8df] hover:bg-[#ead6a9]"}`}
                     onClick={() => {
-                      const current = Math.max(1, Math.min(item?.quantity ?? 1, Number(transferTarget.quantity) || 1));
-                      const next = Math.max(1, current - 1);
+                      const current = clampedTransferAmount(transferTarget.quantity, item?.quantity ?? 0);
+                      const next = Math.max(item?.quantity ? 1 : 0, current - 1);
                       setTransferTarget((prev) => prev ? { ...prev, quantity: String(next) } : prev);
                     }}
                     title="Menge verringern"
@@ -4777,16 +4843,16 @@ export default function App() {
                     value={transferTarget.quantity}
                     onChange={(event) => {
                       const digits = event.target.value.replace(/\D/g, "");
-                      const max = item?.quantity ?? 1;
-                      const next = digits === "" ? "" : String(Math.max(1, Math.min(max, Number(digits) || 1)));
+                      const max = normalizeItemQuantity(item?.quantity, 0);
+                      const next = digits === "" ? "" : String(clampedTransferAmount(digits, max));
                       setTransferTarget((prev) => prev ? { ...prev, quantity: next } : prev);
                     }}
                   />
                   <button
                     className={`flex h-8 w-8 items-center justify-center rounded-full border transition hover:scale-105 ${isDark ? "border-[#8d713e]/60 bg-[#1a130d] hover:bg-[#3a2a16]" : "border-[#9b7339]/45 bg-[#fff8df] hover:bg-[#ead6a9]"}`}
                     onClick={() => {
-                      const current = Math.max(1, Math.min(item?.quantity ?? 1, Number(transferTarget.quantity) || 1));
-                      const next = Math.min(item?.quantity ?? 1, current + 1);
+                      const current = clampedTransferAmount(transferTarget.quantity, item?.quantity ?? 0);
+                      const next = Math.min(normalizeItemQuantity(item?.quantity, 0), current + 1);
                       setTransferTarget((prev) => prev ? { ...prev, quantity: String(next) } : prev);
                     }}
                     title="Menge erhöhen"
@@ -4806,7 +4872,7 @@ export default function App() {
 
               <div className="flex flex-wrap justify-end gap-2">
                 <button className={secondaryButton} onClick={() => setTransferTarget(null)}><X className="h-4 w-4" /> Abbrechen</button>
-                <button className={primaryButton} onClick={confirmItemTransfer} disabled={!item || !sourceBag || !targetBag}><Save className="h-4 w-4" /> Übertragen</button>
+                <button className={primaryButton} onClick={confirmItemTransfer} disabled={!item || !sourceBag || !targetBag || amount <= 0}><Save className="h-4 w-4" /> Übertragen</button>
               </div>
             </div>
           </div>
@@ -6148,8 +6214,8 @@ function InlineDescriptionEditor({
           className={`${secondaryButton} px-3 py-1.5`}
           disabled={!dirty}
           onClick={() => {
-            setDescription(item.description);
-            setNotes(item.notes);
+            setDescription(typeof item.description === "string" ? item.description : "");
+            setNotes(typeof item.notes === "string" ? item.notes : "");
           }}
         >
           <X className="h-4 w-4" /> Zurücksetzen
@@ -6160,13 +6226,13 @@ function InlineDescriptionEditor({
 }
 
 function ItemEditor({ item, bags, inputClass, primaryButton, secondaryButton, canDepositBagForOption, onSave, onCancel }: { item: InventoryItem; bags: Bag[]; inputClass: string; primaryButton: string; secondaryButton: string; canDepositBagForOption: (bag: Bag) => boolean; onSave: (patch: Partial<InventoryItem>) => void; onCancel: () => void }) {
-  const [name, setName] = useState(item.name);
-  const [quantity, setQuantity] = useState(item.quantity.toString());
+  const [name, setName] = useState(item.name ?? "");
+  const [quantity, setQuantity] = useState(String(normalizeItemQuantity(item.quantity, 1)));
   const [weight, setWeight] = useState(item.weightPerUnit?.toString() ?? "");
   const [volume, setVolume] = useState(item.volumePerUnit?.toString() ?? "");
   const [value, setValue] = useState(item.valuePerUnit?.toString() ?? "");
-  const [description, setDescription] = useState(item.description);
-  const [notes, setNotes] = useState(item.notes);
+  const [description, setDescription] = useState(typeof item.description === "string" ? item.description : "");
+  const [notes, setNotes] = useState(typeof item.notes === "string" ? item.notes : "");
   const [category, setCategory] = useState<ItemCategory>(normalizeItemCategory(item.category));
   const [bagId, setBagId] = useState(item.bagId);
   const descriptionRows = Math.max(5, Math.min(16, description.split(/\r?\n/).length + 3));
@@ -6181,7 +6247,7 @@ function ItemEditor({ item, bags, inputClass, primaryButton, secondaryButton, ca
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         <label className="space-y-1 text-xs"><span className="block px-1 opacity-75">Name</span><input className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} value={name} onChange={(e) => setName(e.target.value)} placeholder="Itemname" /></label>
-        <label className="space-y-1 text-xs"><span className="block px-1 opacity-75">Menge</span><input className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} value={quantity} onChange={(e) => setQuantity(e.target.value)} type="number" min="1" placeholder="1" /></label>
+        <label className="space-y-1 text-xs"><span className="block px-1 opacity-75">Menge</span><input className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} value={quantity} onChange={(e) => setQuantity(e.target.value)} type="number" min="0" placeholder="0" /></label>
         <label className="space-y-1 text-xs"><span className="block px-1 opacity-75">Tasche</span><select className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} value={bagId} onChange={(e) => setBagId(e.target.value)}>{bags.map((bag) => <option key={bag.id} value={bag.id} disabled={!canDepositBagForOption(bag)}>{bag.name}{canDepositBagForOption(bag) ? "" : " (kein Hineinlegen)"}</option>)}</select></label>
         <label className="space-y-1 text-xs"><span className="block px-1 opacity-75">Kategorie</span><select className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} value={category} onChange={(e) => setCategory(e.target.value as ItemCategory)}>{categorySelectOptions()}</select></label>
         <label className="space-y-1 text-xs"><span className="block px-1 opacity-75">Gewicht pro Stück</span><input className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} value={weight} onChange={(e) => setWeight(e.target.value)} type="number" step="0.01" placeholder="0.5" /></label>
@@ -6212,7 +6278,7 @@ function ItemEditor({ item, bags, inputClass, primaryButton, secondaryButton, ca
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <button className={`${primaryButton} px-4 py-2`} onClick={() => onSave({ name: name.trim() || item.name, quantity: Math.max(1, Number(quantity) || 1), weightPerUnit: numberOrNull(weight), volumePerUnit: numberOrNull(volume), valuePerUnit: numberOrNull(value), description: description.trim(), notes: notes.trim(), category, bagId })}><Save className="h-4 w-4" /> Speichern</button>
+        <button className={`${primaryButton} px-4 py-2`} onClick={() => onSave({ name: name.trim() || item.name, quantity: normalizeItemQuantity(quantity, 0), weightPerUnit: numberOrNull(weight), volumePerUnit: numberOrNull(volume), valuePerUnit: numberOrNull(value), description: description.trim(), notes: notes.trim(), category, bagId })}><Save className="h-4 w-4" /> Speichern</button>
         <button className={`${secondaryButton} px-4 py-2`} onClick={onCancel}><X className="h-4 w-4" /> Abbrechen</button>
       </div>
     </div>
