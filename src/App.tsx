@@ -3792,9 +3792,32 @@ export default function App() {
         return;
       }
     }
-    rememberCurrencyUndo(bagId, bagCurrency(bag));
-    await updateBag(bagId, currencyWeightPatchForBag(bag, safeCurrency), { silent: true });
-    logAction(logType, logMessage, bagId);
+
+    const nowTs = Date.now();
+    const patch = { ...currencyWeightPatchForBag(bag, safeCurrency), updatedAt: nowTs } as Partial<Bag>;
+
+    try {
+      rememberCurrencyUndo(bagId, bagCurrency(bag));
+
+      if (!firebaseConfigured) {
+        setBags((prev) => prev.map((entry) => entry.id === bagId ? { ...entry, ...patch } : entry));
+        logAction(logType, logMessage, bagId);
+        return;
+      }
+
+      if (!firebaseDb || !activeCampaignId) throw new Error("Keine aktive Kampagne gefunden.");
+      await patchBag(bagId, patch);
+
+      // Sofort lokal spiegeln. Sonst wirkt die Aktion je nach Listener/Cache kurz oder dauerhaft so,
+      // als wäre sie nur geloggt worden.
+      setBags((prev) => prev.map((entry) => entry.id === bagId ? { ...entry, ...patch } : entry));
+      logAction(logType, logMessage, bagId);
+      setSyncStatus("online");
+      setSyncError(null);
+    } catch (error) {
+      setSyncStatus("error");
+      setSyncError(error instanceof Error ? error.message : "Münzen konnten nicht geändert werden.");
+    }
   }
 
   async function changeBagCurrency(bagId: string, key: CurrencyKey, delta: number) {
@@ -3919,23 +3942,35 @@ export default function App() {
     rememberCurrencyUndo(sourceBag.id, sourceCurrency);
     rememberCurrencyUndo(targetBag.id, targetCurrency);
 
+    const nowTs = Date.now();
+    const sourcePatch = { ...currencyWeightPatchForBag(sourceBag, nextSource), updatedAt: nowTs } as Partial<Bag>;
+    const targetPatch = { ...currencyWeightPatchForBag(targetBag, nextTarget), updatedAt: nowTs } as Partial<Bag>;
+    const logMessage = `${member?.displayName ?? "Jemand"} hat ${amount} ${currencyDefs[key].short} von „${sourceBag.name}“ nach „${targetBag.name}“ übertragen.`;
+
     if (!firebaseConfigured) {
       setBags((prev) => prev.map((entry) => {
-        if (entry.id === sourceBag.id) return { ...entry, ...currencyWeightPatchForBag(sourceBag, nextSource), updatedAt: Date.now() };
-        if (entry.id === targetBag.id) return { ...entry, ...currencyWeightPatchForBag(targetBag, nextTarget), updatedAt: Date.now() };
+        if (entry.id === sourceBag.id) return { ...entry, ...sourcePatch };
+        if (entry.id === targetBag.id) return { ...entry, ...targetPatch };
         return entry;
       }));
+      logAction("currency_transferred", logMessage, sourceBag.id);
       return;
     }
 
     try {
       if (!firebaseDb || !activeCampaignId) throw new Error("Keine aktive Kampagne gefunden.");
       const batch = writeBatch(firebaseDb);
-      const nowTs = Date.now();
-      batch.update(doc(firebaseDb, "campaigns", activeCampaignId, "bags", sourceBag.id), { ...currencyWeightPatchForBag(sourceBag, nextSource), updatedAt: nowTs });
-      batch.update(doc(firebaseDb, "campaigns", activeCampaignId, "bags", targetBag.id), { ...currencyWeightPatchForBag(targetBag, nextTarget), updatedAt: nowTs });
+      batch.update(doc(firebaseDb, "campaigns", activeCampaignId, "bags", sourceBag.id), sourcePatch);
+      batch.update(doc(firebaseDb, "campaigns", activeCampaignId, "bags", targetBag.id), targetPatch);
       await batch.commit();
-      logAction("currency_transferred", `${member?.displayName ?? "Jemand"} hat ${amount} ${currencyDefs[key].short} von „${sourceBag.name}“ nach „${targetBag.name}“ übertragen.`, sourceBag.id);
+
+      // Sofort lokal spiegeln, damit Quelle und Ziel direkt sichtbar aktualisiert werden.
+      setBags((prev) => prev.map((entry) => {
+        if (entry.id === sourceBag.id) return { ...entry, ...sourcePatch };
+        if (entry.id === targetBag.id) return { ...entry, ...targetPatch };
+        return entry;
+      }));
+      logAction("currency_transferred", logMessage, sourceBag.id);
       setSyncStatus("online");
       setSyncError(null);
     } catch (error) {
@@ -6011,7 +6046,7 @@ function CurrencyPanel({
             <button className={`${secondaryButton} px-3 py-2`} disabled={!canEdit || normalizeCoinInput(convertAmount) <= 0} onClick={() => { onConvert(convertSource, convertTarget, convertAmount, false); setConvertAmount(""); }}>Wechseln</button>
             <button className={`${primaryButton} px-3 py-2`} disabled={!canEdit} onClick={() => { onConvert(convertSource, convertTarget, convertAmount, true); setConvertAmount(""); }}>ALL</button>
           </div>
-          <div className={`mt-2 text-[11px] ${mutedText}`}>Kurs: 1 PP = 10 GP = 20 EP = 100 SP = 1000 CP.</div>
+          <div className={`mt-2 text-[11px] ${mutedText}`}>Kurs: 1 PP = 10 GP = 20 EP = 100 SP = 1000 CP. Hinweis: Beim Umwandeln bleibt der Gesamtwert gleich, nur die Münzarten ändern sich.</div>
         </div>
 
         <div className={`rounded-2xl border p-3 ${chipClass}`}>
