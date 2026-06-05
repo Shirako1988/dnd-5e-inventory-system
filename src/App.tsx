@@ -350,6 +350,7 @@ type InventoryItem = {
   valuePerUnit: number | null;
   description: string;
   notes: string;
+  stackKey?: string;
   category?: ItemCategory;
   orderIndex?: number;
   imageUrl?: string;
@@ -511,6 +512,15 @@ type ImageViewerTarget = {
   title: string;
   imageUrl: string;
 } | null;
+
+type RepairPreview = {
+  checkedBags: number;
+  checkedItems: number;
+  checkedMembers: number;
+  bagPatches: Array<{ id: string; name: string; patch: Partial<Bag> }>;
+  itemPatches: Array<{ id: string; name: string; patch: Partial<InventoryItem> }>;
+  orphanItems: number;
+};
 
 const now = Date.now();
 const localUserId = "local_user";
@@ -1419,6 +1429,8 @@ export default function App() {
   const [userCampaigns, setUserCampaigns] = useState<UserCampaignSummary[]>([]);
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
   const [auditLogOpen, setAuditLogOpen] = useState(false);
+  const [auditLogLimit, setAuditLogLimit] = useState(50);
+  const [auditLogFullyLoaded, setAuditLogFullyLoaded] = useState(false);
   const [auditLogCategoryFilter, setAuditLogCategoryFilter] = useState<AuditLogCategory>("all");
   const [auditLogActorFilter, setAuditLogActorFilter] = useState("all");
   const [auditLogSearch, setAuditLogSearch] = useState("");
@@ -1430,6 +1442,10 @@ export default function App() {
   const [backupBusy, setBackupBusy] = useState(false);
   const [backupMessage, setBackupMessage] = useState<string | null>(null);
   const [backupLastSavedAt, setBackupLastSavedAt] = useState<number | null>(null);
+  const [repairPreview, setRepairPreview] = useState<RepairPreview | null>(null);
+  const [repairModalOpen, setRepairModalOpen] = useState(false);
+  const [repairBusy, setRepairBusy] = useState(false);
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [restoreCandidate, setRestoreCandidate] = useState<RestoreCandidate | null>(null);
   const [restoreConfirmCampaignName, setRestoreConfirmCampaignName] = useState("");
   const [restoreConfirmWord, setRestoreConfirmWord] = useState("");
@@ -1757,25 +1773,34 @@ export default function App() {
       },
     );
 
-    const unsubAuditLog = onSnapshot(
-      query(collection(firebaseDb, "campaigns", activeCampaignId, "auditLog"), orderBy("createdAt", "desc"), limit(200)),
-      (snapshot) => {
-        setAuditLog(snapshot.docs.map((entry) => entry.data() as AuditLogEntry));
-        setSyncStatus("online");
-      },
-      (error) => {
-        // Audit-Log ist hilfreich, aber ein Log-Problem soll nicht das Inventar unbenutzbar machen.
-        console.warn("Aktivitätslog konnte nicht geladen werden", error.message);
-      },
-    );
-
     return () => {
       unsubCampaign();
       unsubMember();
       unsubMembers();
-      unsubAuditLog();
     };
   }, [activeCampaignId, userUid, campaignAccessReady, member?.role]);
+
+  useEffect(() => {
+    if (!auditLogOpen) return;
+    if (!firebaseConfigured || !firebaseDb || !activeCampaignId || !campaignAccessReady || (member?.role !== "dm" && member?.role !== "player")) return;
+
+    const cappedLimit = Math.min(500, Math.max(50, auditLogLimit));
+    const unsubscribe = onSnapshot(
+      query(collection(firebaseDb, "campaigns", activeCampaignId, "auditLog"), orderBy("createdAt", "desc"), limit(cappedLimit)),
+      (snapshot) => {
+        setAuditLog(snapshot.docs.map((entry) => entry.data() as AuditLogEntry));
+        setAuditLogFullyLoaded(snapshot.docs.length < cappedLimit || cappedLimit >= 500);
+        setSyncStatus("online");
+      },
+      (error) => {
+        console.warn("Aktivitätslog konnte nicht geladen werden", error.message);
+        setSyncStatus("error");
+        setSyncError(error.message);
+      },
+    );
+
+    return () => unsubscribe();
+  }, [auditLogOpen, auditLogLimit, firebaseConfigured, activeCampaignId, campaignAccessReady, member?.role]);
 
   const isDark = themeMode === "dark" || (themeMode === "system" && systemDark);
 
@@ -2057,6 +2082,12 @@ export default function App() {
       valuePerUnit: typeof source.valuePerUnit === "number" && Number.isFinite(source.valuePerUnit) ? source.valuePerUnit : null,
       description: typeof source.description === "string" ? source.description : "",
       notes: typeof source.notes === "string" ? source.notes : "",
+      stackKey: typeof source.stackKey === "string" && source.stackKey ? source.stackKey : itemStackKey({
+        name: typeof source.name === "string" && source.name.trim() ? source.name.trim() : "Unbenanntes Item",
+        weightPerUnit: typeof source.weightPerUnit === "number" && Number.isFinite(source.weightPerUnit) ? source.weightPerUnit : null,
+        volumePerUnit: typeof source.volumePerUnit === "number" && Number.isFinite(source.volumePerUnit) ? source.volumePerUnit : null,
+        valuePerUnit: typeof source.valuePerUnit === "number" && Number.isFinite(source.valuePerUnit) ? source.valuePerUnit : null,
+      }),
       category: normalizeItemCategory(source.category),
       orderIndex: typeof source.orderIndex === "number" && Number.isFinite(source.orderIndex) ? source.orderIndex : (typeof source.createdAt === "number" ? source.createdAt : timestamp),
       imageUrl: sanitizeImageUrl(source.imageUrl),
@@ -2388,7 +2419,9 @@ export default function App() {
 
   function getBagCapacityTotals(bag: Bag | undefined | null) {
     if (!bag) return { weight: 0, volume: 0, value: 0, count: 0 };
-    if (canOpenBag(bag)) return getKnownBagTotals(bag);
+    // Seit dem Firestore-Schonmodus sind nur die Items der aktiv geöffneten Tasche live geladen.
+    // Für alle anderen Taschen müssen die gespeicherten Summary-Felder verwendet werden.
+    if (canOpenBag(bag) && bag.id === selectedOpenableBagId) return getKnownBagTotals(bag);
     return {
       weight: bag.currentWeight ?? 0,
       volume: bag.currentVolume ?? 0,
@@ -2649,40 +2682,27 @@ export default function App() {
   const depositTargetBags = useMemo(() => visibleBags.filter(canDepositBag), [visibleBags, isDm, activeUid]);
   const openableBagIds = useMemo(() => visibleBags.filter(canOpenBag).map((bag) => bag.id), [visibleBags, isDm, activeUid]);
   const selectedBag = visibleBags.find((bag) => bag.id === selectedBagId) ?? visibleBags[0];
+  const selectedOpenableBagId = selectedBag && canOpenBag(selectedBag) ? selectedBag.id : "";
 
   useEffect(() => {
-    if (!firebaseConfigured || !firebaseDb || !activeCampaignId || !userUid || !member || !campaignAccessReady || !isApprovedMember) {
+    if (!firebaseConfigured || !firebaseDb || !activeCampaignId || !userUid || !member || !campaignAccessReady || !isApprovedMember || !selectedOpenableBagId) {
       setItems([]);
       return;
     }
 
-    if (openableBagIds.length === 0) {
-      setItems([]);
-      return;
-    }
-
-    const chunks: string[][] = [];
-    for (let index = 0; index < openableBagIds.length; index += 10) chunks.push(openableBagIds.slice(index, index + 10));
-
-    const chunkResults = new Map<number, InventoryItem[]>();
-    const unsubscribers = chunks.map((chunk, index) =>
-      onSnapshot(
-        query(collection(firebaseDb, "campaigns", activeCampaignId, "items"), where("bagId", "in", chunk)),
-        (snapshot) => {
-          chunkResults.set(index, snapshot.docs.map((entry) => normalizeLiveItem(entry.data() as Partial<InventoryItem>, entry.id)));
-          setItems(Array.from(chunkResults.values()).flat());
-          setSyncStatus("online");
-        },
-        (error) => {
-          setItems([]);
-          setSyncStatus("error");
-          setSyncError(error.message);
-        },
-      ),
+    return onSnapshot(
+      query(collection(firebaseDb, "campaigns", activeCampaignId, "items"), where("bagId", "==", selectedOpenableBagId)),
+      (snapshot) => {
+        setItems(snapshot.docs.map((entry) => normalizeLiveItem(entry.data() as Partial<InventoryItem>, entry.id)));
+        setSyncStatus("online");
+      },
+      (error) => {
+        setItems([]);
+        setSyncStatus("error");
+        setSyncError(error.message);
+      },
     );
-
-    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
-  }, [activeCampaignId, userUid, member?.role, campaignAccessReady, openableBagIds.join("|")]);
+  }, [activeCampaignId, userUid, member?.role, campaignAccessReady, selectedOpenableBagId]);
 
 
   useEffect(() => {
@@ -2850,21 +2870,26 @@ export default function App() {
   const bagTotals = useMemo(() => {
     const totals = new Map<string, { weight: number; volume: number; value: number; count: number }>();
     for (const bag of bags) {
-      const bagItems = itemsByBag.get(bag.id) ?? [];
-      totals.set(bag.id, {
-        weight: bagItems.reduce((sum, item) => sum + totalWeight(item), 0) + currencyWeight(bagCurrency(bag)),
-        volume: bagItems.reduce((sum, item) => sum + totalVolume(item), 0),
-        value: bagItems.reduce((sum, item) => sum + totalValue(item), 0),
-        count: bagItems.reduce((sum, item) => sum + item.quantity, 0),
-      });
+      if (bag.id === selectedOpenableBagId) {
+        const bagItems = itemsByBag.get(bag.id) ?? [];
+        totals.set(bag.id, {
+          weight: bagItems.reduce((sum, item) => sum + totalWeight(item), 0) + currencyWeight(bagCurrency(bag)),
+          volume: bagItems.reduce((sum, item) => sum + totalVolume(item), 0),
+          value: bagItems.reduce((sum, item) => sum + totalValue(item), 0),
+          count: bagItems.reduce((sum, item) => sum + item.quantity, 0),
+        });
+      } else {
+        totals.set(bag.id, getBagCapacityTotals(bag));
+      }
     }
     return totals;
-  }, [bags, itemsByBag]);
+  }, [bags, itemsByBag, selectedOpenableBagId]);
 
   useEffect(() => {
     if (!firebaseConfigured || !firebaseDb || !activeCampaignId || !isDm || !campaignAccessReady || bags.length === 0) return;
 
     for (const bag of bags) {
+      if (bag.id !== selectedOpenableBagId) continue;
       const totals = bagTotals.get(bag.id) ?? { weight: 0, volume: 0, value: 0, count: 0 };
       const weightChanged = Math.abs((bag.currentWeight ?? 0) - totals.weight) > 0.0001;
       const volumeChanged = Math.abs((bag.currentVolume ?? 0) - totals.volume) > 0.0001;
@@ -2875,7 +2900,7 @@ export default function App() {
         updateDoc(doc(firebaseDb, "campaigns", activeCampaignId, "bags", bag.id), capacityPatchFromTotals(totals)).catch(() => undefined);
       }
     }
-  }, [firebaseConfigured, activeCampaignId, isDm, campaignAccessReady, bags, bagTotals]);
+  }, [firebaseConfigured, activeCampaignId, isDm, campaignAccessReady, bags, bagTotals, selectedOpenableBagId]);
 
   async function createCampaign(campaignName: string, displayName: string) {
     if (!firebaseDb || !userUid) return;
@@ -3218,7 +3243,7 @@ export default function App() {
   function addAuditLogLocally(entry: AuditLogEntry) {
     setAuditLog((prev) => {
       if (prev.some((existing) => existing.id === entry.id)) return prev;
-      return [entry, ...prev].sort((a, b) => b.createdAt - a.createdAt).slice(0, 200);
+      return [entry, ...prev].sort((a, b) => b.createdAt - a.createdAt).slice(0, 500);
     });
   }
 
@@ -3287,7 +3312,114 @@ export default function App() {
     return normalizeSearchText(`${entry.message} ${entry.actorName} ${entry.type} ${auditTypeLabel(entry.type)} ${auditCategoryLabel(category)}`).includes(searchText);
   }
 
-  async function repairCampaignData() {
+  function patchValueChanged(currentValue: unknown, nextValue: unknown) {
+    return JSON.stringify(currentValue ?? null) !== JSON.stringify(nextValue ?? null);
+  }
+
+  function compactPatch<T extends Record<string, any>>(current: Record<string, any>, patch: T): Partial<T> {
+    const result: Partial<T> = {};
+    for (const [key, value] of Object.entries(patch)) {
+      if (key === "updatedAt" || key === "updatedBy") continue;
+      if (patchValueChanged(current[key], value)) (result as Record<string, any>)[key] = value;
+    }
+    return result;
+  }
+
+  async function buildRepairPreview(): Promise<RepairPreview> {
+    if (!firebaseConfigured || !firebaseDb || !activeCampaignId || !isDm) throw new Error("Nur der DM kann Kampagnendaten reparieren.");
+
+    const [bagSnapshot, itemSnapshot, memberSnapshot] = await Promise.all([
+      getDocs(collection(firebaseDb, "campaigns", activeCampaignId, "bags")),
+      getDocs(collection(firebaseDb, "campaigns", activeCampaignId, "items")),
+      getDocs(collection(firebaseDb, "campaigns", activeCampaignId, "members")),
+    ]);
+
+    const latestBags = bagSnapshot.docs.map((entry) => entry.data() as Bag);
+    const repairTimestamp = Date.now();
+    const latestItems = itemSnapshot.docs.map((entry) => normalizeLiveItem(entry.data() as Partial<InventoryItem>, entry.id, repairTimestamp));
+    const validPlayerIds = new Set(
+      memberSnapshot.docs
+        .map((entry) => entry.data() as CampaignMember)
+        .filter((entry) => entry.role === "player")
+        .map((entry) => entry.uid),
+    );
+
+    const totalsByBag = new Map<string, { weight: number; volume: number; value: number; count: number }>();
+    for (const bag of latestBags) totalsByBag.set(bag.id, { weight: currencyWeight(bagCurrency(bag)), volume: 0, value: 0, count: 0 });
+
+    let orphanItems = 0;
+    for (const item of latestItems) {
+      const totals = totalsByBag.get(item.bagId);
+      if (!totals) {
+        orphanItems += 1;
+        continue;
+      }
+      totals.weight += totalWeight(item);
+      totals.volume += totalVolume(item);
+      totals.value += totalValue(item);
+      totals.count += item.quantity;
+    }
+
+    const bagPatches: RepairPreview["bagPatches"] = [];
+    const itemPatches: RepairPreview["itemPatches"] = [];
+
+    for (const bag of latestBags) {
+      const totals = totalsByBag.get(bag.id) ?? { weight: 0, volume: 0, value: 0, count: 0 };
+      const normalizedAccess = sanitizeAccessUserLists(getBagAccess(bag), validPlayerIds);
+      const intended = cleanFirestorePayload({
+        kind: getBagKind(bag),
+        access: normalizedAccess,
+        targetAccessKeys: targetAccessKeysForAccess(normalizedAccess),
+        currentWeight: Math.max(0, Number(totals.weight.toFixed(4))),
+        currentVolume: Math.max(0, Number(totals.volume.toFixed(4))),
+        currentValue: Math.max(0, Number(totals.value.toFixed(4))),
+        itemCount: Math.max(0, Math.round(totals.count)),
+        maxWeight: bag.maxWeight ?? null,
+        maxVolume: bag.maxVolume ?? null,
+      } as any);
+      const patch = compactPatch(bag as any, intended as any) as Partial<Bag>;
+      if (Object.keys(patch).length) bagPatches.push({ id: bag.id, name: bag.name, patch });
+    }
+
+    for (let index = 0; index < itemSnapshot.docs.length; index += 1) {
+      const raw = itemSnapshot.docs[index].data() as Partial<InventoryItem>;
+      const normalized = latestItems[index];
+      const intended = cleanFirestorePayload({
+        id: normalized.id,
+        bagId: normalized.bagId,
+        name: normalized.name,
+        quantity: normalized.quantity,
+        weightPerUnit: normalized.weightPerUnit,
+        volumePerUnit: normalized.volumePerUnit,
+        valuePerUnit: normalized.valuePerUnit,
+        description: normalized.description,
+        notes: normalized.notes,
+        stackKey: itemStackKey(normalized),
+        category: normalizeItemCategory(normalized.category),
+        orderIndex: normalized.orderIndex,
+        imageUrl: normalized.imageUrl,
+        imageZoom: normalized.imageZoom,
+        imagePositionX: normalized.imagePositionX,
+        imagePositionY: normalized.imagePositionY,
+        createdBy: normalized.createdBy,
+        updatedBy: normalized.updatedBy,
+        createdAt: normalized.createdAt,
+      } as any);
+      const patch = compactPatch(raw as any, intended as any) as Partial<InventoryItem>;
+      if (Object.keys(patch).length) itemPatches.push({ id: normalized.id, name: normalized.name, patch });
+    }
+
+    return {
+      checkedBags: latestBags.length,
+      checkedItems: latestItems.length,
+      checkedMembers: memberSnapshot.docs.length,
+      bagPatches,
+      itemPatches,
+      orphanItems,
+    };
+  }
+
+  async function previewRepairCampaignData() {
     if (!firebaseConfigured || !firebaseDb || !activeCampaignId || !isDm) {
       setSyncStatus("error");
       setSyncError("Nur der DM kann Kampagnendaten reparieren.");
@@ -3295,100 +3427,73 @@ export default function App() {
     }
 
     try {
+      setRepairBusy(true);
+      setSyncStatus("connecting");
+      setSyncError("Kampagnendaten werden geprüft...");
+      const preview = await buildRepairPreview();
+      setRepairPreview(preview);
+      setRepairModalOpen(true);
+      setSyncStatus("online");
+      setSyncError(null);
+    } catch (error) {
+      setSyncStatus("error");
+      setSyncError(error instanceof Error ? error.message : "Kampagnendaten konnten nicht geprüft werden.");
+    } finally {
+      setRepairBusy(false);
+    }
+  }
+
+  async function applyRepairPreview() {
+    if (!firebaseConfigured || !firebaseDb || !activeCampaignId || !isDm || !repairPreview) return;
+
+    try {
+      setRepairBusy(true);
       setSyncStatus("connecting");
       setSyncError("Kampagnendaten werden repariert...");
-
-      const bagSnapshot = await getDocs(collection(firebaseDb, "campaigns", activeCampaignId, "bags"));
-      const itemSnapshot = await getDocs(collection(firebaseDb, "campaigns", activeCampaignId, "items"));
-      const memberSnapshot = await getDocs(collection(firebaseDb, "campaigns", activeCampaignId, "members"));
-
-      const latestBags = bagSnapshot.docs.map((entry) => entry.data() as Bag);
-      const repairTimestamp = Date.now();
-      const latestItems = itemSnapshot.docs.map((entry) => normalizeLiveItem(entry.data() as Partial<InventoryItem>, entry.id, repairTimestamp));
-      const validPlayerIds = new Set(
-        memberSnapshot.docs
-          .map((entry) => entry.data() as CampaignMember)
-          .filter((entry) => entry.role === "player")
-          .map((entry) => entry.uid),
-      );
-
-      const totalsByBag = new Map<string, { weight: number; volume: number; value: number; count: number }>();
-      for (const bag of latestBags) {
-        totalsByBag.set(bag.id, { weight: currencyWeight(bagCurrency(bag)), volume: 0, value: 0, count: 0 });
-      }
-
-      let orphanItems = 0;
-      for (const item of latestItems) {
-        const totals = totalsByBag.get(item.bagId);
-        if (!totals) {
-          orphanItems += 1;
-          continue;
-        }
-        totals.weight += totalWeight(item);
-        totals.volume += totalVolume(item);
-        totals.value += totalValue(item);
-        totals.count += item.quantity;
-      }
-
+      const nowTs = Date.now();
       const commits: Promise<void>[] = [];
       let batch = writeBatch(firebaseDb);
       let ops = 0;
-      let repairedBags = 0;
-      let repairedItems = 0;
-      const now = Date.now();
 
       const commitIfNeeded = () => {
-        if (ops === 0) return;
+        if (!ops) return;
         commits.push(batch.commit());
         batch = writeBatch(firebaseDb);
         ops = 0;
       };
 
-      for (const bag of latestBags) {
-        const totals = totalsByBag.get(bag.id) ?? { weight: 0, volume: 0, value: 0, count: 0 };
-        const bagKind = getBagKind(bag);
-        const normalizedAccess = sanitizeAccessUserLists(getBagAccess(bag), validPlayerIds);
-        const patch = {
-          kind: bagKind,
-          access: normalizedAccess,
-          targetAccessKeys: targetAccessKeysForAccess(normalizedAccess),
-          currentWeight: Math.max(0, Number(totals.weight.toFixed(4))),
-          currentVolume: Math.max(0, Number(totals.volume.toFixed(4))),
-          currentValue: Math.max(0, Number(totals.value.toFixed(4))),
-          itemCount: Math.max(0, Math.round(totals.count)),
-          maxWeight: bag.maxWeight ?? null,
-          maxVolume: bag.maxVolume ?? null,
-          updatedAt: now,
-        };
-        batch.update(doc(firebaseDb, "campaigns", activeCampaignId, "bags", bag.id), patch);
+      for (const entry of repairPreview.bagPatches) {
+        batch.update(doc(firebaseDb, "campaigns", activeCampaignId, "bags", entry.id), cleanFirestorePayload({ ...entry.patch, updatedAt: nowTs } as any));
         ops += 1;
-        repairedBags += 1;
         if (ops >= 450) commitIfNeeded();
       }
-
-      for (const item of latestItems) {
-        batch.set(doc(firebaseDb, "campaigns", activeCampaignId, "items", item.id), { ...item, updatedAt: now, updatedBy: activeUid }, { merge: true });
+      for (const entry of repairPreview.itemPatches) {
+        batch.update(doc(firebaseDb, "campaigns", activeCampaignId, "items", entry.id), cleanFirestorePayload({ ...entry.patch, updatedAt: nowTs, updatedBy: activeUid } as any));
         ops += 1;
-        repairedItems += 1;
         if (ops >= 450) commitIfNeeded();
       }
-
       commitIfNeeded();
       await Promise.all(commits);
 
       logAction(
         "campaign_repaired",
-        `${member?.displayName ?? "DM"} hat die Kampagnendaten repariert: ${repairedBags} Taschen neu berechnet, ${repairedItems} Items normalisiert${orphanItems ? `, ${orphanItems} verwaiste Items ignoriert` : ""}.`,
+        `${member?.displayName ?? "DM"} hat die Kampagnendaten repariert: ${repairPreview.bagPatches.length} Taschen und ${repairPreview.itemPatches.length} Items geändert${repairPreview.orphanItems ? `, ${repairPreview.orphanItems} verwaiste Items ignoriert` : ""}.`,
         activeCampaignId,
       );
 
+      setRepairModalOpen(false);
+      setRepairPreview(null);
       setSyncStatus("online");
       setSyncError(null);
     } catch (error) {
       setSyncStatus("error");
       setSyncError(error instanceof Error ? error.message : "Kampagnendaten konnten nicht repariert werden.");
+    } finally {
+      setRepairBusy(false);
     }
   }
+
+
 
   async function addBag() {
     const cleanName = newBagName.trim();
@@ -3678,6 +3783,7 @@ export default function App() {
       valuePerUnit: numberOrNull(newItem.valuePerUnit),
       description: newItem.description.trim(),
       notes: "",
+      stackKey: itemStackKey(itemBase),
       category: itemCategory,
       orderIndex: nextOrderIndex,
       imageUrl: "",
@@ -3860,6 +3966,7 @@ export default function App() {
       valuePerUnit: item.valuePerUnit ?? null,
       description: typeof item.description === "string" ? item.description : "",
       notes: typeof item.notes === "string" ? item.notes : "",
+      stackKey: itemStackKey(item),
       category: normalizeItemCategory(item.category),
       orderIndex: nextItemOrderIndex(targetBagId, normalizeItemCategory(item.category)),
       imageUrl: sanitizeImageUrl(item.imageUrl),
@@ -3906,7 +4013,7 @@ export default function App() {
     setSyncError(null);
     setSyncStatus(firebaseConfigured ? "online" : "local");
 
-    const targetStack = findStackMatch(items, targetBag.id, movedItem, item.id);
+    let targetStack = findStackMatch(items, targetBag.id, movedItem, item.id);
     const targetStackId = targetStack?.id ?? stackDocumentId(targetBag.id, movedItem);
 
     if (!firebaseConfigured) {
@@ -3915,11 +4022,11 @@ export default function App() {
         if (amount >= item.quantity) {
           setItems((prev) => prev
             .filter((entry) => entry.id !== item.id)
-            .map((entry) => entry.id === targetStack.id ? { ...entry, quantity: entry.quantity + amount, updatedBy: activeUid, updatedAt: nowTs } : entry));
+            .map((entry) => entry.id === targetStack!.id ? { ...entry, quantity: entry.quantity + amount, updatedBy: activeUid, updatedAt: nowTs } : entry));
         } else {
           setItems((prev) => prev.map((entry) => {
             if (entry.id === item.id) return { ...entry, quantity: item.quantity - amount, updatedBy: activeUid, updatedAt: nowTs };
-            if (entry.id === targetStack.id) return { ...entry, quantity: entry.quantity + amount, updatedBy: activeUid, updatedAt: nowTs };
+            if (entry.id === targetStack!.id) return { ...entry, quantity: entry.quantity + amount, updatedBy: activeUid, updatedAt: nowTs };
             return entry;
           }));
         }
@@ -3955,6 +4062,14 @@ export default function App() {
       const itemRef = doc(firebaseDb, "campaigns", activeCampaignId, "items", item.id);
       const targetStackRef = doc(firebaseDb, "campaigns", activeCampaignId, "items", targetStackId);
       const nowTs = Date.now();
+
+      if (!targetStack && canOpenBag(targetBag)) {
+        const targetStackSnapshot = await getDoc(targetStackRef);
+        if (targetStackSnapshot.exists()) {
+          const loadedTargetStack = normalizeLiveItem(targetStackSnapshot.data() as Partial<InventoryItem>, targetStackSnapshot.id, nowTs);
+          if (loadedTargetStack.bagId === targetBag.id && isSameStackItem(loadedTargetStack, movedItem)) targetStack = loadedTargetStack;
+        }
+      }
 
       if (targetStack) {
         const stackUpdate: Record<string, any> = {
@@ -4318,6 +4433,15 @@ export default function App() {
     return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1], "de", { sensitivity: "base" }));
   }, [auditLog]);
   const filteredAuditLog = useMemo(() => auditLog.filter(auditMatchesFilters), [auditLog, auditLogCategoryFilter, auditLogActorFilter, auditLogSearch]);
+  const diagnosticRows = useMemo(() => [
+    ["Taschen geladen", String(bags.length)],
+    ["Sichtbare/Ziel-Taschen", String(visibleBags.length)],
+    ["Aktive Item-Tasche", selectedOpenableBagId ? (selectedBag?.name ?? selectedOpenableBagId) : "keine"],
+    ["Items aktuell live geladen", String(items.length)],
+    ["Auditlog-Listener", auditLogOpen ? `aktiv · Limit ${auditLogLimit}` : "inaktiv"],
+    ["Auditlog geladen", String(auditLog.length)],
+    ["Mitglieder geladen", String(members.length)],
+  ], [bags.length, visibleBags.length, selectedOpenableBagId, selectedBag?.name, items.length, auditLogOpen, auditLogLimit, auditLog.length, members.length]);
   const restoreReady = Boolean(restoreCandidate && campaign && restoreConfirmCampaignName.trim() === campaign.name && restoreConfirmWord.trim() === "IMPORTIEREN" && !backupBusy);
   const appClass = isDark ? "min-h-screen bg-[#16110c] text-[#f3e7c8]" : "min-h-screen bg-[#efe3c6] text-[#2d2116]";
 
@@ -4521,7 +4645,10 @@ export default function App() {
                     <button className={secondaryButton} onClick={() => setBackupPanelOpen(true)}>
                       <Save className="h-4 w-4" /> Backup
                     </button>
-                    <button className={secondaryButton} onClick={repairCampaignData}>
+                    <button className={secondaryButton} onClick={() => setDiagnosticsOpen(true)}>
+                      <Monitor className="h-4 w-4" /> Diagnose
+                    </button>
+                    <button className={secondaryButton} onClick={previewRepairCampaignData} disabled={repairBusy}>
                       <Wrench className="h-4 w-4" /> Kampagnendaten reparieren
                     </button>
                     <button className={dangerButton} onClick={() => setDeleteTarget({ kind: "campaign", id: activeCampaignId, label: campaign.name })}>
@@ -5267,7 +5394,7 @@ export default function App() {
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <h3 className="flex items-center gap-2 text-2xl font-black"><History className="h-6 w-6" /> Aktivitätslog</h3>
-                <p className={`text-sm ${mutedText}`}>{filteredAuditLog.length} von {auditLog.length} geladenen Einträgen · neueste zuerst</p>
+                <p className={`text-sm ${mutedText}`}>{filteredAuditLog.length} von {auditLog.length} geladenen Einträgen · Limit {auditLogLimit}/500 · neueste zuerst</p>
               </div>
               <button className={secondaryButton} onClick={() => setAuditLogOpen(false)}><X className="h-4 w-4" /> Schließen</button>
             </div>
@@ -5291,6 +5418,12 @@ export default function App() {
               </label>
               <button className={`${secondaryButton} self-end`} onClick={() => { setAuditLogCategoryFilter("all"); setAuditLogActorFilter("all"); setAuditLogSearch(""); }}>Filter zurücksetzen</button>
             </div>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div className={`text-xs ${mutedText}`}>Auditlog wird erst geladen, wenn dieses Fenster offen ist. Jeder Klick auf „Mehr laden“ erhöht das Limit um 50 bis maximal 500.</div>
+              <button className={secondaryButton} onClick={() => setAuditLogLimit((prev) => Math.min(500, prev + 50))} disabled={auditLogFullyLoaded || auditLogLimit >= 500}>
+                <Plus className="h-4 w-4" /> Mehr laden
+              </button>
+            </div>
             <div className="min-h-0 flex-1 overflow-auto pr-2">
               {filteredAuditLog.length === 0 ? (
                 <div className={`rounded-2xl border border-current/10 p-6 text-center ${mutedText}`}>Keine passenden Aktionen gefunden.</div>
@@ -5312,6 +5445,67 @@ export default function App() {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {repairModalOpen && repairPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+          <div className={`w-full max-w-3xl rounded-3xl border p-6 shadow-2xl ${panelClass}`}>
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h2 className="flex items-center gap-2 text-xl font-black"><Wrench className="h-5 w-5" /> Kampagnendaten reparieren</h2>
+                <p className={`mt-1 text-sm ${mutedText}`}>Die App schreibt nur Dokumente, bei denen wirklich etwas abweicht. Kein stumpfes Neuschreiben aller Items.</p>
+              </div>
+              <button className={secondaryButton} onClick={() => setRepairModalOpen(false)} disabled={repairBusy}><X className="h-4 w-4" /></button>
+            </div>
+            <div className={`mb-4 rounded-2xl border p-4 text-sm ${isDark ? "border-yellow-700/50 bg-yellow-950/25 text-yellow-100" : "border-yellow-800/25 bg-yellow-100/70 text-yellow-950"}`}>
+              Diese Prüfung liest alle Taschen und Items der Kampagne. Ausführen bitte nur, wenn Daten beschädigt wirken oder Summen/Rechte repariert werden müssen.
+            </div>
+            <div className="grid gap-3 text-sm sm:grid-cols-2">
+              <MiniStat label="Geprüfte Taschen" value={String(repairPreview.checkedBags)} />
+              <MiniStat label="Geprüfte Items" value={String(repairPreview.checkedItems)} />
+              <MiniStat label="Taschen mit Änderungen" value={String(repairPreview.bagPatches.length)} />
+              <MiniStat label="Items mit Änderungen" value={String(repairPreview.itemPatches.length)} />
+              <MiniStat label="Verwaiste Items" value={String(repairPreview.orphanItems)} />
+              <MiniStat label="Geschätzte Writes" value={String(repairPreview.bagPatches.length + repairPreview.itemPatches.length + 1)} sub="inkl. Logeintrag" />
+            </div>
+            {(repairPreview.bagPatches.length > 0 || repairPreview.itemPatches.length > 0) && (
+              <div className={`mt-4 max-h-52 overflow-auto rounded-2xl border border-current/10 p-3 text-xs ${mutedText}`}>
+                {repairPreview.bagPatches.slice(0, 20).map((entry) => <div key={`bag-${entry.id}`}>Tasche „{entry.name}“: {Object.keys(entry.patch).join(", ")}</div>)}
+                {repairPreview.itemPatches.slice(0, 40).map((entry) => <div key={`item-${entry.id}`}>Item „{entry.name}“: {Object.keys(entry.patch).join(", ")}</div>)}
+                {repairPreview.bagPatches.length + repairPreview.itemPatches.length > 60 && <div>…weitere Änderungen gekürzt angezeigt.</div>}
+              </div>
+            )}
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <button className={secondaryButton} onClick={() => setRepairModalOpen(false)} disabled={repairBusy}><X className="h-4 w-4" /> Abbrechen</button>
+              <button className={primaryButton} onClick={applyRepairPreview} disabled={repairBusy || (repairPreview.bagPatches.length + repairPreview.itemPatches.length) === 0}><Save className="h-4 w-4" /> Reparatur ausführen</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {diagnosticsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+          <div className={`w-full max-w-2xl rounded-3xl border p-6 shadow-2xl ${panelClass}`}>
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h2 className="flex items-center gap-2 text-xl font-black"><Monitor className="h-5 w-5" /> Firestore-Diagnose</h2>
+                <p className={`mt-1 text-sm ${mutedText}`}>Diese Werte sind lokale App-Zähler, keine offiziellen Firebase-Abrechnungszahlen. Sie zeigen aber, ob die App gerade zu viel live lädt.</p>
+              </div>
+              <button className={secondaryButton} onClick={() => setDiagnosticsOpen(false)}><X className="h-4 w-4" /></button>
+            </div>
+            <div className="space-y-2">
+              {diagnosticRows.map(([label, value]) => (
+                <div key={label} className={`flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 text-sm ${isDark ? "border-[#7b6237]/35 bg-[#1d150e]/70" : "border-[#9b7339]/25 bg-[#fff8df]/70"}`}>
+                  <span className={mutedText}>{label}</span>
+                  <span className="font-black tabular-nums">{value}</span>
+                </div>
+              ))}
+            </div>
+            <div className={`mt-4 rounded-2xl border border-current/10 p-3 text-xs ${mutedText}`}>
+              Schonmodus aktiv: Items werden nur für die aktuell geöffnete Tasche live geladen. Auditlog lädt nur bei geöffnetem Logfenster.
             </div>
           </div>
         </div>
