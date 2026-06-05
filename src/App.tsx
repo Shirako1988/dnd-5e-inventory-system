@@ -4433,6 +4433,21 @@ export default function App() {
     return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1], "de", { sensitivity: "base" }));
   }, [auditLog]);
   const filteredAuditLog = useMemo(() => auditLog.filter(auditMatchesFilters), [auditLog, auditLogCategoryFilter, auditLogActorFilter, auditLogSearch]);
+
+  function openAuditLogModal() {
+    setAuditLog([]);
+    setAuditLogLimit(50);
+    setAuditLogFullyLoaded(false);
+    setAuditLogOpen(true);
+  }
+
+  function closeAuditLogModal() {
+    setAuditLogOpen(false);
+    setAuditLog([]);
+    setAuditLogLimit(50);
+    setAuditLogFullyLoaded(false);
+  }
+
   const diagnosticRows = useMemo(() => [
     ["Taschen geladen", String(bags.length)],
     ["Sichtbare/Ziel-Taschen", String(visibleBags.length)],
@@ -4672,8 +4687,8 @@ export default function App() {
         </div>
       </header>
 
-      <main className="grid w-full gap-3 px-2 py-3 sm:px-3 lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)] 2xl:px-5">
-        <aside className={`min-w-0 rounded-3xl border p-3 shadow-xl ${panelClass}`}>
+      <main className="grid w-full gap-3 px-2 py-3 sm:px-3 lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start xl:grid-cols-[340px_minmax(0,1fr)] 2xl:px-5">
+        <aside className={`min-w-0 rounded-3xl border p-3 shadow-xl lg:sticky lg:top-[104px] lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto lg:overscroll-contain ${panelClass}`}>
           <div className="mb-4 flex items-center justify-between gap-2">
             <div>
               <h2 className="text-lg font-black">Taschen</h2>
@@ -4829,28 +4844,11 @@ export default function App() {
 
           {firebaseConfigured && (
             <div className={`mt-4 rounded-2xl border p-3 text-sm ${isDark ? "border-[#7b6237]/35 bg-[#1d150e]/70" : "border-[#9b7339]/25 bg-[#fff8df]/70"}`}>
-              <div className="mb-2 flex items-center justify-between gap-2 font-black">
+              <div className="flex items-center justify-between gap-2 font-black">
                 <span className="flex items-center gap-2"><History className="h-4 w-4" /> Aktivitätslog</span>
-                <button className={`${secondaryButton} px-2 py-1 text-xs`} onClick={() => setAuditLogOpen(true)}>Groß öffnen</button>
+                <button className={`${secondaryButton} px-2 py-1 text-xs`} onClick={openAuditLogModal}>Öffnen</button>
               </div>
-              <div className="max-h-56 space-y-2 overflow-auto pr-1">
-                {auditLog.length === 0 ? (
-                  <div className={`text-xs ${mutedText}`}>Noch keine Aktionen.</div>
-                ) : (
-                  auditLog.slice(0, 12).map((entry) => (
-                    <div key={entry.id} className="rounded-xl border border-current/10 px-2 py-1.5 text-xs">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-semibold">{entry.actorName}</span>
-                        <span className={mutedText}>{formatTimestamp(entry.createdAt)}</span>
-                      </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${auditBadgeClass(entry)}`}>{auditTypeLabel(entry.type)}</span>
-                      </div>
-                      <div className={mutedText}>{entry.message}</div>
-                    </div>
-                  ))
-                )}
-              </div>
+              <div className={`mt-2 text-xs ${mutedText}`}>Wird erst im großen Fenster geladen, um Firestore-Reads zu sparen.</div>
             </div>
           )}
         </aside>
@@ -5396,7 +5394,7 @@ export default function App() {
                 <h3 className="flex items-center gap-2 text-2xl font-black"><History className="h-6 w-6" /> Aktivitätslog</h3>
                 <p className={`text-sm ${mutedText}`}>{filteredAuditLog.length} von {auditLog.length} geladenen Einträgen · Limit {auditLogLimit}/500 · neueste zuerst</p>
               </div>
-              <button className={secondaryButton} onClick={() => setAuditLogOpen(false)}><X className="h-4 w-4" /> Schließen</button>
+              <button className={secondaryButton} onClick={closeAuditLogModal}><X className="h-4 w-4" /> Schließen</button>
             </div>
             <div className={`mb-4 grid gap-3 rounded-2xl border p-3 text-sm md:grid-cols-[1fr_1fr_2fr_auto] ${isDark ? "border-[#7b6237]/35 bg-[#1d150e]/70" : "border-[#9b7339]/25 bg-[#fff8df]/70"}`}>
               <label className="space-y-1 text-xs">
