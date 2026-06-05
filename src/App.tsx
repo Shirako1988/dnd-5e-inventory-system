@@ -125,6 +125,7 @@ function isLootQualityBaseItem(entry: CatalogItem) {
   const kind = normalizeSearchText(entry.kind);
   const haystack = `${name} ${category} ${kind}`;
 
+  if (category.includes("verkaufsgut") || kind === "harvest" || kind === "trinket" || kind === "magic-variant") return false;
   if (/arrow|bolt|ammunition|ammo|needle|bullet|sling bullet|dart/.test(haystack) || ["a", "af"].includes(kind)) return false;
   if (/shield|schild/.test(haystack) || kind === "s") return true;
   if (/armor|armour|rüstung|mail|plate|breastplate|hide armor|leather armor|chain shirt|chain mail|splint/.test(haystack) || category.includes("rüstung")) return true;
@@ -4799,7 +4800,7 @@ export default function App() {
                       />
                       {itemCatalogOpen && catalogMatches.length > 0 && canWriteBag(selectedBag) && (
                         <div className={`absolute left-0 right-0 top-full z-40 mt-2 max-h-80 overflow-auto rounded-2xl border p-2 shadow-2xl ${isDark ? "border-[#8d713e]/60 bg-[#16100b]" : "border-[#9b7339]/35 bg-[#fff8df]"}`}>
-                          <div className={`mb-1 px-2 text-[11px] font-bold ${mutedText}`}>2014-Katalog · {catalogMatches.length} Treffer</div>
+                          <div className={`mb-1 px-2 text-[11px] font-bold ${mutedText}`}>Item-Katalog · {catalogMatches.length} Treffer</div>
                           {catalogMatches.map((entry) => (
                             <button
                               key={entry.id}
