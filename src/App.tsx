@@ -4782,7 +4782,7 @@ export default function App() {
                   <input value={search} onChange={(event) => setSearch(event.target.value)} className={`rounded-xl border px-3 py-2 text-sm xl:w-72 ${inputClass}`} placeholder="In dieser Tasche suchen..." />
                 </div>
 
-                <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-[minmax(180px,1.2fr)_120px_90px_110px_110px_110px_minmax(220px,1.5fr)_150px]">
+                <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-[minmax(340px,2.6fr)_118px_72px_86px_86px_92px_minmax(180px,1.1fr)_130px]">
                   <Field label="Name / D&D-Katalog" mutedText={mutedText}>
                     <div className="relative">
                       <input
@@ -4823,10 +4823,10 @@ export default function App() {
                     </div>
                   </Field>
                   <Field label="Kategorie" mutedText={mutedText}><select disabled={!canWriteBag(selectedBag)} className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} value={newItem.category} onChange={(e) => setNewItem((p) => ({ ...p, category: e.target.value as ItemCategory }))}>{categorySelectOptions()}</select></Field>
-                  <Field label="Menge" mutedText={mutedText}><input disabled={!canWriteBag(selectedBag)} className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} placeholder="0" type="number" min="0" value={newItem.quantity} onChange={(e) => setNewItem((p) => ({ ...p, quantity: e.target.value }))} /></Field>
-                  <Field label="Gewicht / Stück" mutedText={mutedText}><input disabled={!canWriteBag(selectedBag)} className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} placeholder="0.5" type="number" step="0.01" value={newItem.weightPerUnit} onChange={(e) => setNewItem((p) => ({ ...p, weightPerUnit: e.target.value }))} /></Field>
-                  <Field label="Volumen / Stück" mutedText={mutedText}><input disabled={!canWriteBag(selectedBag)} className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} placeholder="0.2" type="number" step="0.01" value={newItem.volumePerUnit} onChange={(e) => setNewItem((p) => ({ ...p, volumePerUnit: e.target.value }))} /></Field>
-                  <Field label="Wert / Stück (gp)" mutedText={mutedText}><input disabled={!canWriteBag(selectedBag)} className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} placeholder="50" type="number" step="0.01" value={newItem.valuePerUnit} onChange={(e) => setNewItem((p) => ({ ...p, valuePerUnit: e.target.value }))} /></Field>
+                  <Field label="Menge" mutedText={mutedText}><input disabled={!canWriteBag(selectedBag)} className={`w-full rounded-xl border px-2 py-2 text-sm ${inputClass}`} placeholder="0" type="number" min="0" value={newItem.quantity} onChange={(e) => setNewItem((p) => ({ ...p, quantity: e.target.value }))} /></Field>
+                  <Field label="Gewicht" mutedText={mutedText}><input disabled={!canWriteBag(selectedBag)} className={`w-full rounded-xl border px-2 py-2 text-sm ${inputClass}`} placeholder="lb" type="number" step="0.01" value={newItem.weightPerUnit} onChange={(e) => setNewItem((p) => ({ ...p, weightPerUnit: e.target.value }))} /></Field>
+                  <Field label="Volumen" mutedText={mutedText}><input disabled={!canWriteBag(selectedBag)} className={`w-full rounded-xl border px-2 py-2 text-sm ${inputClass}`} placeholder="0" type="number" step="0.01" value={newItem.volumePerUnit} onChange={(e) => setNewItem((p) => ({ ...p, volumePerUnit: e.target.value }))} /></Field>
+                  <Field label="Wert" mutedText={mutedText}><input disabled={!canWriteBag(selectedBag)} className={`w-full rounded-xl border px-2 py-2 text-sm ${inputClass}`} placeholder="gp" type="number" step="0.01" value={newItem.valuePerUnit} onChange={(e) => setNewItem((p) => ({ ...p, valuePerUnit: e.target.value }))} /></Field>
                   <Field label="Beschreibung" mutedText={mutedText} className="md:col-span-2 xl:col-span-1"><input disabled={!canWriteBag(selectedBag)} className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} placeholder="Kurze Beschreibung des Items" value={newItem.description} onChange={(e) => setNewItem((p) => ({ ...p, description: e.target.value }))} /></Field>
                   <div className="flex items-end"><button className={`${primaryButton} w-full`} onClick={addItem} disabled={!canWriteBag(selectedBag)}><Plus className="h-4 w-4" /> Hinzufügen</button></div>
                 </div>
