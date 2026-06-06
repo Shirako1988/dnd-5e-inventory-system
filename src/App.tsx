@@ -952,6 +952,81 @@ function currencyText(currency: CurrencyPouch) {
   return parts.length ? parts.join(" · ") : "0 Münzen";
 }
 
+function currencyAuditState(currency: CurrencyPouch) {
+  return `${currencyText(currency)} · Wert ${formatNumber(currencyToGoldValue(currency))} gp · Gewicht ${formatNumber(currencyWeight(currency))} lb`;
+}
+
+function currencyAuditChange(before: CurrencyPouch, after: CurrencyPouch) {
+  const changes = currencyKeys
+    .map((key) => {
+      const delta = after[key] - before[key];
+      if (!delta) return null;
+      return `${delta > 0 ? "+" : ""}${delta} ${currencyDefs[key].short}`;
+    })
+    .filter((entry): entry is string => Boolean(entry));
+  return changes.length ? changes.join(" · ") : "keine Münzänderung";
+}
+
+function currencyAuditBeforeAfter(before: CurrencyPouch, after: CurrencyPouch) {
+  return `Änderung: ${currencyAuditChange(before, after)}. Vorher: ${currencyAuditState(before)}. Nachher: ${currencyAuditState(after)}.`;
+}
+
+function nullableNumberText(value: number | null | undefined, unit = "") {
+  return value === null || value === undefined ? "—" : `${formatNumber(value)}${unit ? ` ${unit}` : ""}`;
+}
+
+function auditFieldChange(label: string, before: unknown, after: unknown) {
+  const beforeText = before === null || before === undefined || before === "" ? "—" : String(before);
+  const afterText = after === null || after === undefined || after === "" ? "—" : String(after);
+  return beforeText === afterText ? null : `${label}: ${beforeText} → ${afterText}`;
+}
+
+function itemAuditDetails(before: InventoryItem, after: InventoryItem, beforeBagName: string, afterBagName: string) {
+  const details = [
+    auditFieldChange("Tasche", beforeBagName, afterBagName),
+    auditFieldChange("Name", before.name, after.name),
+    auditFieldChange("Menge", before.quantity, after.quantity),
+    auditFieldChange("Kategorie", getCategoryDef(normalizeItemCategory(before.category)).label, getCategoryDef(normalizeItemCategory(after.category)).label),
+    auditFieldChange("Gewicht/Stück", nullableNumberText(before.weightPerUnit, "lb"), nullableNumberText(after.weightPerUnit, "lb")),
+    auditFieldChange("Volumen/Stück", nullableNumberText(before.volumePerUnit), nullableNumberText(after.volumePerUnit)),
+    auditFieldChange("Wert/Stück", nullableNumberText(before.valuePerUnit, "gp"), nullableNumberText(after.valuePerUnit, "gp")),
+    auditFieldChange("Stack-Gewicht", `${formatNumber(totalWeight(before))} lb`, `${formatNumber(totalWeight(after))} lb`),
+    auditFieldChange("Stack-Wert", `${formatNumber(totalValue(before))} gp`, `${formatNumber(totalValue(after))} gp`),
+    before.description !== after.description ? "Beschreibung geändert" : null,
+    before.notes !== after.notes ? "Notizen geändert" : null,
+  ].filter((entry): entry is string => Boolean(entry));
+  return details.length ? details.join("; ") : "keine sichtbaren Feldänderungen";
+}
+
+function bagVisibilityLabel(access: BagAccess) {
+  return normalizeTargetVisibilityMode(access.targetMode) === "dm" ? "Nur DM" : "Alle";
+}
+
+function accessModeLabelForAudit(mode: AccessMode, ids: string[], members: CampaignMember[]) {
+  if (mode === "all") return "Alle";
+  if (mode === "dm") return "Nur DM";
+  const names = uniqueUidList(ids).map((uid) => members.find((entry) => entry.uid === uid)?.displayName ?? uid);
+  return names.length ? `Ausgewählte: ${names.join(", ")}` : "Ausgewählte: niemand";
+}
+
+function bagAuditDetails(before: Bag | undefined, patch: Partial<Bag>, members: CampaignMember[]) {
+  const after = { ...((before ?? {}) as Bag), ...patch } as Bag;
+  const beforeAccess = getBagAccess(before);
+  const afterAccess = getBagAccess(after);
+  const details = [
+    auditFieldChange("Name", before?.name, after.name),
+    auditFieldChange("Beschreibung", before?.description ? "gesetzt" : "leer", after.description ? "gesetzt" : "leer"),
+    auditFieldChange("Art", before ? bagKindLabel(getBagKind(before)) : undefined, bagKindLabel(getBagKind(after))),
+    auditFieldChange("Max Gewicht", nullableNumberText(before?.maxWeight, "lb"), nullableNumberText(after.maxWeight, "lb")),
+    auditFieldChange("Max Volumen", nullableNumberText(before?.maxVolume), nullableNumberText(after.maxVolume)),
+    auditFieldChange("Sichtbar", bagVisibilityLabel(beforeAccess), bagVisibilityLabel(afterAccess)),
+    auditFieldChange("Hineinlegen", accessModeLabelForAudit(beforeAccess.depositMode, beforeAccess.depositUserIds, members), accessModeLabelForAudit(afterAccess.depositMode, afterAccess.depositUserIds, members)),
+    auditFieldChange("Öffnen", accessModeLabelForAudit(beforeAccess.readMode, beforeAccess.readUserIds, members), accessModeLabelForAudit(afterAccess.readMode, afterAccess.readUserIds, members)),
+    auditFieldChange("Bearbeiten", accessModeLabelForAudit(beforeAccess.writeMode, beforeAccess.writeUserIds, members), accessModeLabelForAudit(afterAccess.writeMode, afterAccess.writeUserIds, members)),
+  ].filter((entry): entry is string => Boolean(entry));
+  return details.length ? details.join("; ") : "keine sichtbaren Feldänderungen";
+}
+
 function formatTimestamp(value: number | null | undefined) {
   if (!value) return "—";
   return new Intl.DateTimeFormat("de-DE", {
@@ -3382,7 +3457,7 @@ export default function App() {
 
       logAction(
         "campaign_repaired",
-        `${member?.displayName ?? "DM"} hat die Kampagnendaten repariert: ${repairPreview.bagPatches.length} Taschen, ${repairPreview.itemPatches.length} Items und ${repairPreview.indexPatches.reduce((sum, entry) => sum + entry.add.length + entry.remove.length, 0)} Rechte-Index-Einträge geändert${repairPreview.orphanItems ? `, ${repairPreview.orphanItems} verwaiste Items ignoriert` : ""}.`,
+        `${member?.displayName ?? "DM"} hat die Kampagnendaten repariert: ${repairPreview.bagPatches.length} Taschen geändert, ${repairPreview.itemPatches.length} Items geändert${repairPreview.orphanItems ? `, ${repairPreview.orphanItems} verwaiste Items ignoriert` : ""}.`,
         activeCampaignId,
       );
 
@@ -3476,7 +3551,11 @@ export default function App() {
       if (isDm && safePatch.access && activeCampaignId) {
         await syncTargetVisibilityIndexForBag(activeCampaignId, { ...(bag ?? {} as Bag), ...safePatch, id } as Bag, members);
       }
-      if (!options?.silent) logAction("bag_updated", `${member?.displayName ?? "Jemand"} hat die Tasche „${bag?.name ?? id}“ geändert.`, id);
+      if (!options?.silent) {
+        const details = bagAuditDetails(bag, safePatch, members);
+        const newName = typeof safePatch.name === "string" && safePatch.name.trim() ? safePatch.name.trim() : (bag?.name ?? id);
+        logAction("bag_updated", `${member?.displayName ?? "Jemand"} hat die Tasche „${bag?.name ?? id}“ geändert. Details: ${details}. Aktueller Name: „${newName}“.`, id);
+      }
       setSyncStatus("online");
       setSyncError(null);
     } catch (error) {
@@ -3609,7 +3688,7 @@ export default function App() {
           await batch.commit();
           const remaining = visibleBags.filter((entry) => entry.id !== deleteTarget.id);
           setSelectedBagId(remaining[0]?.id ?? "");
-          logAction("bag_deleted", `${member?.displayName ?? "Jemand"} hat die Tasche „${deleteTarget.label}“ gelöscht.`, deleteTarget.id);
+          logAction("bag_deleted", `${member?.displayName ?? "Jemand"} hat die Tasche „${deleteTarget.label}“ gelöscht. Enthaltene gelöschte Items: ${deletedItems.length} Stapel · ${deletedItems.reduce((sum, entry) => sum + entry.quantity, 0)} Gegenstände · Gewicht ${formatNumber(deletedItems.reduce((sum, entry) => sum + totalWeight(entry), 0))} lb · Wert ${formatNumber(deletedItems.reduce((sum, entry) => sum + totalValue(entry), 0))} gp.`, deleteTarget.id);
         }
       }
 
@@ -3625,7 +3704,7 @@ export default function App() {
           batch.delete(doc(firebaseDb, "campaigns", activeCampaignId, "items", deleteTarget.id));
           batch.update(doc(firebaseDb, "campaigns", activeCampaignId, "bags", bag.id), capacityPatchFromTotals(bagTotalsAfterDelta(bag, { weight: -totalWeight(item), volume: -totalVolume(item), value: -totalValue(item), count: -item.quantity })));
           await batch.commit();
-          logAction("item_deleted", `${member?.displayName ?? "Jemand"} hat „${deleteTarget.label}“ gelöscht.`, deleteTarget.id);
+          logAction("item_deleted", `${member?.displayName ?? "Jemand"} hat ${item?.quantity ?? "?"}x „${deleteTarget.label}“ aus „${bag?.name ?? "unbekannte Tasche"}“ gelöscht. Gewicht ${formatNumber(item ? totalWeight(item) : 0)} lb · Wert ${formatNumber(item ? totalValue(item) : 0)} gp.`, deleteTarget.id);
         }
       }
 
@@ -3705,6 +3784,7 @@ export default function App() {
       } else {
         setItems((prev) => [...prev, item]);
       }
+      logAction(existingStack ? "item_stacked" : "item_created", `${member?.displayName ?? "Jemand"} hat ${item.quantity}x „${item.name}“ in „${selectedBag.name}“ gelegt${existingStack ? ` und mit einem vorhandenen Stapel zusammengeführt (${existingStack.quantity} → ${existingStack.quantity + item.quantity})` : ""}. Kategorie: ${getCategoryDef(item.category).label}; Gewicht +${formatNumber(totalWeight(item))} lb; Wert +${formatNumber(totalValue(item))} gp.`, existingStack?.id ?? item.id);
       setNewItem({ name: "", quantity: "1", weightPerUnit: "", volumePerUnit: "", valuePerUnit: "", description: "", category: "gear" });
       return;
     }
@@ -3722,7 +3802,7 @@ export default function App() {
       }
       batch.update(bagRef, capacityPatchFromTotals(bagTotalsAfterDelta(selectedBag, { weight: totalWeight(item), volume: totalVolume(item), value: totalValue(item), count: item.quantity })));
       await batch.commit();
-      logAction(existingStack ? "item_stacked" : "item_created", `${member?.displayName ?? "Jemand"} hat ${item.quantity}x „${item.name}“ in „${selectedBag.name}“ gelegt${existingStack ? " und mit einem vorhandenen Stapel zusammengeführt" : ""}.`, existingStack?.id ?? item.id);
+      logAction(existingStack ? "item_stacked" : "item_created", `${member?.displayName ?? "Jemand"} hat ${item.quantity}x „${item.name}“ in „${selectedBag.name}“ gelegt${existingStack ? ` und mit einem vorhandenen Stapel zusammengeführt (${existingStack.quantity} → ${existingStack.quantity + item.quantity})` : ""}. Kategorie: ${getCategoryDef(item.category).label}; Gewicht +${formatNumber(totalWeight(item))} lb; Wert +${formatNumber(totalValue(item))} gp.`, existingStack?.id ?? item.id);
       setNewItem({ name: "", quantity: "1", weightPerUnit: "", volumePerUnit: "", valuePerUnit: "", description: "", category: "gear" });
       setSyncStatus("online");
       setSyncError(null);
@@ -3792,12 +3872,13 @@ export default function App() {
 
       await batch.commit();
 
+      const details = itemAuditDetails(current, nextItem, currentBag.name, targetBag.name);
       if (isMove) {
-        logAction("item_moved", `${member?.displayName ?? "Jemand"} hat „${current.name}“ nach „${targetBag?.name ?? "eine andere Tasche"}“ verschoben.`, id);
+        logAction("item_moved", `${member?.displayName ?? "Jemand"} hat „${current.name}“ von „${currentBag.name}“ nach „${targetBag.name}“ verschoben. Details: ${details}.`, id);
       } else if (typeof patch.quantity === "number" && patch.quantity !== current.quantity) {
-        logAction("item_quantity_changed", `${member?.displayName ?? "Jemand"} hat die Menge von „${current.name}“ von ${current.quantity} auf ${patch.quantity} geändert.`, id);
+        logAction("item_quantity_changed", `${member?.displayName ?? "Jemand"} hat die Menge von „${current.name}“ in „${currentBag.name}“ geändert. Details: ${details}.`, id);
       } else {
-        logAction("item_updated", `${member?.displayName ?? "Jemand"} hat „${current.name}“ geändert.`, id);
+        logAction("item_updated", `${member?.displayName ?? "Jemand"} hat „${current.name}“ in „${currentBag.name}“ geändert. Details: ${details}.`, id);
       }
 
       setSyncStatus("online");
@@ -3911,6 +3992,7 @@ export default function App() {
     setSyncError(null);
     setSyncStatus(firebaseConfigured ? "online" : "local");
 
+    const transferBaseDetails = `Menge ${amount}/${item.quantity}; Gewicht ${formatNumber(movedWeight)} lb; Wert ${formatNumber(movedValue)} gp; Quelle danach ${item.quantity - amount}x.`;
     let targetStack = findStackMatch(items, targetBag.id, movedItem, item.id);
     const targetStackId = targetStack?.id ?? stackDocumentId(targetBag.id, movedItem);
 
@@ -3947,7 +4029,7 @@ export default function App() {
           setItems((prev) => prev.map((entry) => (entry.id === item.id ? { ...entry, quantity: item.quantity - amount, updatedBy: activeUid, updatedAt: nowTs } : entry)).concat(newStackItem));
         }
       }
-      logAction(targetStack ? "item_stacked" : "item_moved", `${member?.displayName ?? "Jemand"} hat ${amount}x „${item.name}“ von „${sourceBag.name}“ nach „${targetBag.name}“ übertragen${targetStack ? " und mit einem vorhandenen Stapel zusammengeführt" : ""}.`, targetStackId);
+      logAction(targetStack ? "item_stacked" : "item_moved", `${member?.displayName ?? "Jemand"} hat ${amount}x „${item.name}“ von „${sourceBag.name}“ nach „${targetBag.name}“ übertragen${targetStack ? ` und gestackt (${targetStack.quantity} → ${targetStack.quantity + amount})` : ""}. ${transferBaseDetails}`, targetStackId);
       setTransferTarget(null);
       return;
     }
@@ -3995,7 +4077,7 @@ export default function App() {
       batch.update(sourceBagRef, capacityPatchFromTotals(bagTotalsAfterDelta(sourceBag, { weight: -movedWeight, volume: -movedVolume, value: -movedValue, count: -amount })));
       batch.update(targetBagRef, capacityPatchFromTotals(bagTotalsAfterDelta(targetBag, { weight: movedWeight, volume: movedVolume, value: movedValue, count: amount })));
 
-      const transferLog = makeAuditLogEntry(targetStack ? "item_stacked" : "item_moved", `${member?.displayName ?? "Jemand"} hat ${amount}x „${item.name}“ von „${sourceBag.name}“ nach „${targetBag.name}“ übertragen${targetStack ? " und mit einem vorhandenen Stapel zusammengeführt" : ""}.`, targetStackId);
+      const transferLog = makeAuditLogEntry(targetStack ? "item_stacked" : "item_moved", `${member?.displayName ?? "Jemand"} hat ${amount}x „${item.name}“ von „${sourceBag.name}“ nach „${targetBag.name}“ übertragen${targetStack ? ` und gestackt (${targetStack.quantity} → ${targetStack.quantity + amount})` : ""}. ${transferBaseDetails}`, targetStackId);
       if (transferLog) {
         batch.set(doc(firebaseDb, "campaigns", activeCampaignId, "auditLog", transferLog.id), cleanFirestorePayload(transferLog as any));
       }
@@ -4061,7 +4143,7 @@ export default function App() {
     const nowTs = Date.now();
     const saleList = saleEntries.map((item) => `${item.quantity}x ${item.name}`).join("; ");
     const payoutText = currencyDeltaText(totals.payoutCurrency);
-    const message = `${member?.displayName ?? "Jemand"} hat Verkaufsgut aus „${bag.name}“ verkauft: ${saleList}. Gutgeschrieben: ${payoutText} (${formatNumber(totals.localSellValue)} gp).`;
+    const message = `${member?.displayName ?? "Jemand"} hat Verkaufsgut aus „${bag.name}“ verkauft: ${saleList}. Verkauft: ${saleEntries.length} Stapel · ${totals.quantity} Gegenstände · Gewicht -${formatNumber(totals.weight)} lb · Basiswert ${formatNumber(totals.baseValue)} gp · lokaler Verkauf ${formatNumber(totals.localSellValue)} gp. Gutgeschrieben: ${payoutText}. Münzen vorher: ${currencyAuditState(currentCurrency)}. Münzen nachher: ${currencyAuditState(nextCurrency)}.`;
     const bagPatch = cleanFirestorePayload({
       ...capacityPatchFromTotals(finalTotals),
       currency: nextCurrency,
@@ -4110,8 +4192,10 @@ export default function App() {
     const bag = bags.find((entry) => entry.id === bagId);
     if (!bag) return;
     if (!canWriteBag(bag) && !isDm) return;
+    const beforeCurrency = bagCurrency(bag);
     const safeCurrency = normalizeCurrency(nextCurrency);
-    const addedCoinWeight = currencyWeight(safeCurrency) - currencyWeight(bagCurrency(bag));
+    const detailedLogMessage = `${logMessage} ${currencyAuditBeforeAfter(beforeCurrency, safeCurrency)}`;
+    const addedCoinWeight = currencyWeight(safeCurrency) - currencyWeight(beforeCurrency);
     if (addedCoinWeight > 0) {
       const fit = canFitIntoContainer(bag, addedCoinWeight, 0);
       if (!fit.ok) {
@@ -4124,11 +4208,11 @@ export default function App() {
     const patch = { ...currencyWeightPatchForBag(bag, safeCurrency), updatedAt: nowTs } as Partial<Bag>;
 
     try {
-      rememberCurrencyUndo(bagId, bagCurrency(bag));
+      rememberCurrencyUndo(bagId, beforeCurrency);
 
       if (!firebaseConfigured) {
         setBags((prev) => prev.map((entry) => entry.id === bagId ? { ...entry, ...patch } : entry));
-        logAction(logType, logMessage, bagId);
+        logAction(logType, detailedLogMessage, bagId);
         return;
       }
 
@@ -4138,7 +4222,7 @@ export default function App() {
       // Sofort lokal spiegeln. Sonst wirkt die Aktion je nach Listener/Cache kurz oder dauerhaft so,
       // als wäre sie nur geloggt worden.
       setBags((prev) => prev.map((entry) => entry.id === bagId ? { ...entry, ...patch } : entry));
-      logAction(logType, logMessage, bagId);
+      logAction(logType, detailedLogMessage, bagId);
       setSyncStatus("online");
       setSyncError(null);
     } catch (error) {
@@ -4166,7 +4250,7 @@ export default function App() {
     await updateBag(bagId, currencyWeightPatchForBag(bag, next), { silent: true });
     logAction(
       delta >= 0 ? "currency_added" : "currency_removed",
-      `${member?.displayName ?? "Jemand"} hat ${Math.abs(delta)} ${currencyDefs[key].short} ${delta >= 0 ? "in" : "aus"} „${bag.name}“ ${delta >= 0 ? "gelegt" : "entnommen"}.`,
+      `${member?.displayName ?? "Jemand"} hat ${Math.abs(delta)} ${currencyDefs[key].short} ${delta >= 0 ? "in" : "aus"} „${bag.name}“ ${delta >= 0 ? "gelegt" : "entnommen"}. ${currencyAuditBeforeAfter(current, next)}`,
       bagId,
     );
   }
@@ -4189,7 +4273,7 @@ export default function App() {
       delete next[bagId];
       return next;
     });
-    logAction("currency_undo", `${member?.displayName ?? "Jemand"} hat die letzte Münzänderung in „${bag.name}“ zurückgesetzt.`, bagId);
+    logAction("currency_undo", `${member?.displayName ?? "Jemand"} hat die letzte Münzänderung in „${bag.name}“ zurückgesetzt. ${currencyAuditBeforeAfter(bagCurrency(bag), previous)}`, bagId);
   }
 
   async function convertBagCurrency(bagId: string, source: CurrencyKey | "all", target: CurrencyKey, targetAmountRaw: string, convertAll: boolean) {
@@ -4207,7 +4291,7 @@ export default function App() {
         const converted = emptyCurrency();
         converted[target] = targetCount;
         converted.cp = remainder;
-        await setBagCurrency(bagId, converted, `${member?.displayName ?? "Jemand"} hat alle Münzen in „${bag.name}“ möglichst in ${currencyDefs[target].short} umgewandelt.`, "currency_converted");
+        await setBagCurrency(bagId, converted, `${member?.displayName ?? "Jemand"} hat alle Münzen in „${bag.name}“ in möglichst viele ${currencyDefs[target].short} umgewandelt. Zielmünzen: ${targetCount} ${currencyDefs[target].short}; Rest: ${remainder} CP.`, "currency_converted");
         return;
       }
 
@@ -4217,7 +4301,7 @@ export default function App() {
       next[source] = 0;
       next[target] += targetCount;
       if (remainder > 0) next.cp += remainder;
-      await setBagCurrency(bagId, next, `${member?.displayName ?? "Jemand"} hat alle ${currencyDefs[source].short} in „${bag.name}“ möglichst in ${currencyDefs[target].short} umgewandelt.`, "currency_converted");
+      await setBagCurrency(bagId, next, `${member?.displayName ?? "Jemand"} hat alle ${current[source]} ${currencyDefs[source].short} in „${bag.name}“ in möglichst viele ${currencyDefs[target].short} umgewandelt. Ergebnis: ${targetCount} ${currencyDefs[target].short}; Rest: ${remainder} CP.`, "currency_converted");
       return;
     }
 
@@ -4237,7 +4321,7 @@ export default function App() {
         converted[key] += count;
         remainder -= count * currencyValueInCopper[key];
       }
-      await setBagCurrency(bagId, converted, `${member?.displayName ?? "Jemand"} hat Münzen in „${bag.name}“ in ${targetAmount} ${currencyDefs[target].short} gewechselt.`, "currency_converted");
+      await setBagCurrency(bagId, converted, `${member?.displayName ?? "Jemand"} hat Münzen im Wert von ${formatNumber(neededCopper / 100)} gp in „${bag.name}“ zu ${targetAmount} ${currencyDefs[target].short} gewechselt.`, "currency_converted");
       return;
     }
 
@@ -4246,7 +4330,7 @@ export default function App() {
     if (current[source] < sourceAmount) return;
     next[source] -= sourceAmount;
     next[target] += targetAmount;
-    await setBagCurrency(bagId, next, `${member?.displayName ?? "Jemand"} hat ${sourceAmount} ${currencyDefs[source].short} in ${targetAmount} ${currencyDefs[target].short} gewechselt.`, "currency_converted");
+    await setBagCurrency(bagId, next, `${member?.displayName ?? "Jemand"} hat in „${bag.name}“ ${sourceAmount} ${currencyDefs[source].short} zu ${targetAmount} ${currencyDefs[target].short} gewechselt.`, "currency_converted");
   }
 
   async function transferBagCurrency(sourceBagId: string, targetBagId: string, key: CurrencyKey, amountRaw: string) {
@@ -4272,7 +4356,7 @@ export default function App() {
     const nowTs = Date.now();
     const sourcePatch = { ...currencyWeightPatchForBag(sourceBag, nextSource), updatedAt: nowTs } as Partial<Bag>;
     const targetPatch = { ...currencyWeightPatchForBag(targetBag, nextTarget), updatedAt: nowTs } as Partial<Bag>;
-    const logMessage = `${member?.displayName ?? "Jemand"} hat ${amount} ${currencyDefs[key].short} von „${sourceBag.name}“ nach „${targetBag.name}“ übertragen.`;
+    const logMessage = `${member?.displayName ?? "Jemand"} hat ${amount} ${currencyDefs[key].short} von „${sourceBag.name}“ nach „${targetBag.name}“ übertragen. Quelle vorher: ${currencyAuditState(sourceCurrency)}. Quelle nachher: ${currencyAuditState(nextSource)}. Ziel vorher: ${currencyAuditState(targetCurrency)}. Ziel nachher: ${currencyAuditState(nextTarget)}.`;
 
     if (!firebaseConfigured) {
       setBags((prev) => prev.map((entry) => {
