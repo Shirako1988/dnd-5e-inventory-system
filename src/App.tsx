@@ -1196,6 +1196,12 @@ function dmOnlyAccess(): BagAccess {
   return makeAccess("dm", "dm", "dm", "dm");
 }
 
+function normalizeTargetVisibilityMode(mode: AccessMode | undefined) {
+  // Sichtbarkeit/Linke Taschenliste ist absichtlich nur noch DM oder Alle.
+  // Alte "custom"/Einzelspieler-Sichtbarkeit wird beim Lesen und Reparieren zu "all" migriert.
+  return mode === "dm" ? "dm" : "all";
+}
+
 function privateIncomingAllowedAccess(ownerUid: string): BagAccess {
   // Jeder sieht die Tasche und kann Items hineinlegen. Nur Besitzer + DM dürfen öffnen und bearbeiten.
   return makeAccess("all", "all", "custom", "custom", [], [], [ownerUid], [ownerUid]);
@@ -1204,8 +1210,8 @@ function privateIncomingAllowedAccess(ownerUid: string): BagAccess {
 function normalizeAccess(access: Partial<BagAccess> | undefined): BagAccess | null {
   if (!access) return null;
   return {
-    targetMode: access.targetMode ?? "dm",
-    targetUserIds: access.targetUserIds ?? [],
+    targetMode: normalizeTargetVisibilityMode(access.targetMode),
+    targetUserIds: [],
     depositMode: access.depositMode ?? "dm",
     depositUserIds: access.depositUserIds ?? [],
     readMode: access.readMode ?? "dm",
@@ -1250,7 +1256,8 @@ function uniqueUidList(ids: string[], allowedUserIds?: Set<string>) {
 function sanitizeAccessUserLists(access: BagAccess, allowedUserIds?: Set<string>): BagAccess {
   return {
     ...access,
-    targetUserIds: uniqueUidList(access.targetUserIds ?? [], allowedUserIds),
+    targetMode: normalizeTargetVisibilityMode(access.targetMode),
+    targetUserIds: [],
     depositUserIds: uniqueUidList(access.depositUserIds ?? [], allowedUserIds),
     readUserIds: uniqueUidList(access.readUserIds ?? [], allowedUserIds),
     writeUserIds: uniqueUidList(access.writeUserIds ?? [], allowedUserIds),
@@ -1269,9 +1276,7 @@ function removeUserFromAccess(access: BagAccess, uidToRemove: string): BagAccess
 }
 
 function targetAccessKeysForAccess(access: BagAccess) {
-  if (access.targetMode === "all") return [TARGET_ACCESS_ALL_KEY];
-  if (access.targetMode === "custom") return uniqueUidList(access.targetUserIds);
-  return [];
+  return normalizeTargetVisibilityMode(access.targetMode) === "all" ? [TARGET_ACCESS_ALL_KEY] : [];
 }
 
 function withBagAccessMirror<T extends Partial<Bag>>(bagOrPatch: T): T {
@@ -1294,104 +1299,95 @@ function indexedVisiblePlayerIdsForBag(bag: Bag, playerUids: string[]) {
 }
 
 async function syncTargetVisibilityIndex(campaignId: string, latestBags: Bag[], latestMembers: CampaignMember[]) {
-  if (!firebaseDb) return;
-
-  const playerUids = uniqueUidList(latestMembers.filter((entry) => entry.role === "player").map((entry) => entry.uid));
-  if (!playerUids.length) return;
-
-  const now = Date.now();
-  let batch = writeBatch(firebaseDb);
-  let ops = 0;
-  const commits: Promise<void>[] = [];
-
-  const commitIfNeeded = () => {
-    if (ops === 0) return;
-    commits.push(batch.commit());
-    batch = writeBatch(firebaseDb);
-    ops = 0;
-  };
-
-  for (const playerUid of playerUids) {
-    const allowedBagIds = new Set(
-      latestBags
-        .filter((bag) => canTargetBagByAccess(bag, playerUid, false))
-        .map((bag) => bag.id),
-    );
-
-    const visibilityRef = collection(firebaseDb, "campaigns", campaignId, "targetVisibility", playerUid, "bags");
-    const existingSnapshot = await getDocs(visibilityRef);
-    const existingBagIds = new Set(existingSnapshot.docs.map((entry) => entry.id));
-
-    for (const bagId of allowedBagIds) {
-      if (existingBagIds.has(bagId)) continue;
-      batch.set(doc(firebaseDb, "campaigns", campaignId, "targetVisibility", playerUid, "bags", bagId), {
-        bagId,
-        playerUid,
-        updatedAt: now,
-      });
-      ops += 1;
-      if (ops >= 450) commitIfNeeded();
-    }
-
-    for (const bagId of existingBagIds) {
-      if (allowedBagIds.has(bagId)) continue;
-      batch.delete(doc(firebaseDb, "campaigns", campaignId, "targetVisibility", playerUid, "bags", bagId));
-      ops += 1;
-      if (ops >= 450) commitIfNeeded();
-    }
-  }
-
-  commitIfNeeded();
-  await Promise.all(commits);
+  // Einzelsichtbarkeit wurde entfernt. Kein persönlicher Sichtbarkeitsindex mehr.
+  return;
 }
 
 async function syncTargetVisibilityIndexForBag(campaignId: string, bag: Bag, latestMembers: CampaignMember[]) {
-  if (!firebaseDb) return;
-
-  const playerUids = uniqueUidList(latestMembers.filter((entry) => entry.role === "player").map((entry) => entry.uid));
-  if (!playerUids.length) return;
-
-  const allowedPlayerIds = new Set(indexedVisiblePlayerIdsForBag(bag, playerUids));
-  const now = Date.now();
-  let batch = writeBatch(firebaseDb);
-  let ops = 0;
-  const commits: Promise<void>[] = [];
-
-  const commitIfNeeded = () => {
-    if (ops === 0) return;
-    commits.push(batch.commit());
-    batch = writeBatch(firebaseDb);
-    ops = 0;
-  };
-
-  for (const playerUid of playerUids) {
-    const indexDoc = doc(firebaseDb, "campaigns", campaignId, "targetVisibility", playerUid, "bags", bag.id);
-    const existsNow = (await getDoc(indexDoc)).exists();
-    if (allowedPlayerIds.has(playerUid)) {
-      if (!existsNow) {
-        batch.set(indexDoc, {
-          bagId: bag.id,
-          playerUid,
-          updatedAt: now,
-        });
-        ops += 1;
-      }
-    } else if (existsNow) {
-      batch.delete(indexDoc);
-      ops += 1;
-    }
-    if (ops >= 450) commitIfNeeded();
-  }
-
-  commitIfNeeded();
-  await Promise.all(commits);
+  // Einzelsichtbarkeit wurde entfernt. Kein persönlicher Sichtbarkeitsindex mehr.
+  return;
 }
 
 
 function canTargetBagByAccess(bag: Bag | undefined | null, uid: string, isDm: boolean) {
   if (!bag) return false;
+  if (isDm) return true;
   const access = getBagAccess(bag);
-  return accessAllows(access.targetMode, access.targetUserIds, uid, isDm);
+  return normalizeTargetVisibilityMode(access.targetMode) === "all";
+}
+
+function targetVisibilityBagSnapshot(bag: Bag): Bag {
+  const access = getBagAccess(bag);
+  return cleanFirestorePayload({
+    id: bag.id,
+    name: typeof bag.name === "string" ? bag.name : "Unbenannte Tasche",
+    description: typeof bag.description === "string" ? bag.description : "",
+    ownerUid: typeof bag.ownerUid === "string" ? bag.ownerUid : null,
+    type: bag.type,
+    kind: getBagKind(bag),
+    sortIndex: typeof bag.sortIndex === "number" ? bag.sortIndex : 0,
+    maxWeight: typeof bag.maxWeight === "number" ? bag.maxWeight : null,
+    maxVolume: typeof bag.maxVolume === "number" ? bag.maxVolume : null,
+    currentWeight: typeof bag.currentWeight === "number" ? bag.currentWeight : 0,
+    currentVolume: typeof bag.currentVolume === "number" ? bag.currentVolume : 0,
+    currentValue: typeof bag.currentValue === "number" ? bag.currentValue : 0,
+    itemCount: typeof bag.itemCount === "number" ? bag.itemCount : 0,
+    currency: normalizeCurrency(bag.currency),
+    permissions: bag.permissions,
+    access,
+    targetAccessKeys: targetAccessKeysForAccess(access),
+    imageUrl: sanitizeImageUrl(bag.imageUrl),
+    imageZoom: sanitizeImageZoom(bag.imageZoom),
+    imagePositionX: sanitizeImagePosition(bag.imagePositionX),
+    imagePositionY: sanitizeImagePosition(bag.imagePositionY),
+    ...(typeof bag.imageUpdatedAt === "number" ? { imageUpdatedAt: bag.imageUpdatedAt } : {}),
+    ...(typeof bag.imageUpdatedBy === "string" ? { imageUpdatedBy: bag.imageUpdatedBy } : {}),
+    createdAt: typeof bag.createdAt === "number" ? bag.createdAt : Date.now(),
+    updatedAt: typeof bag.updatedAt === "number" ? bag.updatedAt : Date.now(),
+  } as any) as Bag;
+}
+
+function targetVisibilityPayloadForBag(bag: Bag, playerUid: string, timestamp: number) {
+  return cleanFirestorePayload({
+    bagId: bag.id,
+    playerUid,
+    updatedAt: timestamp,
+    bag: targetVisibilityBagSnapshot(bag),
+  } as any);
+}
+
+function bagFromTargetVisibilityIndex(raw: any, fallbackId: string): Bag | null {
+  const source = raw && typeof raw.bag === "object" && raw.bag ? raw.bag : raw;
+  const id = typeof source?.id === "string" && source.id ? source.id : (typeof raw?.bagId === "string" && raw.bagId ? raw.bagId : fallbackId);
+  if (!id || typeof source?.name !== "string" || !source.name.trim()) return null;
+  const access = getBagAccess({ ...source, id } as Bag);
+  return {
+    id,
+    name: source.name.trim(),
+    description: typeof source.description === "string" ? source.description : "",
+    ownerUid: typeof source.ownerUid === "string" ? source.ownerUid : null,
+    type: source.type,
+    kind: source.kind === "container" ? "container" : "inventory",
+    sortIndex: typeof source.sortIndex === "number" ? source.sortIndex : 0,
+    maxWeight: typeof source.maxWeight === "number" ? source.maxWeight : null,
+    maxVolume: typeof source.maxVolume === "number" ? source.maxVolume : null,
+    currentWeight: typeof source.currentWeight === "number" ? source.currentWeight : 0,
+    currentVolume: typeof source.currentVolume === "number" ? source.currentVolume : 0,
+    currentValue: typeof source.currentValue === "number" ? source.currentValue : 0,
+    itemCount: typeof source.itemCount === "number" ? source.itemCount : 0,
+    currency: normalizeCurrency(source.currency),
+    permissions: source.permissions,
+    access,
+    targetAccessKeys: targetAccessKeysForAccess(access),
+    imageUrl: sanitizeImageUrl(source.imageUrl),
+    imageZoom: sanitizeImageZoom(source.imageZoom),
+    imagePositionX: sanitizeImagePosition(source.imagePositionX),
+    imagePositionY: sanitizeImagePosition(source.imagePositionY),
+    ...(typeof source.imageUpdatedAt === "number" ? { imageUpdatedAt: source.imageUpdatedAt } : {}),
+    ...(typeof source.imageUpdatedBy === "string" ? { imageUpdatedBy: source.imageUpdatedBy } : {}),
+    createdAt: typeof source.createdAt === "number" ? source.createdAt : 0,
+    updatedAt: typeof source.updatedAt === "number" ? source.updatedAt : 0,
+  };
 }
 
 function modeShortLabel(mode: AccessMode, ids: string[]) {
@@ -2526,30 +2522,13 @@ export default function App() {
       );
     }
 
-    // Spielerpfad im Schonmodus:
-    // 1) Öffentliche Taschen live über access.targetMode == all.
-    // 2) Custom-Taschen über einen kleinen pro-Spieler-Index (targetVisibility/{uid}/bags).
-    //    Daraus werden die konkreten Bag-Dokumente in wenigen documentId-in Queries live geladen.
-    // Das ist robuster als verschachtelte Custom-Access-Queries und vermeidet trotzdem per-Bag-Einzellistener.
-    const allMap = new Map<string, Bag>();
-    const customMap = new Map<string, Bag>();
-    let customBagUnsubs: Array<() => void> = [];
+    // Spielerpfad im Schonmodus nach Entfernen der Einzelsichtbarkeit:
+    // Genau 1 Live-Query für Taschen, die für alle sichtbar sind.
+    // DM-only Taschen liest nur der DM über seinen eigenen Listener.
+    const publicMap = new Map<string, Bag>();
 
     const publish = () => {
-      const merged = new Map<string, Bag>();
-      for (const [id, bag] of allMap) merged.set(id, bag);
-      for (const [id, bag] of customMap) merged.set(id, bag);
-      setBags(Array.from(merged.values()).filter((bag) => canTargetBagByAccess(bag, userUid, false)).sort((a, b) => a.sortIndex - b.sortIndex));
-    };
-
-    const applySnapshotChanges = (targetMap: Map<string, Bag>, snapshot: QuerySnapshot<DocumentData>) => {
-      for (const change of snapshot.docChanges()) {
-        if (change.type === "removed") targetMap.delete(change.doc.id);
-        else targetMap.set(change.doc.id, change.doc.data() as Bag);
-      }
-      publish();
-      setSyncStatus("online");
-      setSyncError(null);
+      setBags(Array.from(publicMap.values()).filter((bag) => canTargetBagByAccess(bag, userUid, false)).sort((a, b) => a.sortIndex - b.sortIndex));
     };
 
     const handleBagQueryError = (label: string) => (error: Error) => {
@@ -2558,45 +2537,22 @@ export default function App() {
       setSyncError(error.message);
     };
 
-    const replaceCustomBagListeners = (bagIds: string[]) => {
-      for (const unsubscribe of customBagUnsubs) unsubscribe();
-      customBagUnsubs = [];
-      customMap.clear();
-      const uniqueBagIds = Array.from(new Set(bagIds.filter(Boolean))).sort();
-      if (!uniqueBagIds.length) {
-        publish();
-        return;
-      }
-      for (let index = 0; index < uniqueBagIds.length; index += 30) {
-        const chunk = uniqueBagIds.slice(index, index + 30);
-        customBagUnsubs.push(onSnapshot(
-          query(bagCollection, where(documentId(), "in", chunk)),
-          (snapshot) => applySnapshotChanges(customMap, snapshot),
-          handleBagQueryError("Persönliche Taschen-Dokumente"),
-        ));
-      }
-    };
-
-    const unsubAll = onSnapshot(
-      query(bagCollection, where("access.targetMode", "==", "all")),
-      (snapshot) => applySnapshotChanges(allMap, snapshot),
-      handleBagQueryError("Allgemeine sichtbare/Ziel-Taschen"),
-    );
-
-    const unsubIndex = onSnapshot(
-      collection(firebaseDb, "campaigns", activeCampaignId, "targetVisibility", userUid, "bags"),
+    const unsubPublic = onSnapshot(
+      query(bagCollection, where("targetAccessKeys", "array-contains", TARGET_ACCESS_ALL_KEY)),
       (snapshot) => {
-        replaceCustomBagListeners(snapshot.docs.map((entry) => (entry.data() as { bagId?: string }).bagId ?? entry.id));
+        for (const change of snapshot.docChanges()) {
+          if (change.type === "removed") publicMap.delete(change.doc.id);
+          else publicMap.set(change.doc.id, change.doc.data() as Bag);
+        }
+        publish();
         setSyncStatus("online");
         setSyncError(null);
       },
-      handleBagQueryError("Persönlicher Sichtbarkeitsindex"),
+      handleBagQueryError("Öffentliche Taschen"),
     );
 
     return () => {
-      unsubAll();
-      unsubIndex();
-      for (const unsubscribe of customBagUnsubs) unsubscribe();
+      unsubPublic();
     };
   }, [activeCampaignId, userUid, member?.role, campaignAccessReady]);
 
@@ -3327,15 +3283,6 @@ export default function App() {
     }
 
     const indexPatches: RepairPreview["indexPatches"] = [];
-    for (const player of latestMembers.filter((entry) => entry.role === "player")) {
-      const expectedIds = new Set(normalizedBagsForIndex.filter((bag) => canTargetBagByAccess(bag, player.uid, false)).map((bag) => bag.id));
-      const visibilityRef = collection(firebaseDb, "campaigns", activeCampaignId, "targetVisibility", player.uid, "bags");
-      const existingSnapshot = await getDocs(visibilityRef);
-      const existingIds = new Set(existingSnapshot.docs.map((entry) => entry.id));
-      const add = Array.from(expectedIds).filter((id) => !existingIds.has(id)).sort();
-      const remove = Array.from(existingIds).filter((id) => !expectedIds.has(id)).sort();
-      if (add.length || remove.length) indexPatches.push({ uid: player.uid, displayName: player.displayName, add, remove });
-    }
 
     for (let index = 0; index < itemSnapshot.docs.length; index += 1) {
       const raw = itemSnapshot.docs[index].data() as Partial<InventoryItem>;
@@ -3429,18 +3376,7 @@ export default function App() {
         ops += 1;
         if (ops >= 450) commitIfNeeded();
       }
-      for (const entry of repairPreview.indexPatches) {
-        for (const bagId of entry.add) {
-          batch.set(doc(firebaseDb, "campaigns", activeCampaignId, "targetVisibility", entry.uid, "bags", bagId), { bagId, playerUid: entry.uid, updatedAt: nowTs });
-          ops += 1;
-          if (ops >= 450) commitIfNeeded();
-        }
-        for (const bagId of entry.remove) {
-          batch.delete(doc(firebaseDb, "campaigns", activeCampaignId, "targetVisibility", entry.uid, "bags", bagId));
-          ops += 1;
-          if (ops >= 450) commitIfNeeded();
-        }
-      }
+      // Kein Rechte-Index mehr: Einzelsichtbarkeit wurde entfernt.
       commitIfNeeded();
       await Promise.all(commits);
 
@@ -4420,7 +4356,7 @@ export default function App() {
       ["Taschen-Listener", isDm ? "1 Query · DM alle Taschen" : isApprovedMember ? "3 Queries · All + Index + Custom-Bag-Docs" : "inaktiv"],
       ["Einzelne Taschen-Doc-Listener", "0"],
       ["Legacy-/Index-Fallback", "aus · Access-Felder sind Quelle der Wahrheit"],
-      ["Custom-Taschen-Query", isApprovedMember && !isDm ? "targetVisibility Index + documentId-in Bag-Query" : isDm ? "nicht nötig für DM" : "inaktiv"],
+      ["Einzelsichtbarkeit", "deaktiviert · nur Alle oder Nur DM"],
       ["Item-Listener", selectedOpenableBagId ? `1 Query · ${selectedBag?.name ?? selectedOpenableBagId}` : "inaktiv"],
       ["Auditlog-Listener", auditLogOpen ? `aktiv · Limit ${auditLogLimit}` : "inaktiv"],
     ];
@@ -5448,7 +5384,7 @@ export default function App() {
               <MiniStat label="Taschen mit Änderungen" value={String(repairPreview.bagPatches.length)} />
               <MiniStat label="Items mit Änderungen" value={String(repairPreview.itemPatches.length)} />
               <MiniStat label="Verwaiste Items" value={String(repairPreview.orphanItems)} />
-              <MiniStat label="Rechte-Index Änderungen" value={String(repairPreview.indexPatches.reduce((sum, entry) => sum + entry.add.length + entry.remove.length, 0))} />
+              <MiniStat label="Rechte-Index Änderungen (deaktiviert)" value={String(repairPreview.indexPatches.reduce((sum, entry) => sum + entry.add.length + entry.remove.length, 0))} />
               <MiniStat label="Geschätzte Writes" value={String(repairPreview.bagPatches.length + repairPreview.itemPatches.length + repairPreview.indexPatches.reduce((sum, entry) => sum + entry.add.length + entry.remove.length, 0) + ((repairPreview.bagPatches.length + repairPreview.itemPatches.length + repairPreview.indexPatches.reduce((sum, entry) => sum + entry.add.length + entry.remove.length, 0)) > 0 ? 1 : 0))} sub={(repairPreview.bagPatches.length + repairPreview.itemPatches.length + repairPreview.indexPatches.reduce((sum, entry) => sum + entry.add.length + entry.remove.length, 0)) > 0 ? "inkl. Logeintrag" : "keine Änderungen"} />
             </div>
             {(repairPreview.bagPatches.length > 0 || repairPreview.itemPatches.length > 0 || repairPreview.indexPatches.length > 0) && (
@@ -6345,8 +6281,8 @@ function BagEditor({
   const [maxWeight, setMaxWeight] = useState(bag.maxWeight?.toString() ?? "");
   const [maxVolume, setMaxVolume] = useState(bag.maxVolume?.toString() ?? "");
 
-  const [targetMode, setTargetMode] = useState<AccessMode>(access.targetMode);
-  const [targetUserIds, setTargetUserIds] = useState<string[]>(access.targetUserIds);
+  const [targetMode, setTargetMode] = useState<AccessMode>(normalizeTargetVisibilityMode(access.targetMode));
+  const [targetUserIds, setTargetUserIds] = useState<string[]>([]);
   const [depositMode, setDepositMode] = useState<AccessMode>(access.depositMode);
   const [depositUserIds, setDepositUserIds] = useState<string[]>(access.depositUserIds);
   const [readMode, setReadMode] = useState<AccessMode>(access.readMode);
@@ -6411,13 +6347,17 @@ function BagEditor({
       <div className="grid gap-3 xl:grid-cols-2">
         <AccessControl
           title="Als Ziel sichtbar für"
-          description="Wer diese Tasche links sieht und sie als mögliches Ziel kennt."
+          description="Wer diese Tasche links sieht und sie als mögliches Ziel kennt. Einzelsichtbarkeit wurde entfernt: nur Alle oder Nur DM."
           mode={targetMode}
           userIds={targetUserIds}
           members={playerMembers}
           inputClass={inputClass}
           mutedText={mutedText}
-          onModeChange={setTargetMode}
+          allowCustom={false}
+          onModeChange={(mode) => {
+            setTargetMode(normalizeTargetVisibilityMode(mode));
+            setTargetUserIds([]);
+          }}
           onToggleUser={(uid) => setTargetUserIds((prev) => toggleUser(prev, uid))}
         />
         <AccessControl
@@ -6469,8 +6409,8 @@ function BagEditor({
               ...(isDm
                 ? {
                     access: {
-                      targetMode,
-                      targetUserIds,
+                      targetMode: normalizeTargetVisibilityMode(targetMode),
+                      targetUserIds: [],
                       depositMode,
                       depositUserIds,
                       readMode,
@@ -6501,6 +6441,7 @@ function AccessControl({
   members,
   inputClass,
   mutedText,
+  allowCustom = true,
   onModeChange,
   onToggleUser,
 }: {
@@ -6511,6 +6452,7 @@ function AccessControl({
   members: CampaignMember[];
   inputClass: string;
   mutedText: string;
+  allowCustom?: boolean;
   onModeChange: (mode: AccessMode) => void;
   onToggleUser: (uid: string) => void;
 }) {
@@ -6521,13 +6463,13 @@ function AccessControl({
         <div className={`text-xs ${mutedText}`}>{description}</div>
       </div>
       <div className="mt-auto">
-        <select className={`mb-2 w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} value={mode} onChange={(e) => onModeChange(e.target.value as AccessMode)}>
+        <select className={`mb-2 w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} value={allowCustom ? mode : normalizeTargetVisibilityMode(mode)} onChange={(e) => onModeChange(e.target.value as AccessMode)}>
           <option value="all">Alle</option>
           <option value="dm">Nur DM</option>
-          <option value="custom">Ausgewählte Spieler</option>
+          {allowCustom && <option value="custom">Ausgewählte Spieler</option>}
         </select>
       </div>
-      {mode === "custom" && (
+      {allowCustom && mode === "custom" && (
         <div className="space-y-1">
           {members.length === 0 ? (
             <div className={`rounded-xl border border-current/10 px-3 py-2 text-xs ${mutedText}`}>Noch keine Spieler in der Kampagne.</div>
