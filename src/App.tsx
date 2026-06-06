@@ -1281,10 +1281,10 @@ function withBagAccessMirror<T extends Partial<Bag>>(bagOrPatch: T): T {
 }
 
 function bagTargetVisibleByMirror(bag: Bag, uid: string, isDm: boolean) {
-  if (isDm) return true;
-  const keys = bag.targetAccessKeys;
-  if (!Array.isArray(keys)) return canTargetBagByAccess(bag, uid, isDm);
-  return keys.includes(TARGET_ACCESS_ALL_KEY) || keys.includes(uid);
+  // Die Access-Struktur ist die Quelle der Wahrheit.
+  // targetAccessKeys ist nur ein optionaler Mirror/Index und darf keine korrekt gesetzten Rechte verstecken,
+  // sonst kommen alte Sichtbarkeitsbugs zurück, wenn Mirror-Felder fehlen oder veraltet sind.
+  return canTargetBagByAccess(bag, uid, isDm);
 }
 
 function indexedVisiblePlayerIdsForBag(bag: Bag, playerUids: string[]) {
@@ -2520,9 +2520,11 @@ export default function App() {
     }
 
     // Spielerpfad im Schonmodus:
-    // Nur zwei live Queries: öffentlich als Ziel sichtbare Taschen + für diesen Spieler freigegebene Ziel-Taschen.
-    // Keine per-Bag-Doc-Listener und kein Legacy-Fallback mehr. Fehlende Mirror-Felder werden manuell über
-    // „Kampagnendaten reparieren“ ergänzt, nicht automatisch im Live-Listener.
+    // Zwei Live-Queries direkt auf der echten Access-Struktur:
+    // 1) Taschen mit Ziel/Sichtbarkeit = Alle
+    // 2) Taschen, in deren Ziel/Sichtbarkeits-Auswahl dieser Spieler steht
+    // Dadurch sind wir nicht mehr von evtl. fehlenden/veralteten targetAccessKeys abhängig.
+    // Keine per-Bag-Doc-Listener und kein Legacy-/Index-Live-Fallback.
     const allMap = new Map<string, Bag>();
     const customMap = new Map<string, Bag>();
 
@@ -2530,7 +2532,7 @@ export default function App() {
       const merged = new Map<string, Bag>();
       for (const [id, bag] of allMap) merged.set(id, bag);
       for (const [id, bag] of customMap) merged.set(id, bag);
-      setBags(Array.from(merged.values()).filter((bag) => bagTargetVisibleByMirror(bag, userUid, false)).sort((a, b) => a.sortIndex - b.sortIndex));
+      setBags(Array.from(merged.values()).filter((bag) => canTargetBagByAccess(bag, userUid, false)).sort((a, b) => a.sortIndex - b.sortIndex));
     };
 
     const applySnapshotChanges = (targetMap: Map<string, Bag>, snapshot: QuerySnapshot<DocumentData>) => {
@@ -2551,15 +2553,15 @@ export default function App() {
     };
 
     const unsubAll = onSnapshot(
-      query(bagCollection, where("targetAccessKeys", "array-contains", TARGET_ACCESS_ALL_KEY)),
+      query(bagCollection, where("access.targetMode", "==", "all")),
       (snapshot) => applySnapshotChanges(allMap, snapshot),
-      handleBagQueryError("Allgemeine Ziel-Taschen"),
+      handleBagQueryError("Allgemeine sichtbare/Ziel-Taschen"),
     );
 
     const unsubCustom = onSnapshot(
-      query(bagCollection, where("targetAccessKeys", "array-contains", userUid)),
+      query(bagCollection, where("access.targetUserIds", "array-contains", userUid)),
       (snapshot) => applySnapshotChanges(customMap, snapshot),
-      handleBagQueryError("Persönliche Ziel-Taschen"),
+      handleBagQueryError("Persönlich sichtbare/Ziel-Taschen"),
     );
 
     return () => {
@@ -3210,8 +3212,21 @@ export default function App() {
     return normalizeSearchText(`${entry.message} ${entry.actorName} ${entry.type} ${auditTypeLabel(entry.type)} ${auditCategoryLabel(category)}`).includes(searchText);
   }
 
+  function stableRepairStringify(value: unknown): string {
+    if (value === undefined) return "null";
+    if (value === null) return "null";
+    if (Array.isArray(value)) return `[${value.map((entry) => stableRepairStringify(entry)).join(",")}]`;
+    if (typeof value === "object") {
+      const entries = Object.entries(value as Record<string, unknown>)
+        .filter(([, entryValue]) => entryValue !== undefined)
+        .sort(([left], [right]) => left.localeCompare(right));
+      return `{${entries.map(([key, entryValue]) => `${JSON.stringify(key)}:${stableRepairStringify(entryValue)}`).join(",")}}`;
+    }
+    return JSON.stringify(value);
+  }
+
   function patchValueChanged(currentValue: unknown, nextValue: unknown) {
-    return JSON.stringify(currentValue ?? null) !== JSON.stringify(nextValue ?? null);
+    return stableRepairStringify(currentValue ?? null) !== stableRepairStringify(nextValue ?? null);
   }
 
   function compactPatch<T extends Record<string, any>>(current: Record<string, any>, patch: T): Partial<T> {
@@ -4342,9 +4357,9 @@ export default function App() {
       ["Kampagne", firebaseConfigured && activeCampaignId && campaignAccessReady ? "aktiv" : "inaktiv"],
       ["Eigene Mitgliedschaft", firebaseConfigured && activeCampaignId && campaignAccessReady ? "aktiv" : "inaktiv"],
       ["Mitgliederliste", firebaseConfigured && activeCampaignId && campaignAccessReady && member?.role !== "applicant" ? "aktiv" : "inaktiv"],
-      ["Taschen-Listener", isDm ? "1 Query · DM alle Taschen" : isApprovedMember ? "2 Queries · Ziel-All + Ziel-Spieler" : "inaktiv"],
+      ["Taschen-Listener", isDm ? "1 Query · DM alle Taschen" : isApprovedMember ? "2 Queries · Access-All + Access-Spieler" : "inaktiv"],
       ["Einzelne Taschen-Doc-Listener", "0"],
-      ["Legacy-/Index-Fallback", "aus"],
+      ["Legacy-/Index-Fallback", "aus · Access-Felder sind Quelle der Wahrheit"],
       ["Item-Listener", selectedOpenableBagId ? `1 Query · ${selectedBag?.name ?? selectedOpenableBagId}` : "inaktiv"],
       ["Auditlog-Listener", auditLogOpen ? `aktiv · Limit ${auditLogLimit}` : "inaktiv"],
     ];
@@ -5391,24 +5406,26 @@ export default function App() {
 
       {diagnosticsOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className={`w-full max-w-2xl rounded-3xl border p-6 shadow-2xl ${panelClass}`}>
-            <div className="mb-4 flex items-start justify-between gap-3">
+          <div className={`flex max-h-[92vh] w-full max-w-2xl flex-col rounded-3xl border p-6 shadow-2xl ${panelClass}`}>
+            <div className="mb-4 flex shrink-0 items-start justify-between gap-3">
               <div>
                 <h2 className="flex items-center gap-2 text-xl font-black"><Monitor className="h-5 w-5" /> Firestore-Diagnose</h2>
                 <p className={`mt-1 text-sm ${mutedText}`}>Diese Werte sind lokale App-Zähler, keine offiziellen Firebase-Abrechnungszahlen. Sie zeigen aber, ob die App gerade zu viel live lädt.</p>
               </div>
               <button className={secondaryButton} onClick={() => setDiagnosticsOpen(false)}><X className="h-4 w-4" /></button>
             </div>
-            <div className="space-y-2">
-              {diagnosticRows.map(([label, value]) => (
-                <div key={label} className={`flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 text-sm ${isDark ? "border-[#7b6237]/35 bg-[#1d150e]/70" : "border-[#9b7339]/25 bg-[#fff8df]/70"}`}>
-                  <span className={mutedText}>{label}</span>
-                  <span className="font-black tabular-nums">{value}</span>
-                </div>
-              ))}
-            </div>
-            <div className={`mt-4 rounded-2xl border border-current/10 p-3 text-xs ${mutedText}`}>
-              Schonmodus aktiv: Items werden nur für die aktuell geöffnete Tasche live geladen. Auditlog lädt nur bei geöffnetem Logfenster. Taschen werden für Spieler nur noch über zwei AccessKey-Queries geladen; per-Taschen-Einzellistener, Legacy-Fallback und automatische Live-Reparatur sind deaktiviert.
+            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+              <div className="space-y-2">
+                {diagnosticRows.map(([label, value]) => (
+                  <div key={label} className={`flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 text-sm ${isDark ? "border-[#7b6237]/35 bg-[#1d150e]/70" : "border-[#9b7339]/25 bg-[#fff8df]/70"}`}>
+                    <span className={mutedText}>{label}</span>
+                    <span className="text-right font-black tabular-nums">{value}</span>
+                  </div>
+                ))}
+              </div>
+              <div className={`mt-4 rounded-2xl border border-current/10 p-3 text-xs ${mutedText}`}>
+                Schonmodus aktiv: Items werden nur für die aktuell geöffnete Tasche live geladen. Auditlog lädt nur bei geöffnetem Logfenster. Taschen werden für Spieler nur noch über zwei AccessKey-Queries geladen; per-Taschen-Einzellistener, Legacy-Fallback und automatische Live-Reparatur sind deaktiviert.
+              </div>
             </div>
           </div>
         </div>
