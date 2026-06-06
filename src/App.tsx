@@ -2520,11 +2520,10 @@ export default function App() {
     }
 
     // Spielerpfad im Schonmodus:
-    // Zwei Live-Queries direkt auf der echten Access-Struktur:
-    // 1) Taschen mit Ziel/Sichtbarkeit = Alle
-    // 2) Taschen mit targetMode=custom, in deren Ziel/Sichtbarkeits-Auswahl dieser Spieler steht
-    // Dadurch sind wir nicht mehr von evtl. fehlenden/veralteten targetAccessKeys abhängig.
-    // Keine per-Bag-Doc-Listener und kein Legacy-/Index-Live-Fallback.
+    // Zwei Live-Queries, aber ohne per-Bag-Doc-Listener:
+    // 1) „Alle“-Taschen über die echte Access-Struktur, damit alte Taschen ohne Mirror weiter funktionieren.
+    // 2) „Ausgewählte Spieler“-Taschen über den top-level Mirror targetAccessKeys.
+    //    Diese Query ist für Firestore Rules zuverlässiger als verschachtelte access.targetUserIds-Queries.
     const allMap = new Map<string, Bag>();
     const customMap = new Map<string, Bag>();
 
@@ -2532,6 +2531,7 @@ export default function App() {
       const merged = new Map<string, Bag>();
       for (const [id, bag] of allMap) merged.set(id, bag);
       for (const [id, bag] of customMap) merged.set(id, bag);
+      // access bleibt Quelle der Wahrheit. targetAccessKeys entscheidet nur, welche Custom-Kandidaten überhaupt geladen werden.
       setBags(Array.from(merged.values()).filter((bag) => canTargetBagByAccess(bag, userUid, false)).sort((a, b) => a.sortIndex - b.sortIndex));
     };
 
@@ -2559,11 +2559,7 @@ export default function App() {
     );
 
     const unsubCustom = onSnapshot(
-      query(
-        bagCollection,
-        where("access.targetMode", "==", "custom"),
-        where("access.targetUserIds", "array-contains", userUid),
-      ),
+      query(bagCollection, where("targetAccessKeys", "array-contains", userUid)),
       (snapshot) => applySnapshotChanges(customMap, snapshot),
       handleBagQueryError("Persönlich sichtbare/Ziel-Taschen"),
     );
@@ -4361,10 +4357,10 @@ export default function App() {
       ["Kampagne", firebaseConfigured && activeCampaignId && campaignAccessReady ? "aktiv" : "inaktiv"],
       ["Eigene Mitgliedschaft", firebaseConfigured && activeCampaignId && campaignAccessReady ? "aktiv" : "inaktiv"],
       ["Mitgliederliste", firebaseConfigured && activeCampaignId && campaignAccessReady && member?.role !== "applicant" ? "aktiv" : "inaktiv"],
-      ["Taschen-Listener", isDm ? "1 Query · DM alle Taschen" : isApprovedMember ? "2 Queries · targetMode=all + targetMode=custom/user" : "inaktiv"],
+      ["Taschen-Listener", isDm ? "1 Query · DM alle Taschen" : isApprovedMember ? "2 Queries · access.targetMode=all + targetAccessKeys enthält UID" : "inaktiv"],
       ["Einzelne Taschen-Doc-Listener", "0"],
       ["Legacy-/Index-Fallback", "aus · Access-Felder sind Quelle der Wahrheit"],
-      ["Custom-Taschen-Query", isApprovedMember && !isDm ? "access.targetMode == custom + access.targetUserIds enthält UID" : isDm ? "nicht nötig für DM" : "inaktiv"],
+      ["Custom-Taschen-Query", isApprovedMember && !isDm ? "targetAccessKeys enthält UID · access filtert final" : isDm ? "nicht nötig für DM" : "inaktiv"],
       ["Item-Listener", selectedOpenableBagId ? `1 Query · ${selectedBag?.name ?? selectedOpenableBagId}` : "inaktiv"],
       ["Auditlog-Listener", auditLogOpen ? `aktiv · Limit ${auditLogLimit}` : "inaktiv"],
     ];
@@ -5429,7 +5425,7 @@ export default function App() {
                 ))}
               </div>
               <div className={`mt-4 rounded-2xl border border-current/10 p-3 text-xs ${mutedText}`}>
-                Schonmodus aktiv: Items werden nur für die aktuell geöffnete Tasche live geladen. Auditlog lädt nur bei geöffnetem Logfenster. Taschen werden für Spieler nur noch über zwei AccessKey-Queries geladen; per-Taschen-Einzellistener, Legacy-Fallback und automatische Live-Reparatur sind deaktiviert.
+                Schonmodus aktiv: Items werden nur für die aktuell geöffnete Tasche live geladen. Auditlog lädt nur bei geöffnetem Logfenster. Spieler-Taschen werden über zwei schlanke Queries geladen: alle öffentlichen Taschen und persönliche Custom-Taschen über targetAccessKeys. Access bleibt die finale Quelle der Wahrheit.
               </div>
             </div>
           </div>
