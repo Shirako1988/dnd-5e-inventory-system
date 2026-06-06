@@ -1462,6 +1462,7 @@ export default function App() {
     const saved = localStorage.getItem("dnd-inventory-items");
     return saved ? JSON.parse(saved) : initialItems;
   });
+  const [activeItemsLoadedBagId, setActiveItemsLoadedBagId] = useState<string | null>(() => firebaseConfigured ? null : (bags[0]?.id ?? null));
 
   const [selectedBagId, setSelectedBagId] = useState(() => bags[0]?.id ?? "");
   const [search, setSearch] = useState("");
@@ -1622,6 +1623,7 @@ export default function App() {
           setMembers([]);
           setBags([]);
           setItems([]);
+          setActiveItemsLoadedBagId(null);
           setUserCampaigns([]);
           setSyncStatus("online");
           if (user?.isAnonymous) await signOut(firebaseAuth).catch(() => undefined);
@@ -1671,6 +1673,7 @@ export default function App() {
     setMembers([]);
     setBags([]);
     setItems([]);
+    setActiveItemsLoadedBagId(null);
     setAuditLog([]);
     setSyncStatus("connecting");
     setSyncError(null);
@@ -1735,6 +1738,7 @@ export default function App() {
           setCampaignAccessReady(false);
           setBags([]);
           setItems([]);
+          setActiveItemsLoadedBagId(null);
           setMembers([]);
           setAuditLog([]);
           setSyncStatus("error");
@@ -2421,7 +2425,7 @@ export default function App() {
     if (!bag) return { weight: 0, volume: 0, value: 0, count: 0 };
     // Seit dem Firestore-Schonmodus sind nur die Items der aktiv geöffneten Tasche live geladen.
     // Für alle anderen Taschen müssen die gespeicherten Summary-Felder verwendet werden.
-    if (canOpenBag(bag) && bag.id === selectedOpenableBagId) return getKnownBagTotals(bag);
+    if (canOpenBag(bag) && bag.id === selectedOpenableBagId && activeItemsLoadedBagId === bag.id) return getKnownBagTotals(bag);
     return {
       weight: bag.currentWeight ?? 0,
       volume: bag.currentVolume ?? 0,
@@ -2504,25 +2508,7 @@ export default function App() {
       return onSnapshot(
         query(bagCollection, orderBy("sortIndex")),
         (snapshot) => {
-          const loadedBags = snapshot.docs.map((entry) => entry.data() as Bag);
-          setBags(loadedBags);
-          // Access/Mirror-Feld beim DM konsequent synchron halten.
-          // Der Ziel-Sichtbarkeits-Listener der Spieler kann nur über `targetAccessKeys` arbeiten.
-          // Wenn dieses Mirror-Feld fehlt oder stale ist, funktionieren alle anderen Custom-Rechte,
-          // aber „Als Ziel sichtbar für → Ausgewählte Spieler“ liefert keine Tasche an den Spieler.
-          for (const bag of loadedBags) {
-            const access = getBagAccess(bag);
-            const expectedTargetAccessKeys = targetAccessKeysForAccess(access);
-            const needsAccessRepair = JSON.stringify(bag.access ?? null) !== JSON.stringify(access);
-            const needsMirrorRepair = JSON.stringify(bag.targetAccessKeys ?? null) !== JSON.stringify(expectedTargetAccessKeys);
-            if (needsAccessRepair || needsMirrorRepair) {
-              updateDoc(doc(firebaseDb, "campaigns", activeCampaignId, "bags", bag.id), {
-                access,
-                targetAccessKeys: expectedTargetAccessKeys,
-                updatedAt: Date.now(),
-              }).catch(() => undefined);
-            }
-          }
+          setBags(snapshot.docs.map((entry) => entry.data() as Bag));
           setSyncStatus("online");
         },
         (error) => {
@@ -2533,21 +2519,17 @@ export default function App() {
       );
     }
 
-    // Spielerpfad mit doppeltem Sicherheitsnetz:
-    // 1) neuer Ziel-Sichtbarkeitsindex pro Spieler für Custom-Zielrechte,
-    // 2) alte direkte Bag-Queries als Fallback, damit „Alle“ und bereits funktionierende Sichtbarkeit
-    //    nicht verschwinden, falls der Index noch nicht aufgebaut ist oder Rules gerade nicht deployt sind.
-    const indexedMap = new Map<string, Bag>();
+    // Spielerpfad im Schonmodus:
+    // Nur zwei live Queries: öffentlich als Ziel sichtbare Taschen + für diesen Spieler freigegebene Ziel-Taschen.
+    // Keine per-Bag-Doc-Listener und kein Legacy-Fallback mehr. Fehlende Mirror-Felder werden manuell über
+    // „Kampagnendaten reparieren“ ergänzt, nicht automatisch im Live-Listener.
     const allMap = new Map<string, Bag>();
-    const legacyAllMap = new Map<string, Bag>();
     const customMap = new Map<string, Bag>();
 
     const publish = () => {
       const merged = new Map<string, Bag>();
-      for (const [id, bag] of legacyAllMap) merged.set(id, bag);
       for (const [id, bag] of allMap) merged.set(id, bag);
       for (const [id, bag] of customMap) merged.set(id, bag);
-      for (const [id, bag] of indexedMap) merged.set(id, bag);
       setBags(Array.from(merged.values()).filter((bag) => bagTargetVisibleByMirror(bag, userUid, false)).sort((a, b) => a.sortIndex - b.sortIndex));
     };
 
@@ -2561,122 +2543,30 @@ export default function App() {
       setSyncError(null);
     };
 
-    const handleOptionalBagListenerError = (label: string) => (error: Error) => {
+    const handleBagQueryError = (label: string) => (error: Error) => {
       console.warn(`${label} konnte nicht geladen werden`, error.message);
-      // Nicht leeren. Andere Listener können trotzdem gültige Taschen liefern.
+      // Nicht leeren. Die andere Query kann trotzdem gültige Taschen liefern.
       setSyncStatus("error");
       setSyncError(error.message);
     };
 
-    let bagDocUnsubscribers: Array<() => void> = [];
-    let currentIndexedBagIdKey = "";
-
-    const clearBagDocListeners = () => {
-      for (const unsubscribe of bagDocUnsubscribers) unsubscribe();
-      bagDocUnsubscribers = [];
-      indexedMap.clear();
-    };
-
-    const subscribeToIndexedBags = (bagIds: string[]) => {
-      const uniqueBagIds = uniqueUidList(bagIds);
-      const nextKey = uniqueBagIds.join("|");
-      if (nextKey === currentIndexedBagIdKey) return;
-      currentIndexedBagIdKey = nextKey;
-
-      clearBagDocListeners();
-      if (!uniqueBagIds.length) {
-        publish();
-        return;
-      }
-
-      bagDocUnsubscribers = uniqueBagIds.map((bagId) =>
-        onSnapshot(
-          doc(firebaseDb, "campaigns", activeCampaignId, "bags", bagId),
-          (snapshot) => {
-            if (!snapshot.exists()) {
-              indexedMap.delete(bagId);
-            } else {
-              const bag = snapshot.data() as Bag;
-              if (bagTargetVisibleByMirror(bag, userUid, false)) indexedMap.set(bagId, bag);
-              else indexedMap.delete(bagId);
-            }
-            publish();
-            setSyncStatus("online");
-            setSyncError(null);
-          },
-          (error) => {
-            indexedMap.delete(bagId);
-            publish();
-            console.warn("Sichtbare Tasche aus Index konnte nicht geladen werden", error.message);
-          },
-        ),
-      );
-    };
-
-    const visibilityRef = collection(firebaseDb, "campaigns", activeCampaignId, "targetVisibility", userUid, "bags");
-    const unsubVisibilityIndex = onSnapshot(
-      visibilityRef,
-      (snapshot) => {
-        const bagIds = snapshot.docs
-          .map((entry) => {
-            const data = entry.data() as { bagId?: string };
-            return typeof data.bagId === "string" && data.bagId ? data.bagId : entry.id;
-          })
-          .filter(Boolean);
-        subscribeToIndexedBags(bagIds);
-        setSyncStatus("online");
-        setSyncError(null);
-      },
-      handleOptionalBagListenerError("Ziel-Sichtbarkeitsindex"),
-    );
-
     const unsubAll = onSnapshot(
       query(bagCollection, where("targetAccessKeys", "array-contains", TARGET_ACCESS_ALL_KEY)),
       (snapshot) => applySnapshotChanges(allMap, snapshot),
-      handleOptionalBagListenerError("Allgemeine Taschen"),
-    );
-
-    const unsubLegacyAll = onSnapshot(
-      query(bagCollection, where("access.targetMode", "==", "all")),
-      (snapshot) => applySnapshotChanges(legacyAllMap, snapshot),
-      handleOptionalBagListenerError("Legacy-All-Taschen"),
+      handleBagQueryError("Allgemeine Ziel-Taschen"),
     );
 
     const unsubCustom = onSnapshot(
       query(bagCollection, where("targetAccessKeys", "array-contains", userUid)),
       (snapshot) => applySnapshotChanges(customMap, snapshot),
-      handleOptionalBagListenerError("Custom-Taschen"),
+      handleBagQueryError("Persönliche Ziel-Taschen"),
     );
 
     return () => {
-      unsubVisibilityIndex();
       unsubAll();
-      unsubLegacyAll();
       unsubCustom();
-      clearBagDocListeners();
     };
   }, [activeCampaignId, userUid, member?.role, campaignAccessReady]);
-
-  useEffect(() => {
-    if (!firebaseConfigured || !firebaseDb || !activeCampaignId || !campaignAccessReady || !isDm) return;
-    if (!bags.length || !members.some((entry) => entry.role === "player")) return;
-
-    let cancelled = false;
-    syncTargetVisibilityIndex(activeCampaignId, bags, members).catch((error) => {
-      if (cancelled) return;
-      console.warn("Ziel-Sichtbarkeitsindex konnte nicht synchronisiert werden", error instanceof Error ? error.message : error);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    activeCampaignId,
-    campaignAccessReady,
-    isDm,
-    bags.map((bag) => `${bag.id}:${getBagAccess(bag).targetMode}:${getBagAccess(bag).targetUserIds.join(",")}`).join("|"),
-    members.map((entry) => `${entry.uid}:${entry.role}`).join("|"),
-  ]);
 
   const visibleBags = useMemo(() => orderBagsForUser(bags.filter(canTargetBag), bagOrderIds), [bags, isDm, activeUid, bagOrderIds.join("|")]);
   const depositTargetBags = useMemo(() => visibleBags.filter(canDepositBag), [visibleBags, isDm, activeUid]);
@@ -2687,17 +2577,23 @@ export default function App() {
   useEffect(() => {
     if (!firebaseConfigured || !firebaseDb || !activeCampaignId || !userUid || !member || !campaignAccessReady || !isApprovedMember || !selectedOpenableBagId) {
       setItems([]);
+      setActiveItemsLoadedBagId(null);
       return;
     }
+
+    setItems([]);
+    setActiveItemsLoadedBagId(null);
 
     return onSnapshot(
       query(collection(firebaseDb, "campaigns", activeCampaignId, "items"), where("bagId", "==", selectedOpenableBagId)),
       (snapshot) => {
         setItems(snapshot.docs.map((entry) => normalizeLiveItem(entry.data() as Partial<InventoryItem>, entry.id)));
+        setActiveItemsLoadedBagId(selectedOpenableBagId);
         setSyncStatus("online");
       },
       (error) => {
         setItems([]);
+        setActiveItemsLoadedBagId(null);
         setSyncStatus("error");
         setSyncError(error.message);
       },
@@ -2883,10 +2779,11 @@ export default function App() {
       }
     }
     return totals;
-  }, [bags, itemsByBag, selectedOpenableBagId]);
+  }, [bags, itemsByBag, selectedOpenableBagId, activeItemsLoadedBagId]);
 
   useEffect(() => {
     if (!firebaseConfigured || !firebaseDb || !activeCampaignId || !isDm || !campaignAccessReady || bags.length === 0) return;
+    if (!selectedOpenableBagId || activeItemsLoadedBagId !== selectedOpenableBagId) return;
 
     for (const bag of bags) {
       if (bag.id !== selectedOpenableBagId) continue;
@@ -2900,7 +2797,7 @@ export default function App() {
         updateDoc(doc(firebaseDb, "campaigns", activeCampaignId, "bags", bag.id), capacityPatchFromTotals(totals)).catch(() => undefined);
       }
     }
-  }, [firebaseConfigured, activeCampaignId, isDm, campaignAccessReady, bags, bagTotals, selectedOpenableBagId]);
+  }, [firebaseConfigured, activeCampaignId, isDm, campaignAccessReady, bags, bagTotals, selectedOpenableBagId, activeItemsLoadedBagId]);
 
   async function createCampaign(campaignName: string, displayName: string) {
     if (!firebaseDb || !userUid) return;
@@ -3095,6 +2992,7 @@ export default function App() {
     setCampaignAccessReady(true);
     setBags([]);
     setItems([]);
+    setActiveItemsLoadedBagId(null);
     setAuditLog([]);
     setSyncStatus("connecting");
     setSyncError(null);
@@ -3568,17 +3466,6 @@ export default function App() {
 
     try {
       await patchBag(id, safePatch);
-      if (isDm && activeCampaignId && bag && safePatch.access) {
-        const indexedBag: Bag = {
-          ...bag,
-          ...safePatch,
-          access: safePatch.access,
-          targetAccessKeys: targetAccessKeysForAccess(safePatch.access),
-        } as Bag;
-        await syncTargetVisibilityIndexForBag(activeCampaignId, indexedBag, members).catch((error) => {
-          console.warn("Ziel-Sichtbarkeitsindex für Tasche konnte nicht sofort aktualisiert werden", error instanceof Error ? error.message : error);
-        });
-      }
       if (!options?.silent) logAction("bag_updated", `${member?.displayName ?? "Jemand"} hat die Tasche „${bag?.name ?? id}“ geändert.`, id);
       setSyncStatus("online");
       setSyncError(null);
@@ -4448,15 +4335,31 @@ export default function App() {
     setAuditLogFullyLoaded(false);
   }
 
-  const diagnosticRows = useMemo(() => [
-    ["Taschen geladen", String(bags.length)],
-    ["Sichtbare/Ziel-Taschen", String(visibleBags.length)],
-    ["Aktive Item-Tasche", selectedOpenableBagId ? (selectedBag?.name ?? selectedOpenableBagId) : "keine"],
-    ["Items aktuell live geladen", String(items.length)],
-    ["Auditlog-Listener", auditLogOpen ? `aktiv · Limit ${auditLogLimit}` : "inaktiv"],
-    ["Auditlog geladen", String(auditLog.length)],
-    ["Mitglieder geladen", String(members.length)],
-  ], [bags.length, visibleBags.length, selectedOpenableBagId, selectedBag?.name, items.length, auditLogOpen, auditLogLimit, auditLog.length, members.length]);
+  const diagnosticRows = useMemo(() => {
+    const activeListeners = [
+      ["Auth", firebaseConfigured ? "aktiv" : "lokal"],
+      ["Kampagnenliste", firebaseConfigured && userUid ? "aktiv" : "inaktiv"],
+      ["Kampagne", firebaseConfigured && activeCampaignId && campaignAccessReady ? "aktiv" : "inaktiv"],
+      ["Eigene Mitgliedschaft", firebaseConfigured && activeCampaignId && campaignAccessReady ? "aktiv" : "inaktiv"],
+      ["Mitgliederliste", firebaseConfigured && activeCampaignId && campaignAccessReady && member?.role !== "applicant" ? "aktiv" : "inaktiv"],
+      ["Taschen-Listener", isDm ? "1 Query · DM alle Taschen" : isApprovedMember ? "2 Queries · Ziel-All + Ziel-Spieler" : "inaktiv"],
+      ["Einzelne Taschen-Doc-Listener", "0"],
+      ["Legacy-/Index-Fallback", "aus"],
+      ["Item-Listener", selectedOpenableBagId ? `1 Query · ${selectedBag?.name ?? selectedOpenableBagId}` : "inaktiv"],
+      ["Auditlog-Listener", auditLogOpen ? `aktiv · Limit ${auditLogLimit}` : "inaktiv"],
+    ];
+    return [
+      ["Taschen geladen", String(bags.length)],
+      ["Sichtbare/Ziel-Taschen", String(visibleBags.length)],
+      ["Aktive Item-Tasche", selectedOpenableBagId ? (selectedBag?.name ?? selectedOpenableBagId) : "keine"],
+      ["Item-Snapshot geladen", activeItemsLoadedBagId === selectedOpenableBagId && selectedOpenableBagId ? "ja" : selectedOpenableBagId ? "lädt" : "nein"],
+      ["Items aktuell live geladen", String(items.length)],
+      ["Auditlog geladen", String(auditLog.length)],
+      ["Mitglieder geladen", String(members.length)],
+      ["Erwartete aktive Listener", String(activeListeners.filter(([, value]) => value !== "inaktiv" && value !== "aus" && value !== "lokal").length)],
+      ...activeListeners.map(([label, value]) => [`Listener: ${label}`, value]),
+    ];
+  }, [firebaseConfigured, userUid, activeCampaignId, campaignAccessReady, member?.role, isDm, isApprovedMember, bags.length, visibleBags.length, selectedOpenableBagId, selectedBag?.name, activeItemsLoadedBagId, items.length, auditLogOpen, auditLogLimit, auditLog.length, members.length]);
   const restoreReady = Boolean(restoreCandidate && campaign && restoreConfirmCampaignName.trim() === campaign.name && restoreConfirmWord.trim() === "IMPORTIEREN" && !backupBusy);
   const appClass = isDark ? "min-h-screen bg-[#16110c] text-[#f3e7c8]" : "min-h-screen bg-[#efe3c6] text-[#2d2116]";
 
@@ -4996,6 +4899,8 @@ export default function App() {
                     <div className={`rounded-2xl border border-current/10 p-8 text-center ${mutedText}`}>
                       Diese Tasche ist für dich sichtbar, aber gesperrt. Du kannst sie nicht öffnen und ihren Inhalt nicht sehen.
                     </div>
+                  ) : activeItemsLoadedBagId !== selectedOpenableBagId ? (
+                    <div className={`rounded-2xl border border-current/10 p-8 text-center ${mutedText}`}>Items werden geladen… Die Taschenwerte bleiben bis dahin auf den gespeicherten Summen.</div>
                   ) : selectedItems.length === 0 ? (
                     <div className={`rounded-2xl border border-current/10 p-8 text-center ${mutedText}`}>Keine Items in dieser Tasche oder keine Treffer für die Suche.</div>
                   ) : (
@@ -5503,7 +5408,7 @@ export default function App() {
               ))}
             </div>
             <div className={`mt-4 rounded-2xl border border-current/10 p-3 text-xs ${mutedText}`}>
-              Schonmodus aktiv: Items werden nur für die aktuell geöffnete Tasche live geladen. Auditlog lädt nur bei geöffnetem Logfenster.
+              Schonmodus aktiv: Items werden nur für die aktuell geöffnete Tasche live geladen. Auditlog lädt nur bei geöffnetem Logfenster. Taschen werden für Spieler nur noch über zwei AccessKey-Queries geladen; per-Taschen-Einzellistener, Legacy-Fallback und automatische Live-Reparatur sind deaktiviert.
             </div>
           </div>
         </div>
