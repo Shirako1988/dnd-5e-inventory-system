@@ -130,7 +130,7 @@ service cloud.firestore {
       }
 
       match /targetVisibility/{uid}/bags/{bagId} {
-        allow get, list: if signedIn() && request.auth.uid == uid && isApprovedMember(campaignId);
+        allow get, list: if isDm(campaignId) || (signedIn() && request.auth.uid == uid && isApprovedMember(campaignId));
         allow create, update, delete: if isDm(campaignId);
       }
 
