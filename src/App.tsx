@@ -68,6 +68,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  documentId,
   getDoc,
   getDocs,
   getFirestore,
@@ -519,6 +520,7 @@ type RepairPreview = {
   checkedMembers: number;
   bagPatches: Array<{ id: string; name: string; patch: Partial<Bag> }>;
   itemPatches: Array<{ id: string; name: string; patch: Partial<InventoryItem> }>;
+  indexPatches: Array<{ uid: string; displayName: string; add: string[]; remove: string[] }>;
   orphanItems: number;
 };
 
@@ -1364,22 +1366,27 @@ async function syncTargetVisibilityIndexForBag(campaignId: string, bag: Bag, lat
 
   for (const playerUid of playerUids) {
     const indexDoc = doc(firebaseDb, "campaigns", campaignId, "targetVisibility", playerUid, "bags", bag.id);
+    const existsNow = (await getDoc(indexDoc)).exists();
     if (allowedPlayerIds.has(playerUid)) {
-      batch.set(indexDoc, {
-        bagId: bag.id,
-        playerUid,
-        updatedAt: now,
-      });
-    } else {
+      if (!existsNow) {
+        batch.set(indexDoc, {
+          bagId: bag.id,
+          playerUid,
+          updatedAt: now,
+        });
+        ops += 1;
+      }
+    } else if (existsNow) {
       batch.delete(indexDoc);
+      ops += 1;
     }
-    ops += 1;
     if (ops >= 450) commitIfNeeded();
   }
 
   commitIfNeeded();
   await Promise.all(commits);
 }
+
 
 function canTargetBagByAccess(bag: Bag | undefined | null, uid: string, isDm: boolean) {
   if (!bag) return false;
@@ -2520,18 +2527,18 @@ export default function App() {
     }
 
     // Spielerpfad im Schonmodus:
-    // Zwei Live-Queries, aber ohne per-Bag-Doc-Listener:
-    // 1) „Alle“-Taschen über die echte Access-Struktur, damit alte Taschen ohne Mirror weiter funktionieren.
-    // 2) „Ausgewählte Spieler“-Taschen über den top-level Mirror targetAccessKeys.
-    //    Diese Query ist für Firestore Rules zuverlässiger als verschachtelte access.targetUserIds-Queries.
+    // 1) Öffentliche Taschen live über access.targetMode == all.
+    // 2) Custom-Taschen über einen kleinen pro-Spieler-Index (targetVisibility/{uid}/bags).
+    //    Daraus werden die konkreten Bag-Dokumente in wenigen documentId-in Queries live geladen.
+    // Das ist robuster als verschachtelte Custom-Access-Queries und vermeidet trotzdem per-Bag-Einzellistener.
     const allMap = new Map<string, Bag>();
     const customMap = new Map<string, Bag>();
+    let customBagUnsubs: Array<() => void> = [];
 
     const publish = () => {
       const merged = new Map<string, Bag>();
       for (const [id, bag] of allMap) merged.set(id, bag);
       for (const [id, bag] of customMap) merged.set(id, bag);
-      // access bleibt Quelle der Wahrheit. targetAccessKeys entscheidet nur, welche Custom-Kandidaten überhaupt geladen werden.
       setBags(Array.from(merged.values()).filter((bag) => canTargetBagByAccess(bag, userUid, false)).sort((a, b) => a.sortIndex - b.sortIndex));
     };
 
@@ -2547,9 +2554,27 @@ export default function App() {
 
     const handleBagQueryError = (label: string) => (error: Error) => {
       console.warn(`${label} konnte nicht geladen werden`, error.message);
-      // Nicht leeren. Die andere Query kann trotzdem gültige Taschen liefern.
       setSyncStatus("error");
       setSyncError(error.message);
+    };
+
+    const replaceCustomBagListeners = (bagIds: string[]) => {
+      for (const unsubscribe of customBagUnsubs) unsubscribe();
+      customBagUnsubs = [];
+      customMap.clear();
+      const uniqueBagIds = Array.from(new Set(bagIds.filter(Boolean))).sort();
+      if (!uniqueBagIds.length) {
+        publish();
+        return;
+      }
+      for (let index = 0; index < uniqueBagIds.length; index += 30) {
+        const chunk = uniqueBagIds.slice(index, index + 30);
+        customBagUnsubs.push(onSnapshot(
+          query(bagCollection, where(documentId(), "in", chunk)),
+          (snapshot) => applySnapshotChanges(customMap, snapshot),
+          handleBagQueryError("Persönliche Taschen-Dokumente"),
+        ));
+      }
     };
 
     const unsubAll = onSnapshot(
@@ -2558,15 +2583,20 @@ export default function App() {
       handleBagQueryError("Allgemeine sichtbare/Ziel-Taschen"),
     );
 
-    const unsubCustom = onSnapshot(
-      query(bagCollection, where("targetAccessKeys", "array-contains", userUid)),
-      (snapshot) => applySnapshotChanges(customMap, snapshot),
-      handleBagQueryError("Persönlich sichtbare/Ziel-Taschen"),
+    const unsubIndex = onSnapshot(
+      collection(firebaseDb, "campaigns", activeCampaignId, "targetVisibility", userUid, "bags"),
+      (snapshot) => {
+        replaceCustomBagListeners(snapshot.docs.map((entry) => (entry.data() as { bagId?: string }).bagId ?? entry.id));
+        setSyncStatus("online");
+        setSyncError(null);
+      },
+      handleBagQueryError("Persönlicher Sichtbarkeitsindex"),
     );
 
     return () => {
       unsubAll();
-      unsubCustom();
+      unsubIndex();
+      for (const unsubscribe of customBagUnsubs) unsubscribe();
     };
   }, [activeCampaignId, userUid, member?.role, campaignAccessReady]);
 
@@ -3248,11 +3278,11 @@ export default function App() {
     ]);
 
     const latestBags = bagSnapshot.docs.map((entry) => entry.data() as Bag);
+    const latestMembers = memberSnapshot.docs.map((entry) => entry.data() as CampaignMember);
     const repairTimestamp = Date.now();
     const latestItems = itemSnapshot.docs.map((entry) => normalizeLiveItem(entry.data() as Partial<InventoryItem>, entry.id, repairTimestamp));
     const validPlayerIds = new Set(
-      memberSnapshot.docs
-        .map((entry) => entry.data() as CampaignMember)
+      latestMembers
         .filter((entry) => entry.role === "player")
         .map((entry) => entry.uid),
     );
@@ -3275,6 +3305,7 @@ export default function App() {
 
     const bagPatches: RepairPreview["bagPatches"] = [];
     const itemPatches: RepairPreview["itemPatches"] = [];
+    const normalizedBagsForIndex: Bag[] = [];
 
     for (const bag of latestBags) {
       const totals = totalsByBag.get(bag.id) ?? { weight: 0, volume: 0, value: 0, count: 0 };
@@ -3290,8 +3321,20 @@ export default function App() {
         maxWeight: bag.maxWeight ?? null,
         maxVolume: bag.maxVolume ?? null,
       } as any);
+      normalizedBagsForIndex.push({ ...bag, ...intended } as Bag);
       const patch = compactPatch(bag as any, intended as any) as Partial<Bag>;
       if (Object.keys(patch).length) bagPatches.push({ id: bag.id, name: bag.name, patch });
+    }
+
+    const indexPatches: RepairPreview["indexPatches"] = [];
+    for (const player of latestMembers.filter((entry) => entry.role === "player")) {
+      const expectedIds = new Set(normalizedBagsForIndex.filter((bag) => canTargetBagByAccess(bag, player.uid, false)).map((bag) => bag.id));
+      const visibilityRef = collection(firebaseDb, "campaigns", activeCampaignId, "targetVisibility", player.uid, "bags");
+      const existingSnapshot = await getDocs(visibilityRef);
+      const existingIds = new Set(existingSnapshot.docs.map((entry) => entry.id));
+      const add = Array.from(expectedIds).filter((id) => !existingIds.has(id)).sort();
+      const remove = Array.from(existingIds).filter((id) => !expectedIds.has(id)).sort();
+      if (add.length || remove.length) indexPatches.push({ uid: player.uid, displayName: player.displayName, add, remove });
     }
 
     for (let index = 0; index < itemSnapshot.docs.length; index += 1) {
@@ -3328,6 +3371,7 @@ export default function App() {
       checkedMembers: memberSnapshot.docs.length,
       bagPatches,
       itemPatches,
+      indexPatches,
       orphanItems,
     };
   }
@@ -3385,12 +3429,24 @@ export default function App() {
         ops += 1;
         if (ops >= 450) commitIfNeeded();
       }
+      for (const entry of repairPreview.indexPatches) {
+        for (const bagId of entry.add) {
+          batch.set(doc(firebaseDb, "campaigns", activeCampaignId, "targetVisibility", entry.uid, "bags", bagId), { bagId, playerUid: entry.uid, updatedAt: nowTs });
+          ops += 1;
+          if (ops >= 450) commitIfNeeded();
+        }
+        for (const bagId of entry.remove) {
+          batch.delete(doc(firebaseDb, "campaigns", activeCampaignId, "targetVisibility", entry.uid, "bags", bagId));
+          ops += 1;
+          if (ops >= 450) commitIfNeeded();
+        }
+      }
       commitIfNeeded();
       await Promise.all(commits);
 
       logAction(
         "campaign_repaired",
-        `${member?.displayName ?? "DM"} hat die Kampagnendaten repariert: ${repairPreview.bagPatches.length} Taschen und ${repairPreview.itemPatches.length} Items geändert${repairPreview.orphanItems ? `, ${repairPreview.orphanItems} verwaiste Items ignoriert` : ""}.`,
+        `${member?.displayName ?? "DM"} hat die Kampagnendaten repariert: ${repairPreview.bagPatches.length} Taschen, ${repairPreview.itemPatches.length} Items und ${repairPreview.indexPatches.reduce((sum, entry) => sum + entry.add.length + entry.remove.length, 0)} Rechte-Index-Einträge geändert${repairPreview.orphanItems ? `, ${repairPreview.orphanItems} verwaiste Items ignoriert` : ""}.`,
         activeCampaignId,
       );
 
@@ -3481,6 +3537,9 @@ export default function App() {
 
     try {
       await patchBag(id, safePatch);
+      if (isDm && safePatch.access && activeCampaignId) {
+        await syncTargetVisibilityIndexForBag(activeCampaignId, { ...(bag ?? {} as Bag), ...safePatch, id } as Bag, members);
+      }
       if (!options?.silent) logAction("bag_updated", `${member?.displayName ?? "Jemand"} hat die Tasche „${bag?.name ?? id}“ geändert.`, id);
       setSyncStatus("online");
       setSyncError(null);
@@ -3528,6 +3587,7 @@ export default function App() {
       updatedAt: now,
     } satisfies UserCampaignSummary, { merge: true });
     await batch.commit();
+    await syncTargetVisibilityIndex(activeCampaignId, bags, [...members.filter((entry) => entry.uid !== uid), { ...targetMember, role: "player" }]);
     logAction("member_approved", `${member?.displayName ?? "DM"} hat ${targetMember.displayName} als Spieler bestätigt.`, uid);
   }
 
@@ -4357,10 +4417,10 @@ export default function App() {
       ["Kampagne", firebaseConfigured && activeCampaignId && campaignAccessReady ? "aktiv" : "inaktiv"],
       ["Eigene Mitgliedschaft", firebaseConfigured && activeCampaignId && campaignAccessReady ? "aktiv" : "inaktiv"],
       ["Mitgliederliste", firebaseConfigured && activeCampaignId && campaignAccessReady && member?.role !== "applicant" ? "aktiv" : "inaktiv"],
-      ["Taschen-Listener", isDm ? "1 Query · DM alle Taschen" : isApprovedMember ? "2 Queries · access.targetMode=all + targetAccessKeys enthält UID" : "inaktiv"],
+      ["Taschen-Listener", isDm ? "1 Query · DM alle Taschen" : isApprovedMember ? "3 Queries · All + Index + Custom-Bag-Docs" : "inaktiv"],
       ["Einzelne Taschen-Doc-Listener", "0"],
       ["Legacy-/Index-Fallback", "aus · Access-Felder sind Quelle der Wahrheit"],
-      ["Custom-Taschen-Query", isApprovedMember && !isDm ? "targetAccessKeys enthält UID · access filtert final" : isDm ? "nicht nötig für DM" : "inaktiv"],
+      ["Custom-Taschen-Query", isApprovedMember && !isDm ? "targetVisibility Index + documentId-in Bag-Query" : isDm ? "nicht nötig für DM" : "inaktiv"],
       ["Item-Listener", selectedOpenableBagId ? `1 Query · ${selectedBag?.name ?? selectedOpenableBagId}` : "inaktiv"],
       ["Auditlog-Listener", auditLogOpen ? `aktiv · Limit ${auditLogLimit}` : "inaktiv"],
     ];
@@ -5388,18 +5448,20 @@ export default function App() {
               <MiniStat label="Taschen mit Änderungen" value={String(repairPreview.bagPatches.length)} />
               <MiniStat label="Items mit Änderungen" value={String(repairPreview.itemPatches.length)} />
               <MiniStat label="Verwaiste Items" value={String(repairPreview.orphanItems)} />
-              <MiniStat label="Geschätzte Writes" value={String(repairPreview.bagPatches.length + repairPreview.itemPatches.length + 1)} sub="inkl. Logeintrag" />
+              <MiniStat label="Rechte-Index Änderungen" value={String(repairPreview.indexPatches.reduce((sum, entry) => sum + entry.add.length + entry.remove.length, 0))} />
+              <MiniStat label="Geschätzte Writes" value={String(repairPreview.bagPatches.length + repairPreview.itemPatches.length + repairPreview.indexPatches.reduce((sum, entry) => sum + entry.add.length + entry.remove.length, 0) + ((repairPreview.bagPatches.length + repairPreview.itemPatches.length + repairPreview.indexPatches.reduce((sum, entry) => sum + entry.add.length + entry.remove.length, 0)) > 0 ? 1 : 0))} sub={(repairPreview.bagPatches.length + repairPreview.itemPatches.length + repairPreview.indexPatches.reduce((sum, entry) => sum + entry.add.length + entry.remove.length, 0)) > 0 ? "inkl. Logeintrag" : "keine Änderungen"} />
             </div>
-            {(repairPreview.bagPatches.length > 0 || repairPreview.itemPatches.length > 0) && (
+            {(repairPreview.bagPatches.length > 0 || repairPreview.itemPatches.length > 0 || repairPreview.indexPatches.length > 0) && (
               <div className={`mt-4 max-h-52 overflow-auto rounded-2xl border border-current/10 p-3 text-xs ${mutedText}`}>
                 {repairPreview.bagPatches.slice(0, 20).map((entry) => <div key={`bag-${entry.id}`}>Tasche „{entry.name}“: {Object.keys(entry.patch).join(", ")}</div>)}
                 {repairPreview.itemPatches.slice(0, 40).map((entry) => <div key={`item-${entry.id}`}>Item „{entry.name}“: {Object.keys(entry.patch).join(", ")}</div>)}
-                {repairPreview.bagPatches.length + repairPreview.itemPatches.length > 60 && <div>…weitere Änderungen gekürzt angezeigt.</div>}
+                {repairPreview.indexPatches.slice(0, 20).map((entry) => <div key={`index-${entry.uid}`}>Rechte-Index „{entry.displayName}“: +{entry.add.length} / −{entry.remove.length}</div>)}
+                {repairPreview.bagPatches.length + repairPreview.itemPatches.length + repairPreview.indexPatches.length > 80 && <div>…weitere Änderungen gekürzt angezeigt.</div>}
               </div>
             )}
             <div className="mt-5 flex flex-wrap justify-end gap-2">
               <button className={secondaryButton} onClick={() => setRepairModalOpen(false)} disabled={repairBusy}><X className="h-4 w-4" /> Abbrechen</button>
-              <button className={primaryButton} onClick={applyRepairPreview} disabled={repairBusy || (repairPreview.bagPatches.length + repairPreview.itemPatches.length) === 0}><Save className="h-4 w-4" /> Reparatur ausführen</button>
+              <button className={primaryButton} onClick={applyRepairPreview} disabled={repairBusy || (repairPreview.bagPatches.length + repairPreview.itemPatches.length + repairPreview.indexPatches.reduce((sum, entry) => sum + entry.add.length + entry.remove.length, 0)) === 0}><Save className="h-4 w-4" /> Reparatur ausführen</button>
             </div>
           </div>
         </div>
@@ -5425,7 +5487,7 @@ export default function App() {
                 ))}
               </div>
               <div className={`mt-4 rounded-2xl border border-current/10 p-3 text-xs ${mutedText}`}>
-                Schonmodus aktiv: Items werden nur für die aktuell geöffnete Tasche live geladen. Auditlog lädt nur bei geöffnetem Logfenster. Spieler-Taschen werden über zwei schlanke Queries geladen: alle öffentlichen Taschen und persönliche Custom-Taschen über targetAccessKeys. Access bleibt die finale Quelle der Wahrheit.
+                Schonmodus aktiv: Items werden nur für die aktuell geöffnete Tasche live geladen. Auditlog lädt nur bei geöffnetem Logfenster. Spieler-Taschen werden über schlanke Queries geladen: öffentliche Taschen direkt, ausgewählte Taschen über den persönlichen Rechte-Index. Access bleibt die finale Quelle der Wahrheit.
               </div>
             </div>
           </div>
