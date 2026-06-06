@@ -2538,7 +2538,7 @@ export default function App() {
     };
 
     const unsubPublic = onSnapshot(
-      query(bagCollection, where("targetAccessKeys", "array-contains", TARGET_ACCESS_ALL_KEY)),
+      query(bagCollection, where("access.targetMode", "==", "all")),
       (snapshot) => {
         for (const change of snapshot.docChanges()) {
           if (change.type === "removed") publicMap.delete(change.doc.id);
