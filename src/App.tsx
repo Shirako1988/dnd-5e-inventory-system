@@ -2522,7 +2522,7 @@ export default function App() {
     // Spielerpfad im Schonmodus:
     // Zwei Live-Queries direkt auf der echten Access-Struktur:
     // 1) Taschen mit Ziel/Sichtbarkeit = Alle
-    // 2) Taschen, in deren Ziel/Sichtbarkeits-Auswahl dieser Spieler steht
+    // 2) Taschen mit targetMode=custom, in deren Ziel/Sichtbarkeits-Auswahl dieser Spieler steht
     // Dadurch sind wir nicht mehr von evtl. fehlenden/veralteten targetAccessKeys abhängig.
     // Keine per-Bag-Doc-Listener und kein Legacy-/Index-Live-Fallback.
     const allMap = new Map<string, Bag>();
@@ -2559,7 +2559,11 @@ export default function App() {
     );
 
     const unsubCustom = onSnapshot(
-      query(bagCollection, where("access.targetUserIds", "array-contains", userUid)),
+      query(
+        bagCollection,
+        where("access.targetMode", "==", "custom"),
+        where("access.targetUserIds", "array-contains", userUid),
+      ),
       (snapshot) => applySnapshotChanges(customMap, snapshot),
       handleBagQueryError("Persönlich sichtbare/Ziel-Taschen"),
     );
@@ -4357,9 +4361,10 @@ export default function App() {
       ["Kampagne", firebaseConfigured && activeCampaignId && campaignAccessReady ? "aktiv" : "inaktiv"],
       ["Eigene Mitgliedschaft", firebaseConfigured && activeCampaignId && campaignAccessReady ? "aktiv" : "inaktiv"],
       ["Mitgliederliste", firebaseConfigured && activeCampaignId && campaignAccessReady && member?.role !== "applicant" ? "aktiv" : "inaktiv"],
-      ["Taschen-Listener", isDm ? "1 Query · DM alle Taschen" : isApprovedMember ? "2 Queries · Access-All + Access-Spieler" : "inaktiv"],
+      ["Taschen-Listener", isDm ? "1 Query · DM alle Taschen" : isApprovedMember ? "2 Queries · targetMode=all + targetMode=custom/user" : "inaktiv"],
       ["Einzelne Taschen-Doc-Listener", "0"],
       ["Legacy-/Index-Fallback", "aus · Access-Felder sind Quelle der Wahrheit"],
+      ["Custom-Taschen-Query", isApprovedMember && !isDm ? "access.targetMode == custom + access.targetUserIds enthält UID" : isDm ? "nicht nötig für DM" : "inaktiv"],
       ["Item-Listener", selectedOpenableBagId ? `1 Query · ${selectedBag?.name ?? selectedOpenableBagId}` : "inaktiv"],
       ["Auditlog-Listener", auditLogOpen ? `aktiv · Limit ${auditLogLimit}` : "inaktiv"],
     ];
