@@ -690,12 +690,12 @@ function collapsedCategoriesStorageKey(campaignId: string | null, uid: string) {
 }
 
 function sidebarWidthStorageKey(campaignId: string | null, uid: string) {
-  return `dnd-inventory-sidebar-width:${campaignId ?? "local"}:${uid}`;
+  return `dnd-inventory-sidebar-width-v2:${campaignId ?? "local"}:${uid}`;
 }
 
-const DEFAULT_SIDEBAR_WIDTH = 340;
-const MIN_SIDEBAR_WIDTH = 260;
-const MAX_SIDEBAR_WIDTH = 640;
+const DEFAULT_SIDEBAR_WIDTH = 420;
+const MIN_SIDEBAR_WIDTH = 300;
+const MAX_SIDEBAR_WIDTH = 720;
 
 function clampSidebarWidth(value: unknown) {
   const parsed = typeof value === "number" ? value : Number(value);
@@ -1542,7 +1542,7 @@ export default function App() {
   const [restoreConfirmCampaignName, setRestoreConfirmCampaignName] = useState("");
   const [restoreConfirmWord, setRestoreConfirmWord] = useState("");
   const [bagOrderIds, setBagOrderIds] = useState<string[]>([]);
-  const [sidebarWidth, setSidebarWidth] = useState(() => clampSidebarWidth(localStorage.getItem("dnd-inventory-sidebar-width:local:local_user")));
+  const [sidebarWidth, setSidebarWidth] = useState(() => clampSidebarWidth(localStorage.getItem("dnd-inventory-sidebar-width-v2:local:local_user")));
   const [sidebarResizing, setSidebarResizing] = useState(false);
   const [currencyUndoByBag, setCurrencyUndoByBag] = useState<Record<string, CurrencyPouch>>({});
 
@@ -1944,23 +1944,31 @@ export default function App() {
     localStorage.setItem(currentSidebarWidthStorageKey, String(clampSidebarWidth(sidebarWidth)));
   }, [currentSidebarWidthStorageKey, sidebarWidth]);
 
-  function startSidebarResize(event: React.MouseEvent<HTMLDivElement>) {
+  function startSidebarResize(event: React.PointerEvent<HTMLDivElement>) {
     event.preventDefault();
     const startX = event.clientX;
     const startWidth = sidebarWidth;
+    const previousCursor = document.body.style.cursor;
+    const previousUserSelect = document.body.style.userSelect;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
     setSidebarResizing(true);
 
-    const onMove = (moveEvent: MouseEvent) => {
+    const onMove = (moveEvent: PointerEvent) => {
       setSidebarWidth(clampSidebarWidth(startWidth + moveEvent.clientX - startX));
     };
     const onUp = () => {
       setSidebarResizing(false);
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = previousCursor;
+      document.body.style.userSelect = previousUserSelect;
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
     };
 
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
   }
 
   useEffect(() => {
@@ -4756,14 +4764,15 @@ export default function App() {
       </header>
 
       <main
-        className="grid w-full gap-3 px-2 py-3 sm:px-3 lg:grid-cols-[var(--sidebar-width)_10px_minmax(0,1fr)] lg:items-start lg:gap-0 2xl:px-5"
+        className="grid w-full gap-3 px-2 py-3 sm:px-3 md:grid-cols-[var(--sidebar-width)_18px_minmax(0,1fr)] md:items-start md:gap-0 2xl:px-5"
         style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
       >
-        <aside className={`min-w-0 rounded-3xl border p-3 shadow-xl lg:sticky lg:top-[104px] lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto lg:overscroll-contain ${panelClass}`}>
+        <aside className={`min-w-0 rounded-3xl border p-3 shadow-xl md:sticky md:top-[104px] md:max-h-[calc(100vh-120px)] md:overflow-y-auto md:overscroll-contain ${panelClass}`}>
           <div className="mb-4 flex items-center justify-between gap-2">
             <div>
               <h2 className="text-lg font-black">Taschen</h2>
               <p className={`text-sm ${mutedText}`}>{isDm ? "Reihenfolge ist persönlich und wird nicht synchronisiert." : "Spielerzugriff: sichtbare Taschen werden angezeigt, gesperrte bleiben geschlossen."}</p>
+              <p className={`mt-1 hidden text-xs md:block ${mutedText}`}>Breite: {sidebarWidth}px · Griff rechts ziehen</p>
             </div>
             {isDm ? <Crown className="h-6 w-6 opacity-80" /> : <Users className="h-6 w-6 opacity-80" />}
           </div>
@@ -4925,16 +4934,21 @@ export default function App() {
         </aside>
 
         <div
-          className={`hidden cursor-col-resize items-stretch justify-center lg:flex ${sidebarResizing ? "opacity-100" : "opacity-70 hover:opacity-100"}`}
-          onMouseDown={startSidebarResize}
+          className={`group hidden cursor-col-resize touch-none select-none items-stretch justify-center md:flex ${sidebarResizing ? "opacity-100" : "opacity-90 hover:opacity-100"}`}
+          onPointerDown={startSidebarResize}
           title="Taschenliste breiter/schmaler ziehen"
           role="separator"
           aria-orientation="vertical"
         >
-          <div className={`my-3 w-1 rounded-full transition ${isDark ? "bg-[#8d713e]/60" : "bg-[#9b7339]/45"}`} />
+          <div className={`my-2 flex w-4 items-center justify-center rounded-full border transition ${sidebarResizing
+            ? isDark ? "border-[#d2a94d] bg-[#d2a94d]/30" : "border-[#7a4e17] bg-[#7a4e17]/20"
+            : isDark ? "border-[#8d713e]/60 bg-[#8d713e]/20 group-hover:bg-[#8d713e]/35" : "border-[#9b7339]/45 bg-[#9b7339]/15 group-hover:bg-[#9b7339]/25"}`}
+          >
+            <div className={`h-16 w-1 rounded-full ${isDark ? "bg-[#d2a94d]/80" : "bg-[#7a4e17]/75"}`} />
+          </div>
         </div>
 
-        <section className="min-w-0 space-y-4 lg:pl-3">
+        <section className="min-w-0 space-y-4 md:pl-3">
           {selectedBag ? (
             <>
               <div className={`rounded-3xl border p-3 shadow-xl ${panelClass}`}>
