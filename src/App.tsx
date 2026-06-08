@@ -3816,6 +3816,9 @@ export default function App() {
       category: itemCategory,
       orderIndex: nextOrderIndex,
       imageUrl: "",
+      imageZoom: DEFAULT_IMAGE_ZOOM,
+      imagePositionX: DEFAULT_IMAGE_POSITION,
+      imagePositionY: DEFAULT_IMAGE_POSITION,
       createdBy: activeUid,
       updatedBy: activeUid,
       createdAt,
@@ -3832,7 +3835,18 @@ export default function App() {
 
     if (!firebaseConfigured) {
       if (existingStack) {
-        setItems((prev) => prev.map((entry) => entry.id === existingStack.id ? { ...entry, quantity: entry.quantity + item.quantity, updatedBy: activeUid, updatedAt: createdAt } : entry));
+        setItems((prev) => prev.map((entry) => entry.id === existingStack.id ? {
+          ...entry,
+          quantity: entry.quantity + item.quantity,
+          stackKey: entry.stackKey ?? itemStackKey(entry),
+          category: normalizeItemCategory(entry.category),
+          imageUrl: entry.imageUrl ?? "",
+          imageZoom: entry.imageZoom ?? DEFAULT_IMAGE_ZOOM,
+          imagePositionX: entry.imagePositionX ?? DEFAULT_IMAGE_POSITION,
+          imagePositionY: entry.imagePositionY ?? DEFAULT_IMAGE_POSITION,
+          updatedBy: activeUid,
+          updatedAt: createdAt,
+        } : entry));
       } else {
         setItems((prev) => [...prev, item]);
       }
@@ -3846,7 +3860,18 @@ export default function App() {
       if (!bagRef || !firebaseDb) throw new Error("Keine aktive Kampagne gefunden.");
       const batch = writeBatch(firebaseDb);
       if (existingStack) {
-        batch.update(campaignDocPath("items", existingStack.id)!, { quantity: existingStack.quantity + item.quantity, updatedBy: activeUid, updatedAt: createdAt });
+        const existingStackPatch: Record<string, any> = {
+          quantity: existingStack.quantity + item.quantity,
+          updatedBy: activeUid,
+          updatedAt: createdAt,
+        };
+        if (existingStack.stackKey !== itemStackKey(existingStack)) existingStackPatch.stackKey = itemStackKey(existingStack);
+        if (existingStack.category === undefined) existingStackPatch.category = normalizeItemCategory(existingStack.category);
+        if (existingStack.imageUrl === undefined) existingStackPatch.imageUrl = "";
+        if (existingStack.imageZoom === undefined) existingStackPatch.imageZoom = DEFAULT_IMAGE_ZOOM;
+        if (existingStack.imagePositionX === undefined) existingStackPatch.imagePositionX = DEFAULT_IMAGE_POSITION;
+        if (existingStack.imagePositionY === undefined) existingStackPatch.imagePositionY = DEFAULT_IMAGE_POSITION;
+        batch.update(campaignDocPath("items", existingStack.id)!, cleanFirestorePayload(existingStackPatch));
       } else {
         const itemRef = campaignDocPath("items", item.id);
         if (!itemRef) throw new Error("Keine aktive Kampagne gefunden.");
@@ -3895,6 +3920,22 @@ export default function App() {
     const categoryChanged = Boolean(current && patch.category !== undefined && nextCategory !== currentCategory);
     const shouldAppendToTargetCategory = Boolean(current && targetBag && (isMove || categoryChanged));
     const safePatch: Partial<InventoryItem> = cleanFirestorePayload({ ...patch, updatedBy: activeUid, updatedAt: nowTs } as any);
+    const stackFieldsChanged = Boolean(
+      current && (
+        patch.name !== undefined ||
+        patch.weightPerUnit !== undefined ||
+        patch.volumePerUnit !== undefined ||
+        patch.valuePerUnit !== undefined
+      ),
+    );
+    if (stackFieldsChanged && current) {
+      safePatch.stackKey = itemStackKey({
+        name: patch.name ?? current.name,
+        weightPerUnit: patch.weightPerUnit === undefined ? current.weightPerUnit : patch.weightPerUnit,
+        volumePerUnit: patch.volumePerUnit === undefined ? current.volumePerUnit : patch.volumePerUnit,
+        valuePerUnit: patch.valuePerUnit === undefined ? current.valuePerUnit : patch.valuePerUnit,
+      });
+    }
     if (patch.category !== undefined) safePatch.category = nextCategory;
     if (shouldAppendToTargetCategory && targetBag) safePatch.orderIndex = nextItemOrderIndex(targetBag.id, nextCategory);
 
@@ -3982,7 +4023,12 @@ export default function App() {
       typeof item.volumePerUnit === "undefined" ||
       typeof item.valuePerUnit === "undefined" ||
       typeof item.createdBy !== "string" ||
-      typeof item.createdAt !== "number"
+      typeof item.createdAt !== "number" ||
+      item.stackKey !== itemStackKey(item) ||
+      typeof item.imageUrl !== "string" ||
+      typeof item.imageZoom !== "number" ||
+      typeof item.imagePositionX !== "number" ||
+      typeof item.imagePositionY !== "number"
     );
   }
 
@@ -4068,6 +4114,11 @@ export default function App() {
           id: targetStackId,
           bagId: targetBag.id,
           quantity: amount,
+          stackKey: itemStackKey(item),
+          imageUrl: sanitizeImageUrl(item.imageUrl),
+          imageZoom: sanitizeImageZoom(item.imageZoom),
+          imagePositionX: sanitizeImagePosition(item.imagePositionX),
+          imagePositionY: sanitizeImagePosition(item.imagePositionY),
           createdBy: activeUid,
           category: normalizeItemCategory(item.category),
           orderIndex: nextItemOrderIndex(targetBag.id, normalizeItemCategory(item.category)),
@@ -4112,6 +4163,11 @@ export default function App() {
         batch.update(itemRef, cleanFirestorePayload({
           bagId: targetBag.id,
           category: normalizeItemCategory(item.category),
+          stackKey: itemStackKey(item),
+          imageUrl: sanitizeImageUrl(item.imageUrl),
+          imageZoom: sanitizeImageZoom(item.imageZoom),
+          imagePositionX: sanitizeImagePosition(item.imagePositionX),
+          imagePositionY: sanitizeImagePosition(item.imagePositionY),
           orderIndex: nextItemOrderIndex(targetBag.id, normalizeItemCategory(item.category)),
           updatedBy: activeUid,
           updatedAt: nowTs,
