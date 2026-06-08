@@ -4764,15 +4764,15 @@ export default function App() {
       </header>
 
       <main
-        className="grid w-full gap-3 px-2 py-3 sm:px-3 md:grid-cols-[var(--sidebar-width)_18px_minmax(0,1fr)] md:items-start md:gap-0 2xl:px-5"
+        className="grid w-full gap-3 px-2 py-3 sm:px-3 md:h-[calc(100vh-132px)] md:min-h-0 md:grid-cols-[var(--sidebar-width)_18px_minmax(0,1fr)] md:items-stretch md:gap-0 md:overflow-hidden 2xl:px-5"
         style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
       >
-        <aside className={`min-w-0 rounded-3xl border p-3 shadow-xl md:sticky md:top-[104px] md:max-h-[calc(100vh-120px)] md:overflow-y-auto md:overscroll-contain ${panelClass}`}>
+        <aside className={`min-h-0 min-w-0 rounded-3xl border p-3 shadow-xl md:h-full md:overflow-y-auto md:overscroll-contain ${panelClass}`}>
           <div className="mb-4 flex items-center justify-between gap-2">
             <div>
               <h2 className="text-lg font-black">Taschen</h2>
               <p className={`text-sm ${mutedText}`}>{isDm ? "Reihenfolge ist persönlich und wird nicht synchronisiert." : "Spielerzugriff: sichtbare Taschen werden angezeigt, gesperrte bleiben geschlossen."}</p>
-              <p className={`mt-1 hidden text-xs md:block ${mutedText}`}>Breite: {sidebarWidth}px · Griff rechts über die ganze Höhe ziehen</p>
+              <p className={`mt-1 hidden text-xs md:block ${mutedText}`}>Breite: {sidebarWidth}px · links/rechts scrollen getrennt</p>
             </div>
             {isDm ? <Crown className="h-6 w-6 opacity-80" /> : <Users className="h-6 w-6 opacity-80" />}
           </div>
@@ -4934,7 +4934,7 @@ export default function App() {
         </aside>
 
         <div
-          className={`group hidden cursor-col-resize touch-none select-none items-stretch justify-center self-stretch md:sticky md:top-[104px] md:flex md:h-[calc(100vh-120px)] ${sidebarResizing ? "opacity-100" : "opacity-90 hover:opacity-100"}`}
+          className={`group hidden cursor-col-resize touch-none select-none items-stretch justify-center self-stretch md:flex md:h-full ${sidebarResizing ? "opacity-100" : "opacity-90 hover:opacity-100"}`}
           onPointerDown={startSidebarResize}
           title="Taschenliste breiter/schmaler ziehen"
           role="separator"
@@ -4948,7 +4948,7 @@ export default function App() {
           </div>
         </div>
 
-        <section className="min-w-0 space-y-4 md:pl-3">
+        <section className="min-h-0 min-w-0 space-y-4 md:h-full md:overflow-y-auto md:overscroll-contain md:pl-3 md:pr-1">
           {selectedBag ? (
             <>
               <div className={`rounded-3xl border p-3 shadow-xl ${panelClass}`}>
