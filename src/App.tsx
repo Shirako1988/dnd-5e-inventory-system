@@ -4772,7 +4772,7 @@ export default function App() {
             <div>
               <h2 className="text-lg font-black">Taschen</h2>
               <p className={`text-sm ${mutedText}`}>{isDm ? "Reihenfolge ist persönlich und wird nicht synchronisiert." : "Spielerzugriff: sichtbare Taschen werden angezeigt, gesperrte bleiben geschlossen."}</p>
-              <p className={`mt-1 hidden text-xs md:block ${mutedText}`}>Breite: {sidebarWidth}px · Griff rechts ziehen</p>
+              <p className={`mt-1 hidden text-xs md:block ${mutedText}`}>Breite: {sidebarWidth}px · Griff rechts über die ganze Höhe ziehen</p>
             </div>
             {isDm ? <Crown className="h-6 w-6 opacity-80" /> : <Users className="h-6 w-6 opacity-80" />}
           </div>
@@ -4934,17 +4934,17 @@ export default function App() {
         </aside>
 
         <div
-          className={`group hidden cursor-col-resize touch-none select-none items-stretch justify-center md:flex ${sidebarResizing ? "opacity-100" : "opacity-90 hover:opacity-100"}`}
+          className={`group hidden cursor-col-resize touch-none select-none items-stretch justify-center self-stretch md:sticky md:top-[104px] md:flex md:h-[calc(100vh-120px)] ${sidebarResizing ? "opacity-100" : "opacity-90 hover:opacity-100"}`}
           onPointerDown={startSidebarResize}
           title="Taschenliste breiter/schmaler ziehen"
           role="separator"
           aria-orientation="vertical"
         >
-          <div className={`my-2 flex w-4 items-center justify-center rounded-full border transition ${sidebarResizing
+          <div className={`flex h-full w-5 items-center justify-center rounded-full border transition ${sidebarResizing
             ? isDark ? "border-[#d2a94d] bg-[#d2a94d]/30" : "border-[#7a4e17] bg-[#7a4e17]/20"
             : isDark ? "border-[#8d713e]/60 bg-[#8d713e]/20 group-hover:bg-[#8d713e]/35" : "border-[#9b7339]/45 bg-[#9b7339]/15 group-hover:bg-[#9b7339]/25"}`}
           >
-            <div className={`h-16 w-1 rounded-full ${isDark ? "bg-[#d2a94d]/80" : "bg-[#7a4e17]/75"}`} />
+            <div className={`h-[92%] w-1 rounded-full ${isDark ? "bg-[#d2a94d]/80" : "bg-[#7a4e17]/75"}`} />
           </div>
         </div>
 
