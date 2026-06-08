@@ -689,6 +689,20 @@ function collapsedCategoriesStorageKey(campaignId: string | null, uid: string) {
   return `dnd-inventory-collapsed-categories:${campaignId ?? "local"}:${uid}`;
 }
 
+function sidebarWidthStorageKey(campaignId: string | null, uid: string) {
+  return `dnd-inventory-sidebar-width:${campaignId ?? "local"}:${uid}`;
+}
+
+const DEFAULT_SIDEBAR_WIDTH = 340;
+const MIN_SIDEBAR_WIDTH = 260;
+const MAX_SIDEBAR_WIDTH = 640;
+
+function clampSidebarWidth(value: unknown) {
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(parsed)) return DEFAULT_SIDEBAR_WIDTH;
+  return Math.max(MIN_SIDEBAR_WIDTH, Math.min(MAX_SIDEBAR_WIDTH, Math.round(parsed)));
+}
+
 function inventoryCategoryKey(bagId: string, category: ItemCategory) {
   return `${bagId}:${category}`;
 }
@@ -1528,6 +1542,8 @@ export default function App() {
   const [restoreConfirmCampaignName, setRestoreConfirmCampaignName] = useState("");
   const [restoreConfirmWord, setRestoreConfirmWord] = useState("");
   const [bagOrderIds, setBagOrderIds] = useState<string[]>([]);
+  const [sidebarWidth, setSidebarWidth] = useState(() => clampSidebarWidth(localStorage.getItem("dnd-inventory-sidebar-width:local:local_user")));
+  const [sidebarResizing, setSidebarResizing] = useState(false);
   const [currencyUndoByBag, setCurrencyUndoByBag] = useState<Record<string, CurrencyPouch>>({});
 
   const [bags, setBags] = useState<Bag[]>(() => {
@@ -1910,6 +1926,7 @@ export default function App() {
   const currentBagOrderStorageKey = bagOrderStorageKey(activeCampaignId, activeUid);
   const currentSelectedBagStorageKey = selectedBagStorageKey(activeCampaignId, activeUid);
   const currentCollapsedCategoriesStorageKey = collapsedCategoriesStorageKey(activeCampaignId, activeUid);
+  const currentSidebarWidthStorageKey = sidebarWidthStorageKey(activeCampaignId, activeUid);
   const sortedMembers = useMemo(() => [...members].sort(compareCampaignMembers), [members]);
   const tradeRates = useMemo(() => campaignTradeRates(campaign), [campaign?.tradeRateName, campaign?.tradeBuyMultiplier, campaign?.tradeSellMultiplier]);
 
@@ -1918,6 +1935,33 @@ export default function App() {
     setTradeBuyInput(formatNumber(tradeRates.buyMultiplier));
     setTradeSellInput(formatNumber(tradeRates.sellMultiplier));
   }, [tradeRates.name, tradeRates.buyMultiplier, tradeRates.sellMultiplier]);
+
+  useEffect(() => {
+    setSidebarWidth(clampSidebarWidth(localStorage.getItem(currentSidebarWidthStorageKey)));
+  }, [currentSidebarWidthStorageKey]);
+
+  useEffect(() => {
+    localStorage.setItem(currentSidebarWidthStorageKey, String(clampSidebarWidth(sidebarWidth)));
+  }, [currentSidebarWidthStorageKey, sidebarWidth]);
+
+  function startSidebarResize(event: React.MouseEvent<HTMLDivElement>) {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = sidebarWidth;
+    setSidebarResizing(true);
+
+    const onMove = (moveEvent: MouseEvent) => {
+      setSidebarWidth(clampSidebarWidth(startWidth + moveEvent.clientX - startX));
+    };
+    const onUp = () => {
+      setSidebarResizing(false);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }
 
   useEffect(() => {
     if (!campaign?.id || !isDm) {
@@ -4354,7 +4398,16 @@ export default function App() {
     const targetBag = bags.find((entry) => entry.id === targetBagId);
     const amount = normalizeCoinInput(amountRaw);
     if (!sourceBag || !targetBag || sourceBag.id === targetBag.id || amount <= 0) return;
-    if (!canWriteBag(sourceBag) || !canDepositBag(targetBag)) return;
+    if (!canWriteBag(sourceBag)) {
+      setSyncStatus("error");
+      setSyncError("Du brauchst Bearbeitungsrechte an der Quelltasche, um Münzen daraus zu entnehmen.");
+      return;
+    }
+    if (!canDepositBag(targetBag)) {
+      setSyncStatus("error");
+      setSyncError("Du brauchst 'Items hineinlegen'-Rechte an der Zieltasche, um Münzen dorthin zu übertragen.");
+      return;
+    }
     const sourceCurrency = bagCurrency(sourceBag);
     const targetCurrency = bagCurrency(targetBag);
     if (sourceCurrency[key] < amount) return;
@@ -4702,7 +4755,10 @@ export default function App() {
         </div>
       </header>
 
-      <main className="grid w-full gap-3 px-2 py-3 sm:px-3 lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start xl:grid-cols-[340px_minmax(0,1fr)] 2xl:px-5">
+      <main
+        className="grid w-full gap-3 px-2 py-3 sm:px-3 lg:grid-cols-[var(--sidebar-width)_10px_minmax(0,1fr)] lg:items-start lg:gap-0 2xl:px-5"
+        style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
+      >
         <aside className={`min-w-0 rounded-3xl border p-3 shadow-xl lg:sticky lg:top-[104px] lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto lg:overscroll-contain ${panelClass}`}>
           <div className="mb-4 flex items-center justify-between gap-2">
             <div>
@@ -4868,7 +4924,17 @@ export default function App() {
           )}
         </aside>
 
-        <section className="min-w-0 space-y-4">
+        <div
+          className={`hidden cursor-col-resize items-stretch justify-center lg:flex ${sidebarResizing ? "opacity-100" : "opacity-70 hover:opacity-100"}`}
+          onMouseDown={startSidebarResize}
+          title="Taschenliste breiter/schmaler ziehen"
+          role="separator"
+          aria-orientation="vertical"
+        >
+          <div className={`my-3 w-1 rounded-full transition ${isDark ? "bg-[#8d713e]/60" : "bg-[#9b7339]/45"}`} />
+        </div>
+
+        <section className="min-w-0 space-y-4 lg:pl-3">
           {selectedBag ? (
             <>
               <div className={`rounded-3xl border p-3 shadow-xl ${panelClass}`}>

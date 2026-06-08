@@ -90,6 +90,50 @@ service cloud.firestore {
       return canWriteBagData(campaignId, get(bagPath(campaignId, bagId)).data);
     }
 
+    function currencyMapOrEmpty(data) {
+      return (data.currency is map) ? data.currency : {};
+    }
+
+    function coinCount(currency, key) {
+      return (key in currency && currency[key] is number) ? currency[key] : 0;
+    }
+
+    function currencyCopper(data) {
+      let c = currencyMapOrEmpty(data);
+      return coinCount(c, "pp") * 1000
+        + coinCount(c, "gp") * 100
+        + coinCount(c, "ep") * 50
+        + coinCount(c, "sp") * 10
+        + coinCount(c, "cp");
+    }
+
+    function validCurrency(data) {
+      let c = currencyMapOrEmpty(data);
+      return (!("pp" in c) || (c.pp is number && c.pp >= 0))
+        && (!("gp" in c) || (c.gp is number && c.gp >= 0))
+        && (!("ep" in c) || (c.ep is number && c.ep >= 0))
+        && (!("sp" in c) || (c.sp is number && c.sp >= 0))
+        && (!("cp" in c) || (c.cp is number && c.cp >= 0));
+    }
+
+    function onlyCurrencyChanged() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(["currency", "currentWeight", "updatedAt"]);
+    }
+
+    function currencyDepositChanged() {
+      return onlyCurrencyChanged()
+        && validCurrency(request.resource.data)
+        && currencyCopper(request.resource.data) >= currencyCopper(resource.data)
+        && request.resource.data.currentWeight is number
+        && resource.data.currentWeight is number
+        && request.resource.data.currentWeight >= resource.data.currentWeight;
+    }
+
+    function currencyWithdrawalOrExchangeChanged() {
+      return onlyCurrencyChanged()
+        && validCurrency(request.resource.data);
+    }
+
     match /joinCodes/{joinCodeSearch} {
       allow get: if signedIn();
       allow list: if false;
@@ -154,6 +198,14 @@ service cloud.firestore {
             || (
               canWriteBagData(campaignId, resource.data)
               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["name", "description", "kind", "maxWeight", "maxVolume", "imageUrl", "imageZoom", "imagePositionX", "imagePositionY", "imageUpdatedAt", "imageUpdatedBy", "currency", "currentWeight", "currentVolume", "currentValue", "itemCount", "updatedAt"])
+            )
+            || (
+              currencyDepositChanged()
+              && canDepositBagData(campaignId, resource.data)
+            )
+            || (
+              currencyWithdrawalOrExchangeChanged()
+              && canWriteBagData(campaignId, resource.data)
             )
           );
 

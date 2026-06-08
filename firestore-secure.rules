@@ -166,6 +166,20 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(["currency", "currentWeight", "updatedAt"]);
     }
 
+    function currencyDepositChanged() {
+      return onlyCurrencyChanged()
+        && validCurrency(request.resource.data)
+        && currencyCopper(request.resource.data) >= currencyCopper(resource.data)
+        && request.resource.data.currentWeight is number
+        && resource.data.currentWeight is number
+        && request.resource.data.currentWeight >= resource.data.currentWeight;
+    }
+
+    function currencyWithdrawalOrExchangeChanged() {
+      return onlyCurrencyChanged()
+        && validCurrency(request.resource.data);
+    }
+
     function saleSettlementChanged() {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(["currency", "currentWeight", "currentVolume", "currentValue", "itemCount", "updatedAt"])
         && validCurrency(request.resource.data)
@@ -277,12 +291,12 @@ service cloud.firestore {
               && canWriteBagData(campaignId, resource.data)
             )
             || (
-              onlyCurrencyChanged()
-              && validCurrency(request.resource.data)
-              && (
-                canWriteBagData(campaignId, resource.data)
-                || (canDepositBagData(campaignId, resource.data) && currencyCopper(request.resource.data) >= currencyCopper(resource.data))
-              )
+              currencyDepositChanged()
+              && canDepositBagData(campaignId, resource.data)
+            )
+            || (
+              currencyWithdrawalOrExchangeChanged()
+              && canWriteBagData(campaignId, resource.data)
             )
           );
 
