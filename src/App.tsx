@@ -4029,7 +4029,7 @@ export default function App() {
           setItems((prev) => prev.map((entry) => (entry.id === item.id ? { ...entry, quantity: item.quantity - amount, updatedBy: activeUid, updatedAt: nowTs } : entry)).concat(newStackItem));
         }
       }
-      logAction(targetStack ? "item_stacked" : "item_moved", `${member?.displayName ?? "Jemand"} hat ${amount}x „${item.name}“ von „${sourceBag.name}“ nach „${targetBag.name}“ übertragen${targetStack ? ` und gestackt (${targetStack.quantity} → ${targetStack.quantity + amount})` : ""}. ${transferBaseDetails}`, targetStackId);
+      logAction(targetStack ? "item_stacked" : "item_moved", `${member?.displayName ?? "Jemand"} hat ${amount}x „${item.name}“ von „${sourceBag.name}“ nach „${targetBag.name}“ übertragen${targetStack ? ` und gestackt (${targetStack.quantity} → ${targetStack.quantity + amount})` : amount >= item.quantity ? " als kompletten Stapel verschoben" : " als Teilmenge aufgeteilt"}. ${transferBaseDetails}`, targetStack ? targetStackId : item.id);
       setTransferTarget(null);
       return;
     }
@@ -4051,33 +4051,49 @@ export default function App() {
         }
       }
 
-      if (targetStack) {
-        const stackUpdate: Record<string, any> = {
-          quantity: targetStack.quantity + amount,
+      const moveWholeStackWithoutMerge = amount >= item.quantity && !targetStack;
+
+      if (moveWholeStackWithoutMerge) {
+        // Gleicher sicherer Pfad wie im Item-Bearbeitungsfenster:
+        // bestehendes Item direkt in die Ziel-Tasche verschieben, statt Quelle zu löschen und Ziel neu anzulegen.
+        // Das vermeidet unnötige Firestore-Rules-Probleme beim Schnelltransfer-Dropdown.
+        batch.update(itemRef, cleanFirestorePayload({
+          bagId: targetBag.id,
+          category: normalizeItemCategory(item.category),
+          orderIndex: nextItemOrderIndex(targetBag.id, normalizeItemCategory(item.category)),
           updatedBy: activeUid,
           updatedAt: nowTs,
-          lastTransferSourceItemId: item.id,
-          lastTransferSourceBagId: sourceBag.id,
-        };
-        if (itemNeedsMetadataRepair(targetStack)) {
-          Object.assign(stackUpdate, transferredStackPayloadFromSource(item, targetStack.id, targetBag.id, targetStack.quantity + amount, nowTs));
+        } as any));
+      } else {
+        if (targetStack) {
+          const stackUpdate: Record<string, any> = {
+            quantity: targetStack.quantity + amount,
+            updatedBy: activeUid,
+            updatedAt: nowTs,
+            lastTransferSourceItemId: item.id,
+            lastTransferSourceBagId: sourceBag.id,
+          };
+          if (itemNeedsMetadataRepair(targetStack)) {
+            Object.assign(stackUpdate, transferredStackPayloadFromSource(item, targetStack.id, targetBag.id, targetStack.quantity + amount, nowTs));
+          }
+          batch.update(targetStackRef, cleanFirestorePayload(stackUpdate));
+        } else {
+          const quantityValue = canOpenBag(targetBag) ? amount : increment(amount);
+          const stackPayload = transferredStackPayloadFromSource(item, targetStackId, targetBag.id, quantityValue, nowTs);
+          batch.set(targetStackRef, cleanFirestorePayload(stackPayload), { merge: true });
         }
-        batch.update(targetStackRef, cleanFirestorePayload(stackUpdate));
-      } else {
-        const stackPayload = transferredStackPayloadFromSource(item, targetStackId, targetBag.id, increment(amount), nowTs);
-        batch.set(targetStackRef, cleanFirestorePayload(stackPayload), { merge: true });
-      }
 
-      if (amount >= item.quantity) {
-        batch.delete(itemRef);
-      } else {
-        batch.update(itemRef, { quantity: item.quantity - amount, updatedBy: activeUid, updatedAt: nowTs });
+        if (amount >= item.quantity) {
+          batch.delete(itemRef);
+        } else {
+          batch.update(itemRef, { quantity: item.quantity - amount, updatedBy: activeUid, updatedAt: nowTs });
+        }
       }
 
       batch.update(sourceBagRef, capacityPatchFromTotals(bagTotalsAfterDelta(sourceBag, { weight: -movedWeight, volume: -movedVolume, value: -movedValue, count: -amount })));
       batch.update(targetBagRef, capacityPatchFromTotals(bagTotalsAfterDelta(targetBag, { weight: movedWeight, volume: movedVolume, value: movedValue, count: amount })));
 
-      const transferLog = makeAuditLogEntry(targetStack ? "item_stacked" : "item_moved", `${member?.displayName ?? "Jemand"} hat ${amount}x „${item.name}“ von „${sourceBag.name}“ nach „${targetBag.name}“ übertragen${targetStack ? ` und gestackt (${targetStack.quantity} → ${targetStack.quantity + amount})` : ""}. ${transferBaseDetails}`, targetStackId);
+      const transferLog = makeAuditLogEntry(targetStack ? "item_stacked" : "item_moved", `${member?.displayName ?? "Jemand"} hat ${amount}x „${item.name}“ von „${sourceBag.name}“ nach „${targetBag.name}“ übertragen${targetStack ? ` und gestackt (${targetStack.quantity} → ${targetStack.quantity + amount})` : amount >= item.quantity ? " als kompletten Stapel verschoben" : " als Teilmenge aufgeteilt"}. ${transferBaseDetails}`, targetStack ? targetStackId : item.id);
       if (transferLog) {
         batch.set(doc(firebaseDb, "campaigns", activeCampaignId, "auditLog", transferLog.id), cleanFirestorePayload(transferLog as any));
       }
@@ -5073,7 +5089,6 @@ export default function App() {
                             inputClass={inputClass}
                             primaryButton={primaryButton}
                             secondaryButton={secondaryButton}
-                            canDepositBagForOption={canDepositBag}
                             onCancel={() => setEditingItemId(null)}
                             onSave={(patch) => {
                               updateItem(item.id, patch);
@@ -6777,7 +6792,7 @@ function InlineDescriptionEditor({
   );
 }
 
-function ItemEditor({ item, bags, inputClass, primaryButton, secondaryButton, canDepositBagForOption, onSave, onCancel }: { item: InventoryItem; bags: Bag[]; inputClass: string; primaryButton: string; secondaryButton: string; canDepositBagForOption: (bag: Bag) => boolean; onSave: (patch: Partial<InventoryItem>) => void; onCancel: () => void }) {
+function ItemEditor({ item, inputClass, primaryButton, secondaryButton, onSave, onCancel }: { item: InventoryItem; bags: Bag[]; inputClass: string; primaryButton: string; secondaryButton: string; onSave: (patch: Partial<InventoryItem>) => void; onCancel: () => void }) {
   const [name, setName] = useState(item.name ?? "");
   const [quantity, setQuantity] = useState(String(normalizeItemQuantity(item.quantity, 1)));
   const [weight, setWeight] = useState(item.weightPerUnit?.toString() ?? "");
@@ -6786,7 +6801,6 @@ function ItemEditor({ item, bags, inputClass, primaryButton, secondaryButton, ca
   const [description, setDescription] = useState(typeof item.description === "string" ? item.description : "");
   const [notes, setNotes] = useState(typeof item.notes === "string" ? item.notes : "");
   const [category, setCategory] = useState<ItemCategory>(normalizeItemCategory(item.category));
-  const [bagId, setBagId] = useState(item.bagId);
   const descriptionRows = Math.max(5, Math.min(16, description.split(/\r?\n/).length + 3));
   const notesRows = Math.max(3, Math.min(10, notes.split(/\r?\n/).length + 2));
 
@@ -6800,7 +6814,6 @@ function ItemEditor({ item, bags, inputClass, primaryButton, secondaryButton, ca
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         <label className="space-y-1 text-xs"><span className="block px-1 opacity-75">Name</span><input className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} value={name} onChange={(e) => setName(e.target.value)} placeholder="Itemname" /></label>
         <label className="space-y-1 text-xs"><span className="block px-1 opacity-75">Menge</span><input className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} value={quantity} onChange={(e) => setQuantity(e.target.value)} type="number" min="0" placeholder="0" /></label>
-        <label className="space-y-1 text-xs"><span className="block px-1 opacity-75">Tasche</span><select className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} value={bagId} onChange={(e) => setBagId(e.target.value)}>{bags.map((bag) => <option key={bag.id} value={bag.id} disabled={!canDepositBagForOption(bag)}>{bag.name}{canDepositBagForOption(bag) ? "" : " (kein Hineinlegen)"}</option>)}</select></label>
         <label className="space-y-1 text-xs"><span className="block px-1 opacity-75">Kategorie</span><select className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} value={category} onChange={(e) => setCategory(e.target.value as ItemCategory)}>{categorySelectOptions()}</select></label>
         <label className="space-y-1 text-xs"><span className="block px-1 opacity-75">Gewicht pro Stück</span><input className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} value={weight} onChange={(e) => setWeight(e.target.value)} type="number" step="0.01" placeholder="0.5" /></label>
         <label className="space-y-1 text-xs"><span className="block px-1 opacity-75">Volumen pro Stück</span><input className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} value={volume} onChange={(e) => setVolume(e.target.value)} type="number" step="0.01" placeholder="0.2" /></label>
@@ -6830,7 +6843,7 @@ function ItemEditor({ item, bags, inputClass, primaryButton, secondaryButton, ca
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <button className={`${primaryButton} px-4 py-2`} onClick={() => onSave({ name: name.trim() || item.name, quantity: normalizeItemQuantity(quantity, 0), weightPerUnit: numberOrNull(weight), volumePerUnit: numberOrNull(volume), valuePerUnit: numberOrNull(value), description: description.trim(), notes: notes.trim(), category, bagId })}><Save className="h-4 w-4" /> Speichern</button>
+        <button className={`${primaryButton} px-4 py-2`} onClick={() => onSave({ name: name.trim() || item.name, quantity: normalizeItemQuantity(quantity, 0), weightPerUnit: numberOrNull(weight), volumePerUnit: numberOrNull(volume), valuePerUnit: numberOrNull(value), description: description.trim(), notes: notes.trim(), category })}><Save className="h-4 w-4" /> Speichern</button>
         <button className={`${secondaryButton} px-4 py-2`} onClick={onCancel}><X className="h-4 w-4" /> Abbrechen</button>
       </div>
     </div>
