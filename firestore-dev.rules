@@ -90,6 +90,18 @@ service cloud.firestore {
       return canWriteBagData(campaignId, get(bagPath(campaignId, bagId)).data);
     }
 
+    function canTargetBagId(campaignId, bagId) {
+      return canTargetBagData(campaignId, get(bagPath(campaignId, bagId)).data);
+    }
+
+    function validTransferDeposit(campaignId, itemId, data, addedQuantity) {
+      return data.lastTransferSourceItemId is string
+        && data.lastTransferSourceBagId is string
+        && addedQuantity is number
+        && addedQuantity > 0
+        && canWriteBagId(campaignId, data.lastTransferSourceBagId);
+    }
+
     function currencyMapOrEmpty(data) {
       return (data.currency is map) ? data.currency : {};
     }
@@ -117,7 +129,7 @@ service cloud.firestore {
     }
 
     function onlyCurrencyChanged() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(["currency", "currentWeight", "updatedAt"]);
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(["currency", "currentWeight", "updatedAt", "updatedBy"]);
     }
 
     function currencyDepositChanged() {
@@ -217,9 +229,17 @@ service cloud.firestore {
         allow get, list: if isMember(campaignId) && canOpenBagId(campaignId, resource.data.bagId);
 
         allow create: if isMember(campaignId)
-          && request.resource.data.createdBy == request.auth.uid
           && request.resource.data.updatedBy == request.auth.uid
-          && canWriteBagId(campaignId, request.resource.data.bagId);
+          && request.resource.data.quantity is number
+          && request.resource.data.quantity >= 0
+          && (
+            canWriteBagId(campaignId, request.resource.data.bagId)
+            || canDepositBagId(campaignId, request.resource.data.bagId)
+            || (
+              canTargetBagId(campaignId, request.resource.data.bagId)
+              && validTransferDeposit(campaignId, itemId, request.resource.data, request.resource.data.quantity)
+            )
+          );
 
         allow update: if isMember(campaignId)
           && request.resource.data.updatedBy == request.auth.uid
@@ -232,6 +252,19 @@ service cloud.firestore {
               request.resource.data.bagId != resource.data.bagId
               && canWriteBagId(campaignId, resource.data.bagId)
               && canDepositBagId(campaignId, request.resource.data.bagId)
+            )
+            || (
+              request.resource.data.bagId != resource.data.bagId
+              && request.resource.data.lastTransferSourceBagId == resource.data.bagId
+              && request.resource.data.lastTransferSourceItemId == itemId
+              && canWriteBagId(campaignId, resource.data.bagId)
+              && canTargetBagId(campaignId, request.resource.data.bagId)
+            )
+            || (
+              request.resource.data.bagId == resource.data.bagId
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["quantity", "updatedBy", "updatedAt", "lastTransferSourceItemId", "lastTransferSourceBagId"])
+              && request.resource.data.quantity > resource.data.quantity
+              && validTransferDeposit(campaignId, itemId, request.resource.data, request.resource.data.quantity - resource.data.quantity)
             )
           );
 

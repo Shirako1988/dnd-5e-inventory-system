@@ -4170,6 +4170,8 @@ export default function App() {
           imagePositionX: sanitizeImagePosition(item.imagePositionX),
           imagePositionY: sanitizeImagePosition(item.imagePositionY),
           orderIndex: nextItemOrderIndex(targetBag.id, normalizeItemCategory(item.category)),
+          lastTransferSourceItemId: item.id,
+          lastTransferSourceBagId: sourceBag.id,
           updatedBy: activeUid,
           updatedAt: nowTs,
         } as any));
@@ -4573,6 +4575,7 @@ export default function App() {
       ["Einzelne Taschen-Doc-Listener", "0"],
       ["Legacy-/Index-Fallback", "aus · Access-Felder sind Quelle der Wahrheit"],
       ["Einzelsichtbarkeit", "deaktiviert · nur Alle oder Nur DM"],
+      ["Transfer-Regeln", "v2 · markierte Schnelltransfers + gelockerte Serverprüfung"],
       ["Item-Listener", selectedOpenableBagId ? `1 Query · ${selectedBag?.name ?? selectedOpenableBagId}` : "inaktiv"],
       ["Auditlog-Listener", auditLogOpen ? `aktiv · Limit ${auditLogLimit}` : "inaktiv"],
     ];
@@ -6694,35 +6697,54 @@ function AccessControl({
   onModeChange: (mode: AccessMode) => void;
   onToggleUser: (uid: string) => void;
 }) {
+  const displayMode = allowCustom ? mode : normalizeTargetVisibilityMode(mode);
+  const selectedMembers = members.filter((entry) => userIds.includes(entry.uid));
+  const displayValue = displayMode === "all"
+    ? "Alle"
+    : displayMode === "dm"
+      ? "Nur DM"
+      : selectedMembers.length
+        ? selectedMembers.map((entry) => entry.displayName).join(", ")
+        : "Ausgewählte Spieler: niemand";
+
   return (
     <div className="flex min-h-[188px] flex-col rounded-2xl border border-current/10 bg-current/5 p-3">
       <div className="mb-2">
-        <div className="flex items-center justify-between gap-2">
-          <div className="font-black">{title}</div>
-          {readOnly && <span className={`rounded-full border border-current/10 px-2 py-0.5 text-[10px] font-bold ${mutedText}`}>nur Anzeige</span>}
-        </div>
+        <div className="font-black">{title}</div>
         <div className={`text-xs ${mutedText}`}>{description}</div>
       </div>
-      <div className="mt-auto">
-        <select disabled={readOnly} className={`mb-2 w-full rounded-xl border px-3 py-2 text-sm ${inputClass} ${readOnly ? "cursor-not-allowed opacity-70" : ""}`} value={allowCustom ? mode : normalizeTargetVisibilityMode(mode)} onChange={(e) => onModeChange(e.target.value as AccessMode)}>
-          <option value="all">Alle</option>
-          <option value="dm">Nur DM</option>
-          {allowCustom && <option value="custom">Ausgewählte Spieler</option>}
-        </select>
-      </div>
-      {allowCustom && mode === "custom" && (
-        <div className="space-y-1">
-          {members.length === 0 ? (
-            <div className={`rounded-xl border border-current/10 px-3 py-2 text-xs ${mutedText}`}>Noch keine Spieler in der Kampagne.</div>
-          ) : (
-            members.map((entry) => (
-              <label key={entry.uid} className={`flex items-center justify-between gap-2 rounded-xl border border-current/10 px-3 py-2 text-xs ${readOnly ? "cursor-not-allowed opacity-75" : "cursor-pointer hover:bg-current/5"}`}>
-                <span className="truncate">{entry.displayName}</span>
-                <input type="checkbox" disabled={readOnly} checked={userIds.includes(entry.uid)} onChange={() => onToggleUser(entry.uid)} />
-              </label>
-            ))
-          )}
+
+      {readOnly ? (
+        <div className="mt-auto space-y-2">
+          <div className={`rounded-xl border border-current/10 px-3 py-2 text-sm font-black ${mutedText}`}>
+            {displayValue}
+          </div>
+          <div className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${mutedText}`}>Nur Anzeige · Nur der DM kann diese Rechte ändern</div>
         </div>
+      ) : (
+        <>
+          <div className="mt-auto">
+            <select className={`mb-2 w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} value={displayMode} onChange={(e) => onModeChange(e.target.value as AccessMode)}>
+              <option value="all">Alle</option>
+              <option value="dm">Nur DM</option>
+              {allowCustom && <option value="custom">Ausgewählte Spieler</option>}
+            </select>
+          </div>
+          {allowCustom && mode === "custom" && (
+            <div className="space-y-1">
+              {members.length === 0 ? (
+                <div className={`rounded-xl border border-current/10 px-3 py-2 text-xs ${mutedText}`}>Noch keine Spieler in der Kampagne.</div>
+              ) : (
+                members.map((entry) => (
+                  <label key={entry.uid} className="flex cursor-pointer items-center justify-between gap-2 rounded-xl border border-current/10 px-3 py-2 text-xs hover:bg-current/5">
+                    <span className="truncate">{entry.displayName}</span>
+                    <input type="checkbox" checked={userIds.includes(entry.uid)} onChange={() => onToggleUser(entry.uid)} />
+                  </label>
+                ))
+              )}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

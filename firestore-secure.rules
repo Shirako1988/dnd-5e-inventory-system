@@ -102,6 +102,10 @@ service cloud.firestore {
       return canWriteBagData(campaignId, get(bagPath(campaignId, bagId)).data);
     }
 
+    function canTargetBagId(campaignId, bagId) {
+      return canTargetBagData(campaignId, get(bagPath(campaignId, bagId)).data);
+    }
+
     function transferSourceDecrease(campaignId, data) {
       let sourcePath = itemPath(campaignId, data.lastTransferSourceItemId);
       let before = get(sourcePath).data;
@@ -111,15 +115,9 @@ service cloud.firestore {
     }
 
     function validTransferDeposit(campaignId, targetItemId, data, addedQuantity) {
-      // Transfer-Validierung bewusst schlank halten.
-      // Die App reduziert/löscht die Quelle im selben Batch; die Rules prüfen hier nur:
-      // - es ist ein echter Transfer mit Quellenverweis
-      // - es wird eine positive Menge eingezahlt/erstellt
-      // - der Spieler darf aus der Quelltasche entnehmen/bearbeiten
-      // Zu strenge getAfter-/existsAfter-Prüfungen haben legitime Batch-Transfers blockiert.
+      // v2: robuste Transferprüfung. Die App schreibt lastTransferSource* bei Split, Stack und kompletter Schnellverschiebung.
       return data.lastTransferSourceItemId is string
         && data.lastTransferSourceBagId is string
-        && data.lastTransferSourceItemId != targetItemId
         && addedQuantity is number
         && addedQuantity > 0
         && canWriteBagId(campaignId, data.lastTransferSourceBagId);
@@ -135,7 +133,7 @@ service cloud.firestore {
     }
 
     function onlyCapacityChanged() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(["currentWeight", "currentVolume", "currentValue", "itemCount", "updatedAt"]);
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(["currentWeight", "currentVolume", "currentValue", "itemCount", "updatedAt", "updatedBy"]);
     }
 
     function currencyMapOrEmpty(data) {
@@ -165,7 +163,7 @@ service cloud.firestore {
     }
 
     function onlyCurrencyChanged() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(["currency", "currentWeight", "updatedAt"]);
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(["currency", "currentWeight", "updatedAt", "updatedBy"]);
     }
 
     function currencyDepositChanged() {
@@ -279,24 +277,31 @@ service cloud.firestore {
           && (
             isDm(campaignId)
             || (
-              canWriteBagData(campaignId, resource.data)
-              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["name", "description", "kind", "maxWeight", "maxVolume", "imageUrl", "imageZoom", "imagePositionX", "imagePositionY", "imageUpdatedAt", "imageUpdatedBy", "updatedAt"])
-            )
-            || (
-              onlyCapacityChanged()
-              && (canWriteBagData(campaignId, resource.data) || canDepositBagData(campaignId, resource.data))
-            )
-            || (
-              saleSettlementChanged()
-              && canWriteBagData(campaignId, resource.data)
-            )
-            || (
-              currencyDepositChanged()
-              && canDepositBagData(campaignId, resource.data)
-            )
-            || (
-              currencyWithdrawalOrExchangeChanged()
-              && canWriteBagData(campaignId, resource.data)
+              request.resource.data.updatedBy == request.auth.uid
+              && (
+                (
+                  request.resource.data.bagId == resource.data.bagId
+                  && canWriteBagId(campaignId, resource.data.bagId)
+                )
+                || (
+                  request.resource.data.bagId != resource.data.bagId
+                  && canWriteBagId(campaignId, resource.data.bagId)
+                  && canDepositBagId(campaignId, request.resource.data.bagId)
+                )
+                || (
+                  request.resource.data.bagId != resource.data.bagId
+                  && request.resource.data.lastTransferSourceBagId == resource.data.bagId
+                  && request.resource.data.lastTransferSourceItemId == itemId
+                  && canWriteBagId(campaignId, resource.data.bagId)
+                  && canTargetBagId(campaignId, request.resource.data.bagId)
+                )
+                || (
+                  request.resource.data.bagId == resource.data.bagId
+                  && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["quantity", "updatedBy", "updatedAt", "lastTransferSourceItemId", "lastTransferSourceBagId"])
+                  && request.resource.data.quantity > resource.data.quantity
+                  && validTransferDeposit(campaignId, itemId, request.resource.data, request.resource.data.quantity - resource.data.quantity)
+                )
+              )
             )
           );
 
@@ -312,10 +317,12 @@ service cloud.firestore {
             || (
               request.resource.data.updatedBy == request.auth.uid
               && request.resource.data.quantity is number
+              && request.resource.data.quantity >= 0
               && (
                 canWriteBagId(campaignId, request.resource.data.bagId)
+                || canDepositBagId(campaignId, request.resource.data.bagId)
                 || (
-                  canDepositBagId(campaignId, request.resource.data.bagId)
+                  canTargetBagId(campaignId, request.resource.data.bagId)
                   && validTransferDeposit(campaignId, itemId, request.resource.data, request.resource.data.quantity)
                 )
               )
