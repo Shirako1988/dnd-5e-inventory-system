@@ -3726,8 +3726,14 @@ export default function App() {
       }
 
       if (deleteTarget.kind === "bag") {
+        if (!isDm) {
+          setDeleteTarget(null);
+          setSyncStatus("error");
+          setSyncError("Nur der DM darf Taschen löschen.");
+          return;
+        }
         const bag = bags.find((entry) => entry.id === deleteTarget.id);
-        if (!canWriteBag(bag)) return;
+        if (!bag) return;
         const deletedItems = items.filter((item) => item.bagId === deleteTarget.id);
 
         if (!firebaseConfigured) {
@@ -4093,9 +4099,12 @@ export default function App() {
     setSyncStatus(firebaseConfigured ? "online" : "local");
 
     const transferBaseDetails = `Menge ${amount}/${item.quantity}; Gewicht ${formatNumber(movedWeight)} lb; Wert ${formatNumber(movedValue)} gp; Quelle danach ${item.quantity - amount}x.`;
-    const canInspectTargetForStacking = canOpenBag(targetBag);
-    let targetStack = canInspectTargetForStacking ? findStackMatch(items, targetBag.id, movedItem, item.id) : undefined;
-    const targetStackId = targetStack?.id ?? (canInspectTargetForStacking ? stackDocumentId(targetBag.id, movedItem) : uid("stack"));
+    // Schonmodus: Die Ziel-Items sind oft nicht live geladen.
+    // Pragmatische Gruppen-App-Lösung: Wir fragen gezielt bagId+stackKey ab, auch wenn die Ziel-Tasche im UI nicht geöffnet werden darf.
+    // Die UI zeigt die Zielitems dadurch weiterhin nicht an; die Abfrage dient nur sauberem Stacking.
+    const movedStackKey = movedItem.stackKey || itemStackKey(movedItem);
+    let targetStack = findStackMatch(items, targetBag.id, movedItem, item.id);
+    let targetStackId = targetStack?.id ?? uid("stack");
 
     if (!firebaseConfigured) {
       const nowTs = Date.now();
@@ -4146,17 +4155,26 @@ export default function App() {
       const sourceBagRef = doc(firebaseDb, "campaigns", activeCampaignId, "bags", sourceBag.id);
       const targetBagRef = doc(firebaseDb, "campaigns", activeCampaignId, "bags", targetBag.id);
       const itemRef = doc(firebaseDb, "campaigns", activeCampaignId, "items", item.id);
-      const targetStackRef = doc(firebaseDb, "campaigns", activeCampaignId, "items", targetStackId);
       const nowTs = Date.now();
 
-      if (!targetStack && canOpenBag(targetBag)) {
-        const targetStackSnapshot = await getDoc(targetStackRef);
-        if (targetStackSnapshot.exists()) {
-          const loadedTargetStack = normalizeLiveItem(targetStackSnapshot.data() as Partial<InventoryItem>, targetStackSnapshot.id, nowTs);
-          if (loadedTargetStack.bagId === targetBag.id && isSameStackItem(loadedTargetStack, movedItem)) targetStack = loadedTargetStack;
+      if (!targetStack) {
+        const targetStackSnapshot = await getDocs(query(
+          collection(firebaseDb, "campaigns", activeCampaignId, "items"),
+          where("bagId", "==", targetBag.id),
+          where("stackKey", "==", movedStackKey),
+          limit(1),
+        ));
+        const loadedTargetStackDoc = targetStackSnapshot.docs.find((entry) => entry.id !== item.id);
+        if (loadedTargetStackDoc) {
+          const loadedTargetStack = normalizeLiveItem(loadedTargetStackDoc.data() as Partial<InventoryItem>, loadedTargetStackDoc.id, nowTs);
+          if (loadedTargetStack.bagId === targetBag.id && isSameStackItem(loadedTargetStack, movedItem)) {
+            targetStack = loadedTargetStack;
+            targetStackId = loadedTargetStack.id;
+          }
         }
       }
 
+      const targetStackRef = doc(firebaseDb, "campaigns", activeCampaignId, "items", targetStackId);
       const moveWholeStackWithoutMerge = amount >= item.quantity && !targetStack;
 
       if (moveWholeStackWithoutMerge) {
@@ -4937,9 +4955,11 @@ export default function App() {
                         <button className={`${secondaryButton} flex-1 px-2 py-1`} onClick={() => setEditingBagId(bag.id)} disabled={!writable}>
                           <Pencil className="h-4 w-4" />
                         </button>
-                        <button className={`${dangerButton} flex-1 px-2 py-1`} onClick={() => setDeleteTarget({ kind: "bag", id: bag.id, label: bag.name })} disabled={!writable}>
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        {isDm && (
+                          <button className={`${dangerButton} flex-1 px-2 py-1`} onClick={() => setDeleteTarget({ kind: "bag", id: bag.id, label: bag.name })}>
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     </>
                   )}

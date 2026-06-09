@@ -240,11 +240,13 @@ service cloud.firestore {
             )
           );
 
-        allow delete: if isApprovedMember(campaignId) && (isDm(campaignId) || canWriteBagData(campaignId, resource.data));
+        allow delete: if isDm(campaignId);
       }
 
       match /items/{itemId} {
-        allow get, list: if isApprovedMember(campaignId) && (isDm(campaignId) || canOpenBagId(campaignId, resource.data.bagId));
+        // UI-Öffnen bleibt in der App über readMode geregelt.
+        // Für sauberes Transfer-Stacking darf Deposit-Recht Zielitems lesen.
+        allow get, list: if isApprovedMember(campaignId) && (isDm(campaignId) || canOpenBagId(campaignId, resource.data.bagId) || canDepositBagId(campaignId, resource.data.bagId));
 
         allow create: if isApprovedMember(campaignId)
           && (
@@ -254,10 +256,13 @@ service cloud.firestore {
               && request.resource.data.quantity is number
               && request.resource.data.quantity >= 0
               && (
-                // Normales Erstellen in einer Tasche, die man bearbeiten darf.
                 canWriteBagId(campaignId, request.resource.data.bagId)
-                // Deposit-/Transfer-Erstellen in einer Zieltasche.
                 || canDepositBagId(campaignId, request.resource.data.bagId)
+                || (
+                  request.resource.data.lastTransferSourceBagId is string
+                  && canWriteBagId(campaignId, request.resource.data.lastTransferSourceBagId)
+                  && canDepositBagId(campaignId, request.resource.data.bagId)
+                )
               )
             )
           );
@@ -280,16 +285,22 @@ service cloud.firestore {
                   && canDepositBagId(campaignId, request.resource.data.bagId)
                 )
                 || (
-                  // Zielstack erhöhen: Hineinlegen-Recht auf Ziel reicht, Quelle wird über Transfermarker geprüft.
+                  // Markierter Transfer: Quelle über Marker, Ziel über neue bagId.
+                  request.resource.data.lastTransferSourceBagId is string
+                  && request.resource.data.lastTransferSourceItemId is string
+                  && canWriteBagId(campaignId, request.resource.data.lastTransferSourceBagId)
+                  && canDepositBagId(campaignId, request.resource.data.bagId)
+                )
+                || (
+                  // Zielstack erhöhen.
                   request.resource.data.bagId == resource.data.bagId
-                  && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-                    "quantity", "updatedBy", "updatedAt", "lastTransferSourceItemId", "lastTransferSourceBagId"
-                  ])
                   && request.resource.data.quantity is number
                   && resource.data.quantity is number
                   && request.resource.data.quantity > resource.data.quantity
+                  && request.resource.data.lastTransferSourceBagId is string
+                  && request.resource.data.lastTransferSourceItemId is string
+                  && canWriteBagId(campaignId, request.resource.data.lastTransferSourceBagId)
                   && canDepositBagId(campaignId, resource.data.bagId)
-                  && validTransferDeposit(campaignId, itemId, request.resource.data, request.resource.data.quantity - resource.data.quantity)
                 )
               )
             )
