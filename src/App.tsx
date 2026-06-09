@@ -4091,8 +4091,9 @@ export default function App() {
     setSyncStatus(firebaseConfigured ? "online" : "local");
 
     const transferBaseDetails = `Menge ${amount}/${item.quantity}; Gewicht ${formatNumber(movedWeight)} lb; Wert ${formatNumber(movedValue)} gp; Quelle danach ${item.quantity - amount}x.`;
-    let targetStack = findStackMatch(items, targetBag.id, movedItem, item.id);
-    const targetStackId = targetStack?.id ?? stackDocumentId(targetBag.id, movedItem);
+    const canInspectTargetForStacking = canOpenBag(targetBag);
+    let targetStack = canInspectTargetForStacking ? findStackMatch(items, targetBag.id, movedItem, item.id) : undefined;
+    const targetStackId = targetStack?.id ?? (canInspectTargetForStacking ? stackDocumentId(targetBag.id, movedItem) : uid("stack"));
 
     if (!firebaseConfigured) {
       const nowTs = Date.now();
@@ -4181,14 +4182,12 @@ export default function App() {
             lastTransferSourceItemId: item.id,
             lastTransferSourceBagId: sourceBag.id,
           };
-          if (itemNeedsMetadataRepair(targetStack)) {
-            Object.assign(stackUpdate, transferredStackPayloadFromSource(item, targetStack.id, targetBag.id, targetStack.quantity + amount, nowTs));
-          }
+          // Beim Stacken nur Mengen-/Transferfelder ändern. Metadaten-Reparatur hier würde die Firestore-Regeln
+          // für Spieler unnötig blockieren; dafür gibt es die Reparaturfunktion.
           batch.update(targetStackRef, cleanFirestorePayload(stackUpdate));
         } else {
-          const quantityValue = canOpenBag(targetBag) ? amount : increment(amount);
-          const stackPayload = transferredStackPayloadFromSource(item, targetStackId, targetBag.id, quantityValue, nowTs);
-          batch.set(targetStackRef, cleanFirestorePayload(stackPayload), { merge: true });
+          const stackPayload = transferredStackPayloadFromSource(item, targetStackId, targetBag.id, amount, nowTs);
+          batch.set(targetStackRef, cleanFirestorePayload(stackPayload));
         }
 
         if (amount >= item.quantity) {
@@ -6578,7 +6577,6 @@ function BagEditor({
           : "Du kannst diese Tasche bearbeiten, aber die Zugriffsrechte sind nur für den DM änderbar."}
       </div>
 
-      {isDm && (
       <div className="grid gap-3 xl:grid-cols-2">
         <AccessControl
           title="Als Ziel sichtbar für"
@@ -6589,6 +6587,7 @@ function BagEditor({
           inputClass={inputClass}
           mutedText={mutedText}
           allowCustom={false}
+          readOnly={!isDm}
           onModeChange={(mode) => {
             setTargetMode(normalizeTargetVisibilityMode(mode));
             setTargetUserIds([]);
@@ -6603,6 +6602,7 @@ function BagEditor({
           members={playerMembers}
           inputClass={inputClass}
           mutedText={mutedText}
+          readOnly={!isDm}
           onModeChange={setDepositMode}
           onToggleUser={(uid) => setDepositUserIds((prev) => toggleUser(prev, uid))}
         />
@@ -6614,6 +6614,7 @@ function BagEditor({
           members={playerMembers}
           inputClass={inputClass}
           mutedText={mutedText}
+          readOnly={!isDm}
           onModeChange={setReadMode}
           onToggleUser={(uid) => setReadUserIds((prev) => toggleUser(prev, uid))}
         />
@@ -6625,11 +6626,11 @@ function BagEditor({
           members={playerMembers}
           inputClass={inputClass}
           mutedText={mutedText}
+          readOnly={!isDm}
           onModeChange={setWriteMode}
           onToggleUser={(uid) => setWriteUserIds((prev) => toggleUser(prev, uid))}
         />
       </div>
-      )}
 
       <div className="flex gap-2">
         <button
@@ -6677,6 +6678,7 @@ function AccessControl({
   inputClass,
   mutedText,
   allowCustom = true,
+  readOnly = false,
   onModeChange,
   onToggleUser,
 }: {
@@ -6688,17 +6690,21 @@ function AccessControl({
   inputClass: string;
   mutedText: string;
   allowCustom?: boolean;
+  readOnly?: boolean;
   onModeChange: (mode: AccessMode) => void;
   onToggleUser: (uid: string) => void;
 }) {
   return (
     <div className="flex min-h-[188px] flex-col rounded-2xl border border-current/10 bg-current/5 p-3">
       <div className="mb-2">
-        <div className="font-black">{title}</div>
+        <div className="flex items-center justify-between gap-2">
+          <div className="font-black">{title}</div>
+          {readOnly && <span className={`rounded-full border border-current/10 px-2 py-0.5 text-[10px] font-bold ${mutedText}`}>nur Anzeige</span>}
+        </div>
         <div className={`text-xs ${mutedText}`}>{description}</div>
       </div>
       <div className="mt-auto">
-        <select className={`mb-2 w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} value={allowCustom ? mode : normalizeTargetVisibilityMode(mode)} onChange={(e) => onModeChange(e.target.value as AccessMode)}>
+        <select disabled={readOnly} className={`mb-2 w-full rounded-xl border px-3 py-2 text-sm ${inputClass} ${readOnly ? "cursor-not-allowed opacity-70" : ""}`} value={allowCustom ? mode : normalizeTargetVisibilityMode(mode)} onChange={(e) => onModeChange(e.target.value as AccessMode)}>
           <option value="all">Alle</option>
           <option value="dm">Nur DM</option>
           {allowCustom && <option value="custom">Ausgewählte Spieler</option>}
@@ -6710,9 +6716,9 @@ function AccessControl({
             <div className={`rounded-xl border border-current/10 px-3 py-2 text-xs ${mutedText}`}>Noch keine Spieler in der Kampagne.</div>
           ) : (
             members.map((entry) => (
-              <label key={entry.uid} className="flex cursor-pointer items-center justify-between gap-2 rounded-xl border border-current/10 px-3 py-2 text-xs hover:bg-current/5">
+              <label key={entry.uid} className={`flex items-center justify-between gap-2 rounded-xl border border-current/10 px-3 py-2 text-xs ${readOnly ? "cursor-not-allowed opacity-75" : "cursor-pointer hover:bg-current/5"}`}>
                 <span className="truncate">{entry.displayName}</span>
-                <input type="checkbox" checked={userIds.includes(entry.uid)} onChange={() => onToggleUser(entry.uid)} />
+                <input type="checkbox" disabled={readOnly} checked={userIds.includes(entry.uid)} onChange={() => onToggleUser(entry.uid)} />
               </label>
             ))
           )}

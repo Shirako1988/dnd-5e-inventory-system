@@ -121,17 +121,18 @@ service cloud.firestore {
     }
 
     function currencyDepositChanged() {
+      // Einzahlungen dürfen mit dem Recht „Items hineinlegen“ passieren.
+      // Der alte Vergleich auf currentWeight war zu fragil, wenn ältere Taschen noch keine saubere Summary hatten.
       return onlyCurrencyChanged()
         && validCurrency(request.resource.data)
-        && currencyCopper(request.resource.data) >= currencyCopper(resource.data)
         && request.resource.data.currentWeight is number
-        && resource.data.currentWeight is number
-        && request.resource.data.currentWeight >= resource.data.currentWeight;
+        && currencyCopper(request.resource.data) >= currencyCopper(resource.data);
     }
 
     function currencyWithdrawalOrExchangeChanged() {
       return onlyCurrencyChanged()
-        && validCurrency(request.resource.data);
+        && validCurrency(request.resource.data)
+        && request.resource.data.currentWeight is number;
     }
 
     match /joinCodes/{joinCodeSearch} {
