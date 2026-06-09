@@ -1296,9 +1296,56 @@ function privateIncomingAllowedAccess(ownerUid: string): BagAccess {
   return makeAccess("all", "all", "custom", "custom", [], [], [ownerUid], [ownerUid]);
 }
 
+function accessModeHasPlayerAccess(mode: AccessMode, userIds: string[]) {
+  return mode === "all" || (mode === "custom" && uniqueUidList(userIds).length > 0);
+}
+
+function inheritWriteAccess(mode: AccessMode, userIds: string[], writeMode: AccessMode, writeUserIds: string[]) {
+  if (mode === "all" || writeMode === "all") return { mode: "all" as AccessMode, userIds: [] };
+  if (writeMode === "custom") {
+    const mergedIds = uniqueUidList([...(mode === "custom" ? userIds : []), ...writeUserIds]);
+    if (mergedIds.length > 0) return { mode: "custom" as AccessMode, userIds: mergedIds };
+  }
+  return { mode, userIds: uniqueUidList(userIds) };
+}
+
+function applyAccessInheritance(access: BagAccess): BagAccess {
+  const cleaned: BagAccess = {
+    targetMode: normalizeTargetVisibilityMode(access.targetMode),
+    targetUserIds: [],
+    depositMode: access.depositMode ?? "dm",
+    depositUserIds: uniqueUidList(access.depositUserIds ?? []),
+    readMode: access.readMode ?? "dm",
+    readUserIds: uniqueUidList(access.readUserIds ?? []),
+    writeMode: access.writeMode ?? "dm",
+    writeUserIds: uniqueUidList(access.writeUserIds ?? []),
+  };
+
+  const deposit = inheritWriteAccess(cleaned.depositMode, cleaned.depositUserIds, cleaned.writeMode, cleaned.writeUserIds);
+  const read = inheritWriteAccess(cleaned.readMode, cleaned.readUserIds, cleaned.writeMode, cleaned.writeUserIds);
+
+  const targetMode = (
+    cleaned.targetMode === "all"
+    || accessModeHasPlayerAccess(deposit.mode, deposit.userIds)
+    || accessModeHasPlayerAccess(read.mode, read.userIds)
+    || accessModeHasPlayerAccess(cleaned.writeMode, cleaned.writeUserIds)
+  ) ? "all" : "dm";
+
+  return {
+    targetMode,
+    targetUserIds: [],
+    depositMode: deposit.mode,
+    depositUserIds: deposit.mode === "custom" ? deposit.userIds : [],
+    readMode: read.mode,
+    readUserIds: read.mode === "custom" ? read.userIds : [],
+    writeMode: cleaned.writeMode,
+    writeUserIds: cleaned.writeMode === "custom" ? cleaned.writeUserIds : [],
+  };
+}
+
 function normalizeAccess(access: Partial<BagAccess> | undefined): BagAccess | null {
   if (!access) return null;
-  return {
+  return applyAccessInheritance({
     targetMode: normalizeTargetVisibilityMode(access.targetMode),
     targetUserIds: [],
     depositMode: access.depositMode ?? "dm",
@@ -1307,7 +1354,7 @@ function normalizeAccess(access: Partial<BagAccess> | undefined): BagAccess | nu
     readUserIds: access.readUserIds ?? [],
     writeMode: access.writeMode ?? "dm",
     writeUserIds: access.writeUserIds ?? [],
-  };
+  });
 }
 
 function getBagAccess(bag: Bag | undefined | null): BagAccess {
@@ -1336,6 +1383,25 @@ function accessAllows(mode: AccessMode, userIds: string[], uid: string, isDm: bo
   return userIds.includes(uid);
 }
 
+function accessAllowsWrite(access: BagAccess, uid: string, isDm: boolean) {
+  return accessAllows(access.writeMode, access.writeUserIds, uid, isDm);
+}
+
+function accessAllowsDeposit(access: BagAccess, uid: string, isDm: boolean) {
+  return accessAllows(access.depositMode, access.depositUserIds, uid, isDm) || accessAllowsWrite(access, uid, isDm);
+}
+
+function accessAllowsOpen(access: BagAccess, uid: string, isDm: boolean) {
+  return accessAllows(access.readMode, access.readUserIds, uid, isDm) || accessAllowsWrite(access, uid, isDm);
+}
+
+function accessAllowsTarget(access: BagAccess, uid: string, isDm: boolean) {
+  return accessAllows(access.targetMode, access.targetUserIds, uid, isDm)
+    || accessAllowsDeposit(access, uid, isDm)
+    || accessAllowsOpen(access, uid, isDm)
+    || accessAllowsWrite(access, uid, isDm);
+}
+
 function uniqueUidList(ids: string[], allowedUserIds?: Set<string>) {
   return Array.from(new Set(ids.filter((id) => typeof id === "string" && id.trim()).map((id) => id.trim())))
     .filter((id) => !allowedUserIds || allowedUserIds.has(id))
@@ -1343,14 +1409,14 @@ function uniqueUidList(ids: string[], allowedUserIds?: Set<string>) {
 }
 
 function sanitizeAccessUserLists(access: BagAccess, allowedUserIds?: Set<string>): BagAccess {
-  return {
+  return applyAccessInheritance({
     ...access,
     targetMode: normalizeTargetVisibilityMode(access.targetMode),
     targetUserIds: [],
     depositUserIds: uniqueUidList(access.depositUserIds ?? [], allowedUserIds),
     readUserIds: uniqueUidList(access.readUserIds ?? [], allowedUserIds),
     writeUserIds: uniqueUidList(access.writeUserIds ?? [], allowedUserIds),
-  };
+  });
 }
 
 function removeUserFromAccess(access: BagAccess, uidToRemove: string): BagAccess {
@@ -1400,9 +1466,8 @@ async function syncTargetVisibilityIndexForBag(campaignId: string, bag: Bag, lat
 
 function canTargetBagByAccess(bag: Bag | undefined | null, uid: string, isDm: boolean) {
   if (!bag) return false;
-  if (isDm) return true;
   const access = getBagAccess(bag);
-  return normalizeTargetVisibilityMode(access.targetMode) === "all";
+  return accessAllowsTarget(access, uid, isDm);
 }
 
 function targetVisibilityBagSnapshot(bag: Bag): Bag {
@@ -2519,19 +2584,19 @@ export default function App() {
   function canDepositBag(bag: Bag | undefined | null) {
     if (!bag) return false;
     const access = getBagAccess(bag);
-    return accessAllows(access.depositMode, access.depositUserIds, activeUid, isDm);
+    return accessAllowsDeposit(access, activeUid, isDm);
   }
 
   function canOpenBag(bag: Bag | undefined | null) {
     if (!bag) return false;
     const access = getBagAccess(bag);
-    return accessAllows(access.readMode, access.readUserIds, activeUid, isDm);
+    return accessAllowsOpen(access, activeUid, isDm);
   }
 
   function canWriteBag(bag: Bag | undefined | null) {
     if (!bag) return false;
     const access = getBagAccess(bag);
-    return accessAllows(access.writeMode, access.writeUserIds, activeUid, isDm);
+    return accessAllowsWrite(access, activeUid, isDm);
   }
 
   function bagAccessLine(bag: Bag) {
@@ -2649,9 +2714,9 @@ export default function App() {
       );
     }
 
-    // Spielerpfad im Schonmodus nach Entfernen der Einzelsichtbarkeit:
-    // Genau 1 Live-Query für Taschen, die für alle sichtbar sind.
-    // DM-only Taschen liest nur der DM über seinen eigenen Listener.
+    // Spielerpfad im Schonmodus:
+    // Genau 1 Live-Query für Taschen-Metadaten, die links sichtbar sein dürfen.
+    // Item-Inhalte werden separat erst für die ausgewählte/öffnbare Tasche geladen.
     const publicMap = new Map<string, Bag>();
 
     const publish = () => {
@@ -4468,7 +4533,7 @@ export default function App() {
     }
     if (!canDepositBag(targetBag)) {
       setSyncStatus("error");
-      setSyncError("Du brauchst 'Items hineinlegen'-Rechte an der Zieltasche, um Münzen dorthin zu übertragen.");
+      setSyncError("Du brauchst Hineinlegen- oder Bearbeitungsrechte an der Zieltasche, um Münzen dorthin zu übertragen.");
       return;
     }
     const sourceCurrency = bagCurrency(sourceBag);
@@ -4569,9 +4634,9 @@ export default function App() {
       ["Kampagne", firebaseConfigured && activeCampaignId && campaignAccessReady ? "aktiv" : "inaktiv"],
       ["Eigene Mitgliedschaft", firebaseConfigured && activeCampaignId && campaignAccessReady ? "aktiv" : "inaktiv"],
       ["Mitgliederliste", firebaseConfigured && activeCampaignId && campaignAccessReady && member?.role !== "applicant" ? "aktiv" : "inaktiv"],
-      ["Taschen-Listener", isDm ? "1 Query · DM alle Taschen" : isApprovedMember ? "3 Queries · All + Index + Custom-Bag-Docs" : "inaktiv"],
+      ["Taschen-Listener", isDm ? "1 Query · DM alle Taschen" : isApprovedMember ? "9 Queries · Ziel/Öffnen/Hineinlegen/Bearbeiten" : "inaktiv"],
       ["Einzelne Taschen-Doc-Listener", "0"],
-      ["Legacy-/Index-Fallback", "aus · Access-Felder sind Quelle der Wahrheit"],
+      ["Legacy-/Index-Fallback", "Index nur als Zusatz · Access-Felder sind Quelle der Wahrheit"],
       ["Einzelsichtbarkeit", "deaktiviert · nur Alle oder Nur DM"],
       ["Item-Listener", selectedOpenableBagId ? `1 Query · ${selectedBag?.name ?? selectedOpenableBagId}` : "inaktiv"],
       ["Auditlog-Listener", auditLogOpen ? `aktiv · Limit ${auditLogLimit}` : "inaktiv"],
@@ -6530,6 +6595,42 @@ function BagEditor({
 
   const playerMembers = members.filter((entry) => entry.role === "player");
 
+  function applyWriteInheritanceToEditor(nextWriteMode: AccessMode, nextWriteUserIds: string[]) {
+    if (nextWriteMode === "all") {
+      setTargetMode("all");
+      setTargetUserIds([]);
+      setDepositMode("all");
+      setDepositUserIds([]);
+      setReadMode("all");
+      setReadUserIds([]);
+      return;
+    }
+
+    if (nextWriteMode === "custom" && nextWriteUserIds.length > 0) {
+      setTargetMode("all");
+      setTargetUserIds([]);
+      setDepositMode((prev) => (prev === "all" ? "all" : "custom"));
+      setReadMode((prev) => (prev === "all" ? "all" : "custom"));
+      setDepositUserIds((prev) => uniqueUidList([...(depositMode === "custom" ? prev : []), ...nextWriteUserIds]));
+      setReadUserIds((prev) => uniqueUidList([...(readMode === "custom" ? prev : []), ...nextWriteUserIds]));
+    }
+  }
+
+  function handleWriteModeChange(mode: AccessMode) {
+    setWriteMode(mode);
+    const nextWriteUserIds = mode === "custom" ? writeUserIds : [];
+    if (mode !== "custom") setWriteUserIds([]);
+    applyWriteInheritanceToEditor(mode, nextWriteUserIds);
+  }
+
+  function toggleWriteUser(uid: string) {
+    setWriteUserIds((prev) => {
+      const next = toggleUser(prev, uid);
+      applyWriteInheritanceToEditor("custom", next);
+      return next;
+    });
+  }
+
   return (
     <div className="space-y-3">
       <div className="space-y-3">
@@ -6573,7 +6674,7 @@ function BagEditor({
 
       <div className={`rounded-2xl border border-current/10 p-3 text-xs ${mutedText}`}>
         {isDm
-          ? "Der DM hat immer Vollzugriff. Inventare nutzen Variant Encumbrance; Behälter haben harte Kapazitätsgrenzen. „Als Ziel sichtbar“ steuert, ob die Tasche links und in Zielauswahlen auftaucht."
+          ? "Der DM hat immer Vollzugriff. Bearbeiten vererbt automatisch Öffnen und Hineinlegen. Inventare nutzen Variant Encumbrance; Behälter haben harte Kapazitätsgrenzen."
           : "Du kannst diese Tasche bearbeiten, aber die Zugriffsrechte sind nur für den DM änderbar."}
       </div>
 
@@ -6620,15 +6721,15 @@ function BagEditor({
         />
         <AccessControl
           title="Tasche bearbeiten dürfen"
-          description="Wer Items ändern, entnehmen, löschen und die Tasche verwalten darf."
+          description="Wer Items ändern, entnehmen, löschen und die Tasche verwalten darf. Gilt automatisch als Vollzugriff."
           mode={writeMode}
           userIds={writeUserIds}
           members={playerMembers}
           inputClass={inputClass}
           mutedText={mutedText}
           readOnly={!isDm}
-          onModeChange={setWriteMode}
-          onToggleUser={(uid) => setWriteUserIds((prev) => toggleUser(prev, uid))}
+          onModeChange={handleWriteModeChange}
+          onToggleUser={toggleWriteUser}
         />
       </div>
 
@@ -6699,7 +6800,6 @@ function AccessControl({
       <div className="mb-2">
         <div className="flex items-center justify-between gap-2">
           <div className="font-black">{title}</div>
-          {readOnly && <span className={`rounded-full border border-current/10 px-2 py-0.5 text-[10px] font-bold ${mutedText}`}>nur Anzeige</span>}
         </div>
         <div className={`text-xs ${mutedText}`}>{description}</div>
       </div>

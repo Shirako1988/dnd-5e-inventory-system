@@ -1,8 +1,8 @@
-# DND Inventory Manager - Campaign Join Prototype
+# DND Inventory Manager
 
-Dieser Stand erweitert den Firebase-Sync um Kampagnenbeitritt, Mitglieder und Rollen.
+D&D-Inventory-Manager mit Kampagnen, Rollen, Taschenrechten, Münzen, Item-Transfers, Auditlog, Backup/Restore und Firebase/Firestore-Sync.
 
-## Start
+## Start lokal
 
 ```cmd
 npm install --registry=https://registry.npmjs.org/
@@ -20,9 +20,9 @@ Alternativ:
 - `INSTALL_AND_START.bat`: installiert Pakete und startet die App.
 - `START_APP.bat`: startet die App, wenn `npm install` bereits gelaufen ist.
 
-## Firebase nötig
+## Firebase-Konfiguration
 
-Diese Version ist für Firebase gedacht. Ohne `.env.local` läuft die App noch als lokale Demo, aber Kampagnen-Erstellen/Beitreten braucht Firebase.
+Die App läuft ohne Firebase als lokale Demo. Für echte Kampagnen, Join-Codes, Sync und Rechteprüfung wird Firebase benötigt.
 
 Benötigte Datei:
 
@@ -36,64 +36,70 @@ Vorlage:
 .env.example
 ```
 
-## Firebase-Einstellungen
+Firebase-Setup:
 
 1. Firebase-Projekt erstellen.
 2. Web-App registrieren.
-3. Authentication aktivieren und Anbieter **Anonym / Anonymous** einschalten.
+3. Authentication aktivieren und Anbieter **Email/Password** einschalten.
 4. Cloud Firestore erstellen, nicht Realtime Database.
-5. `firestore-dev.rules` in Firestore -> Regeln einfügen und veröffentlichen.
+5. Für produktives Testen `firestore-secure.rules` in Firebase → Firestore → Regeln einfügen und veröffentlichen.
+6. `firestore-dev.rules` nur für lokale/kurze Entwicklung nutzen, nicht als dauerhafte Serverregel.
 
 ## Aktueller Funktionsstand
 
-- Anonymer Firebase-Login.
-- Startscreen mit:
-  - Kampagne erstellen
-  - Kampagne per Join-Code beitreten
-- Ersteller wird DM.
-- Beitretende Nutzer werden Spieler.
-- Mitglieder werden unter `campaigns/{campaignId}/members/{uid}` gespeichert.
-- Kampagnen haben automatisch einen Join-Code.
-- Taschen und Items syncen weiter live über Firestore.
-- DM sieht alle Taschen.
-- Spieler sehen Gruppentaschen und eigene/freigegebene Taschen.
-- Spieler können Mengen direkt in der Übersicht ändern, wenn sie Schreibrecht auf die Tasche haben.
+- Login/Registrierung über Email und Passwort.
+- Kampagnen erstellen, auswählen, verlassen und löschen.
+- Kampagnenbeitritt per Join-Code.
+- DM-/Spieler-/Anwärter-Rollen.
+- DM bestätigt neue Spieler.
+- Taschen/Inventare mit Gewicht, Volumen, Münzen, Bildern und Rechten.
+- Getrennte Rechte für Ziel-Sichtbarkeit, Hineinlegen, Öffnen und Bearbeiten.
+- **Bearbeiten gilt als Vollzugriff**: Wer eine Tasche bearbeiten darf, darf sie auch sehen, öffnen, Münzen/Items hineinlegen und Items entnehmen/ändern/löschen.
+- Item-Transfermodal für ganze oder teilweise Stacks.
+- Münztransfer zwischen Taschen.
+- Verkaufsgut-Abrechnung mit globalem Handelsprofil.
+- Aktivitätslog mit wichtigen Änderungen.
+- Kampagnen-Backup, Mirror-Backup und Restore-Import.
+- Reparaturfunktion für beschädigte Summen, Access-Felder und Item-Metadaten.
 
-## Wichtige Einschränkung
+## Rechte-Modell
 
-Die Firestore-Regeln sind noch Prototyp-Regeln:
+Jede Tasche nutzt `access`:
 
-- Jeder eingeloggte anonyme Nutzer darf Kampagnendaten lesen/schreiben.
-- Die Rollenlogik ist aktuell hauptsächlich UI-/App-Logik.
+```txt
+targetMode/targetUserIds   = Als Ziel sichtbar
+DepositMode/depositUserIds = Items/Münzen hineinlegen
+readMode/readUserIds       = Tasche öffnen
+writeMode/writeUserIds     = Tasche bearbeiten
+```
 
-Der nächste Schritt ist deshalb: echte Firestore Security Rules für Kampagnenmitglieder, DM-Rechte, Besitzerrechte und Freigaben.
+Sichtbarkeit als Ziel ist derzeit bewusst nur:
 
+```txt
+Alle
+Nur DM
+```
 
-## Permissions-Fix
+Einzelsichtbarkeit für die linke Taschenliste ist deaktiviert. Einzelspielerrechte bleiben aber für Hineinlegen, Öffnen und Bearbeiten erhalten.
 
-Bag types now enforce prototype UI permissions:
-- Gruppe: visible and editable for all campaign members.
-- Geteilt: visible for all members, editable only by DM until per-user permissions are implemented.
-- Persönlich: visible/editable only for owner and DM.
-- DM: visible/editable only for DM.
+Wichtig: Schreibrecht wird automatisch nach unten vererbt. Dadurch können keine kaputten Zustände mehr entstehen wie „Spieler darf bearbeiten, aber nicht hineinlegen/öffnen“.
 
-Changing a bag type resets stale read/write permissions so old group permissions do not leak into personal/DM bags.
+## Firestore-Regeln
 
-## Security/Audit-Version
+`firestore-secure.rules` ist die relevante Serverregel-Datei.
 
-Diese Version verschärft die Client-Logik und enthält `firestore-secure.rules` für Firestore.
+Die Regeln prüfen serverseitig:
 
-Wichtig: Vor dem Einfügen der neuen Rules sollte mindestens eine Kampagne mit dieser Version geöffnet/erstellt werden, damit `joinCodes/{CODE}` automatisch angelegt wird. Neue Kampagnen erzeugen diesen Join-Code-Mapping-Eintrag automatisch.
+- Nur eingeloggte Nutzer.
+- Kampagnendaten nur für Kampagnenmitglieder.
+- Spieler lesen nur Taschen, die sie effektiv kennen dürfen.
+- Spieler lesen Items nur aus Taschen, die sie öffnen dürfen.
+- Spieler ändern Bag-Zugriffsrechte nicht.
+- Item-Transfers brauchen Schreibrecht an der Quelle und Hineinlegen- oder Schreibrecht am Ziel.
+- Münztransfers brauchen Schreibrecht an der Quelle und Hineinlegen- oder Schreibrecht am Ziel.
+- Behälter-Kapazitäten werden serverseitig geprüft.
+- Auditlogs sind append-only; Updates sind verboten.
 
-Neue Sync-/Sicherheitslogik:
+## Projekt-Hinweis
 
-- Spieler laden nur Taschen, die für sie als Ziel sichtbar sind.
-- Spieler laden nur Items aus Taschen, die sie öffnen dürfen.
-- Spieler dürfen Bag-Zugriffsrechte nicht ändern.
-- Item-Verschieben prüft Ausgangstasche und Zieltasche.
-- Ein Aktivitätslog schreibt wichtige Aktionen in `auditLog`.
-
-Firestore Rules:
-
-- Die Datei `firestore-secure.rules` kann in Firebase → Firestore → Regeln eingefügt werden.
-- Für bestehende alte Testkampagnen ohne `joinCodes` ggf. einmal als DM mit dieser App öffnen oder eine neue Kampagne erstellen.
+Arbeits-ZIPs sollten `.env.local`, `.git`, `node_modules` und `dist` nicht enthalten. Für Weitergabe/Backup reicht der Quellcode plus `package-lock.json`; Abhängigkeiten werden mit `npm install` oder `npm ci` neu installiert.
