@@ -61,28 +61,21 @@ service cloud.firestore {
         && ("__all__" in bag.targetAccessKeys || request.auth.uid in bag.targetAccessKeys);
     }
 
-    function canWriteBagData(campaignId, bag) {
-      return hasAccessMap(bag) && accessAllowed(campaignId, bag.access.writeMode, bag.access.writeUserIds);
+    function canTargetBagData(campaignId, bag) {
+      return (hasAccessMap(bag) && accessAllowed(campaignId, bag.access.targetMode, bag.access.targetUserIds))
+        || targetAccessMirrorAllowed(bag);
     }
 
     function canDepositBagData(campaignId, bag) {
-      // Bearbeiten ist Vollzugriff: Wer schreiben darf, darf auch hineinlegen.
-      return hasAccessMap(bag) && (accessAllowed(campaignId, bag.access.depositMode, bag.access.depositUserIds) || canWriteBagData(campaignId, bag));
+      return hasAccessMap(bag) && accessAllowed(campaignId, bag.access.depositMode, bag.access.depositUserIds);
     }
 
     function canOpenBagData(campaignId, bag) {
-      // Bearbeiten ist Vollzugriff: Wer schreiben darf, darf auch öffnen.
-      return hasAccessMap(bag) && (accessAllowed(campaignId, bag.access.readMode, bag.access.readUserIds) || canWriteBagData(campaignId, bag));
+      return hasAccessMap(bag) && accessAllowed(campaignId, bag.access.readMode, bag.access.readUserIds);
     }
 
-    function canTargetBagData(campaignId, bag) {
-      // Ziel-Sichtbarkeit ist effektiv, nicht nur das targetMode-Feld.
-      // Sonst könnten Spieler Rechte haben, die Tasche aber nie laden/auswählen.
-      return (hasAccessMap(bag) && accessAllowed(campaignId, bag.access.targetMode, bag.access.targetUserIds))
-        || targetAccessMirrorAllowed(bag)
-        || canDepositBagData(campaignId, bag)
-        || canOpenBagData(campaignId, bag)
-        || canWriteBagData(campaignId, bag);
+    function canWriteBagData(campaignId, bag) {
+      return hasAccessMap(bag) && accessAllowed(campaignId, bag.access.writeMode, bag.access.writeUserIds);
     }
 
     function canOpenBagId(campaignId, bagId) {
