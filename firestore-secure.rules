@@ -277,31 +277,34 @@ service cloud.firestore {
           && (
             isDm(campaignId)
             || (
-              request.resource.data.updatedBy == request.auth.uid
-              && (
-                (
-                  request.resource.data.bagId == resource.data.bagId
-                  && canWriteBagId(campaignId, resource.data.bagId)
-                )
-                || (
-                  request.resource.data.bagId != resource.data.bagId
-                  && canWriteBagId(campaignId, resource.data.bagId)
-                  && canDepositBagId(campaignId, request.resource.data.bagId)
-                )
-                || (
-                  request.resource.data.bagId != resource.data.bagId
-                  && request.resource.data.lastTransferSourceBagId == resource.data.bagId
-                  && request.resource.data.lastTransferSourceItemId == itemId
-                  && canWriteBagId(campaignId, resource.data.bagId)
-                  && canTargetBagId(campaignId, request.resource.data.bagId)
-                )
-                || (
-                  request.resource.data.bagId == resource.data.bagId
-                  && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["quantity", "updatedBy", "updatedAt", "lastTransferSourceItemId", "lastTransferSourceBagId"])
-                  && request.resource.data.quantity > resource.data.quantity
-                  && validTransferDeposit(campaignId, itemId, request.resource.data, request.resource.data.quantity - resource.data.quantity)
-                )
-              )
+              // Tasche bearbeiten: Stammdaten, aber keine Rechtefelder.
+              canWriteBagData(campaignId, resource.data)
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                "name", "description", "type", "kind", "maxWeight", "maxVolume",
+                "imageUrl", "imageZoom", "imagePositionX", "imagePositionY", "imageUpdatedAt", "imageUpdatedBy",
+                "updatedAt", "updatedBy"
+              ])
+            )
+            || (
+              // Item-Transfer: Quelle senkt Kapazitätswerte, Ziel erhöht sie.
+              // Quelle braucht Bearbeiten, Ziel braucht Hineinlegen. Bei ALL-Rechten ist beides erfüllt.
+              onlyCapacityChanged()
+              && (canWriteBagData(campaignId, resource.data) || canDepositBagData(campaignId, resource.data))
+            )
+            || (
+              // Münzen in eine Tasche einzahlen: Hineinlegen reicht.
+              currencyDepositChanged()
+              && canDepositBagData(campaignId, resource.data)
+            )
+            || (
+              // Münzen entnehmen oder wechseln: Bearbeiten nötig.
+              currencyWithdrawalOrExchangeChanged()
+              && canWriteBagData(campaignId, resource.data)
+            )
+            || (
+              // Verkaufsgut verkaufen: Bearbeiten nötig.
+              saleSettlementChanged()
+              && canWriteBagData(campaignId, resource.data)
             )
           );
 
@@ -319,12 +322,10 @@ service cloud.firestore {
               && request.resource.data.quantity is number
               && request.resource.data.quantity >= 0
               && (
+                // Normales Erstellen in einer Tasche, die man bearbeiten darf.
                 canWriteBagId(campaignId, request.resource.data.bagId)
+                // Deposit-/Transfer-Erstellen in einer Zieltasche.
                 || canDepositBagId(campaignId, request.resource.data.bagId)
-                || (
-                  canTargetBagId(campaignId, request.resource.data.bagId)
-                  && validTransferDeposit(campaignId, itemId, request.resource.data, request.resource.data.quantity)
-                )
               )
             )
           );
@@ -335,22 +336,29 @@ service cloud.firestore {
             || (
               request.resource.data.updatedBy == request.auth.uid
               && (
-            (
-              request.resource.data.bagId == resource.data.bagId
-              && canWriteBagId(campaignId, resource.data.bagId)
-            )
-            || (
-              request.resource.data.bagId != resource.data.bagId
-              && canWriteBagId(campaignId, resource.data.bagId)
-              && canDepositBagId(campaignId, request.resource.data.bagId)
-            )
-            || (
-              request.resource.data.bagId == resource.data.bagId
-              && canDepositBagId(campaignId, resource.data.bagId)
-              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["quantity", "updatedBy", "updatedAt", "lastTransferSourceItemId", "lastTransferSourceBagId"])
-              && request.resource.data.quantity > resource.data.quantity
-              && validTransferDeposit(campaignId, itemId, request.resource.data, request.resource.data.quantity - resource.data.quantity)
-            )
+                (
+                  // Normales Bearbeiten in derselben Tasche.
+                  request.resource.data.bagId == resource.data.bagId
+                  && canWriteBagId(campaignId, resource.data.bagId)
+                )
+                || (
+                  // Direkte komplette Stack-Verschiebung: Quelle bearbeiten, Ziel befüllen.
+                  request.resource.data.bagId != resource.data.bagId
+                  && canWriteBagId(campaignId, resource.data.bagId)
+                  && canDepositBagId(campaignId, request.resource.data.bagId)
+                )
+                || (
+                  // Zielstack erhöhen: Hineinlegen-Recht auf Ziel reicht, Quelle wird über Transfermarker geprüft.
+                  request.resource.data.bagId == resource.data.bagId
+                  && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                    "quantity", "updatedBy", "updatedAt", "lastTransferSourceItemId", "lastTransferSourceBagId"
+                  ])
+                  && request.resource.data.quantity is number
+                  && resource.data.quantity is number
+                  && request.resource.data.quantity > resource.data.quantity
+                  && canDepositBagId(campaignId, resource.data.bagId)
+                  && validTransferDeposit(campaignId, itemId, request.resource.data, request.resource.data.quantity - resource.data.quantity)
+                )
               )
             )
           );

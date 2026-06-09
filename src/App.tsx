@@ -2571,6 +2571,7 @@ export default function App() {
     return {
       currency: nextCurrency,
       currentWeight: Math.max(0, Number(nextWeight.toFixed(4))),
+      updatedBy: activeUid,
     };
   }
 
@@ -2581,6 +2582,7 @@ export default function App() {
       currentValue: Math.max(0, Number(totals.value.toFixed(4))),
       itemCount: Math.max(0, Math.round(totals.count)),
       updatedAt: Date.now(),
+      updatedBy: activeUid,
     };
   }
 
