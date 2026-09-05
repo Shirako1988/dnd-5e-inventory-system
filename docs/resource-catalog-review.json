@@ -1,0 +1,1080 @@
+[
+  {
+    "id": "base:phb:alchemist's_supplies",
+    "name": "Alchemist's Supplies",
+    "sentences": [
+      "As part of a long rest, you can use alchemist's supplies to make one dose of acid, alchemist's fire, antitoxin, oil, perfume, or soap."
+    ]
+  },
+  {
+    "id": "item:nf:arcane_battery",
+    "name": "Arcane Battery",
+    "sentences": [
+      "If that magic item normally regains expended charges daily, it immediately regains 1d4 + 1 expended charges, and the battery loses its magic."
+    ]
+  },
+  {
+    "id": "item:tce:barrier_tattoo_(large)",
+    "name": "Barrier Tattoo (Large)",
+    "sentences": [
+      "Seltenheit: very rare Einstimmung: erforderlich Produced by a special needle, this magic tattoo depicts protective imagery and uses ink that resembles liquid metal."
+    ]
+  },
+  {
+    "id": "item:tce:barrier_tattoo_(medium)",
+    "name": "Barrier Tattoo (Medium)",
+    "sentences": [
+      "Seltenheit: rare Einstimmung: erforderlich Produced by a special needle, this magic tattoo depicts protective imagery and uses ink that resembles liquid metal."
+    ]
+  },
+  {
+    "id": "item:tce:barrier_tattoo_(small)",
+    "name": "Barrier Tattoo (Small)",
+    "sentences": [
+      "Seltenheit: uncommon Einstimmung: erforderlich Produced by a special needle, this magic tattoo depicts protective imagery and uses ink that resembles liquid metal."
+    ]
+  },
+  {
+    "id": "item:egw:blade_of_broken_mirrors_(dormant)",
+    "name": "Blade of Broken Mirrors (Dormant)",
+    "sentences": [
+      "It learns its wielder's principles, then uses those ideals to encourage reckless action."
+    ]
+  },
+  {
+    "id": "item:bmt:boomerang_shield",
+    "name": "Boomerang Shield",
+    "sentences": [
+      "It has a normal range of 20 feet and a long range of 60 feet, and it uses your Strength or Dexterity for the attack roll (your choice)."
+    ]
+  },
+  {
+    "id": "base:phb:brewer's_supplies",
+    "name": "Brewer's Supplies",
+    "sentences": [
+      "As part of a long rest, you can purify up to 6 gallons of water, or 1 gallon as part of a short rest."
+    ]
+  },
+  {
+    "id": "item:imr:bridle_of_capturing",
+    "name": "Bridle of Capturing",
+    "sentences": [
+      "With a successful saving throw, the target becomes immune to the bridle's power until the next dawn."
+    ]
+  },
+  {
+    "id": "base:phb:carpenter's_tools",
+    "name": "Carpenter's Tools",
+    "sentences": [
+      "**Temporary Shelter.** As part of a long rest, you can construct a lean-to or a similar shelter to keep your group dry and in the shade for the duration of the rest."
+    ]
+  },
+  {
+    "id": "item:tce:cauldron_of_rebirth",
+    "name": "Cauldron of Rebirth",
+    "sentences": [
+      "When you finish a long rest, you can use the cauldron to create a potion of greater healing.",
+      "If you place the corpse of a humanoid into the cauldron and cover the corpse with 200 pounds of salt (which costs 10 gp) for at least 8 hours, the salt is consumed and the creature returns to life as if by raise dead at the next dawn."
+    ]
+  },
+  {
+    "id": "base:phb:cobbler's_tools",
+    "name": "Cobbler's Tools",
+    "sentences": [
+      "**Maintain Shoes.** As part of a long rest, you can repair your companions' shoes."
+    ]
+  },
+  {
+    "id": "base:phb:cook's_utensils",
+    "name": "Cook's Utensils",
+    "sentences": [
+      "**Prepare Meals.** As part of a short rest, you can prepare a tasty meal that helps your companions regain their strength.",
+      "You and up to five creatures of your choice regain 1 extra hit point per Hit Die spent during a short rest, provided you have access to your cook's utensils and sufficient food."
+    ]
+  },
+  {
+    "id": "item:qftis:daoud's_wondrous_lanthorn",
+    "name": "Daoud's Wondrous Lanthorn",
+    "sentences": [
+      "You can add more fuel to the lantern as part of a short or long rest.",
+      "As part of a short or long rest, you can magically change any of these gem lenses to a different type of gem shown in the Lenses table."
+    ]
+  },
+  {
+    "id": "item:dmg:deck_of_illusions",
+    "name": "Deck of Illusions",
+    "sentences": [
+      "Someone who uses an action to visually inspect the creature identifies it as illusory with a successful 15 Intelligence (Investigation) check."
+    ]
+  },
+  {
+    "id": "item:phb:disguise_kit",
+    "name": "Disguise Kit",
+    "sentences": [
+      "**Create Disguise.** As part of a long rest, you can create a disguise."
+    ]
+  },
+  {
+    "id": "item:wdh:feather_of_diatryma_summoning",
+    "name": "Feather of Diatryma Summoning",
+    "sentences": [
+      "The diatryma uses the statistics of an axe beak, except that its beak deals piercing damage instead of slashing damage."
+    ]
+  },
+  {
+    "id": "item:phb:forgery_kit",
+    "name": "Forgery Kit",
+    "sentences": [
+      "**Quick Fake.** As part of a short rest, you can produce a forged document no more than one page in length.",
+      "As part of a long rest, you can produce a document that is up to four pages long."
+    ]
+  },
+  {
+    "id": "item:bgg:glowrune_pigment",
+    "name": "Glowrune Pigment",
+    "sentences": [
+      "The rune's benefits last for 8 hours or until the painted creature uses its action to wipe away the rune."
+    ]
+  },
+  {
+    "id": "item:phb:herbalism_kit",
+    "name": "Herbalism Kit",
+    "sentences": [
+      "**Arcana.** Your knowledge of the nature and uses of herbs can add insight to your magical studies that deal with plants and your attempts to identify potions."
+    ]
+  },
+  {
+    "id": "item:phb:holy_water_(flask)",
+    "name": "Holy Water (flask)",
+    "sentences": [
+      "The ritual takes 1 hour to perform, uses 25 gp worth of powdered silver, and requires the caster to expend a 1st-level spell slot."
+    ]
+  },
+  {
+    "id": "base:dsotdq:hoopak",
+    "name": "Hoopak",
+    "sentences": [
+      "If you do, it uses the ammunition property, uses sling bullets, and deals 1d4 bludgeoning damage on a hit."
+    ]
+  },
+  {
+    "id": "item:bgg:horizon_puzzle_cube",
+    "name": "Horizon Puzzle Cube",
+    "sentences": [
+      "The portal is two-way and remains open for 10 minutes or until a creature uses an action to change the puzzle's configuration."
+    ]
+  },
+  {
+    "id": "item:dmg:immovable_rod",
+    "name": "Immovable Rod",
+    "sentences": [
+      "Until you or another creature uses an action to push the button again, the rod doesn't move, even if it is defying gravity."
+    ]
+  },
+  {
+    "id": "item:dmg:ioun_stone,_reserve",
+    "name": "Ioun Stone, Reserve",
+    "sentences": [
+      "The level of the slot used to cast the spell determines how much space it uses.",
+      "The spell uses the slot level, spell save DC, spell attack bonus, and spellcasting ability of the original caster, but is otherwise treated as if you cast the spell."
+    ]
+  },
+  {
+    "id": "base:phb:jeweler's_tools",
+    "name": "Jeweler's Tools",
+    "sentences": [
+      "**Arcana.** Proficiency with jeweler's tools grants you knowledge about the reputed mystical uses of gems."
+    ]
+  },
+  {
+    "id": "item:aag:living_ship",
+    "name": "Living Ship",
+    "sentences": [
+      "When the treant finishes a long rest, it repairs the ship's hull, enabling the ship to regain 4d12 hit points, and refreshes the ship's air envelope (turning deadly air into foul air, or foul air into fresh air)."
+    ]
+  },
+  {
+    "id": "item:rot:mask_of_the_dragon_queen",
+    "name": "Mask of the Dragon Queen",
+    "sentences": [
+      "Additionally, you gain the Damage Absorption from each of the five dragon masks, and you gain five uses of the Legendary Resistance property."
+    ]
+  },
+  {
+    "id": "item:fraif:mechanical_wonder_(domestic)",
+    "name": "Mechanical Wonder (Domestic)",
+    "sentences": [
+      "An activated domestic wonder uses the Domestic Wonder stat block.",
+      "If you don't issue any, it takes the Dodge action and uses its movement to avoid danger."
+    ]
+  },
+  {
+    "id": "item:fraif:mechanical_wonder_(flying)",
+    "name": "Mechanical Wonder (Flying)",
+    "sentences": [
+      "An activated flying wonder uses the Flying Wonder stat block.",
+      "If you don't issue any, it takes the Dodge action and uses its movement to avoid danger."
+    ]
+  },
+  {
+    "id": "item:tce:mighty_servant_of_leuk-o",
+    "name": "Mighty Servant of Leuk-o",
+    "sentences": [
+      "Attuning to the artifact requires two hours, which can be undertaken as part of a long rest, during which time you must be inside the servant, interacting with its controls."
+    ]
+  },
+  {
+    "id": "item:scc:murgaxor's_orb",
+    "name": "Murgaxor's Orb",
+    "sentences": [
+      "Murgaxor's spirit has infused the orb, which he uses to spread a terrible curse among Strixhaven's students.",
+      "The creature is roused if it takes damage or someone uses an action to shake or slap it awake."
+    ]
+  },
+  {
+    "id": "item:dmg:oathbow",
+    "name": "Oathbow",
+    "sentences": [
+      "When your sworn enemy dies, you can choose a new one after the next dawn."
+    ]
+  },
+  {
+    "id": "item:egw:olisuba_leaf",
+    "name": "Olisuba Leaf",
+    "sentences": [
+      "If you drink a dose of Olisuba tea during a long rest, your exhaustion level is reduced by 2 instead of 1 at the end of that long rest."
+    ]
+  },
+  {
+    "id": "item:idrotf:orc_stone",
+    "name": "Orc Stone",
+    "sentences": [
+      "The spirit uses the orc war chief stat block in the Monster Manual and disappears after 10 minutes or when reduced to 0 hit points."
+    ]
+  },
+  {
+    "id": "item:pota:orcsplitter",
+    "name": "Orcsplitter",
+    "sentences": [
+      "It communicates by transmitting emotions to its wielder, although on rare occasions it uses a limited form of telepathy to bring to the wielder's mind a couplet or stanza of ancient Dwarvish verse."
+    ]
+  },
+  {
+    "id": "base:phb:painter's_supplies",
+    "name": "Painter's Supplies",
+    "sentences": [
+      "**Painting and Drawing.** As part of a short or long rest, you can produce a simple work of art."
+    ]
+  },
+  {
+    "id": "item:wdmm:potion_of_watchful_rest",
+    "name": "Potion of Watchful Rest",
+    "sentences": [
+      "Seltenheit: common When you drink this potion, you gain the following benefits for the next 8 hours: magic can't put you to sleep, and you can remain awake during a long rest and still gain its benefits."
+    ]
+  },
+  {
+    "id": "item:wdmm:professor_orb",
+    "name": "Professor Orb",
+    "sentences": [
+      "It uses the spell only to transport itself."
+    ]
+  },
+  {
+    "id": "item:idrotf:professor_skant",
+    "name": "Professor Skant",
+    "sentences": [
+      "It uses the spell only to transport itself."
+    ]
+  },
+  {
+    "id": "item:mot:pyxis_of_pandemonium",
+    "name": "Pyxis of Pandemonium",
+    "sentences": [
+      "Seltenheit: legendary A creature that touches this ornate wooden vessel for 1 minute gains the benefits of a short rest.",
+      "That creature also gains the effects of the bless spell until the creature finishes a short or long rest.",
+      "The creature can't gain these benefits again until it finishes a long rest.",
+      "**Curse.** Any creature that gains the benefit of a short rest from the vessel hears cloying telepathic whispers emanating from it."
+    ]
+  },
+  {
+    "id": "item:dmg:ring_of_spell_storing",
+    "name": "Ring of Spell Storing",
+    "sentences": [
+      "Seltenheit: rare Einstimmung: erforderlich This ring stores spells cast into it, holding them until the attuned wearer uses them.",
+      "The level of the slot used to cast the spell determines how much space it uses.",
+      "The spell uses the slot level, spell save DC, spell attack bonus, and spellcasting ability of the original caster, but is otherwise treated as if you cast the spell."
+    ]
+  },
+  {
+    "id": "item:dmg:ring_of_x-ray_vision",
+    "name": "Ring of X-ray Vision",
+    "sentences": [
+      "Whenever you use the ring again before taking a long rest, you must succeed on a 15 Constitution saving throw or gain one level of exhaustion."
+    ]
+  },
+  {
+    "id": "item:dc:ruinstone",
+    "name": "Ruinstone",
+    "sentences": [
+      "After the villain uses the ruinstone, roll a d20: on a 5-20, one of their allies disintegrates, on an 1-4, one of the player characters disintegrates."
+    ]
+  },
+  {
+    "id": "item:kftgv:shard_of_xeluan",
+    "name": "Shard of Xeluan",
+    "sentences": [
+      "Tabelle: 1 – You accidentally cut yourself with the shard and are poisoned until the next dawn.; 2 – You experience a vision of an ancient calamity—a beautiful city threatened by crumbling mountains and erupting volcanoes—and are stunned until the end of your next turn.; 3 – For a few seconds, the ground shakes under you.",
+      "Each dart hits automatically and deals 3 (1d4 + 1) force damage to the target.; 5 – Until the next dawn, Beasts with an Intelligence score of 3 or lower are hostile to you.; 6 – Nothing seems to go your way.",
+      "Until the next dawn, you have disadvantage on ability checks."
+    ]
+  },
+  {
+    "id": "item:egw:silken_spite_(dormant)",
+    "name": "Silken Spite (Dormant)",
+    "sentences": [
+      "The creature wakes up if it takes damage or if another creature uses its action to shake the creature awake."
+    ]
+  },
+  {
+    "id": "item:idrotf:sled_dog",
+    "name": "Sled Dog",
+    "sentences": [
+      "Sled dogs must take a short rest after pulling a sled for 1 hour; otherwise, they gain one level of exhaustion."
+    ]
+  },
+  {
+    "id": "item:qftis:sleep_grenade",
+    "name": "Sleep Grenade",
+    "sentences": [
+      "The condition ends on a creature early if the creature takes damage or if another creature uses an action to shake it awake."
+    ]
+  },
+  {
+    "id": "item:wbtw:snicker-snack",
+    "name": "Snicker-Snack",
+    "sentences": [
+      "Each time you finish a long rest after that happens, you can attempt to regain the sword's trust by making a contested Charisma check against Snicker-Snack."
+    ]
+  },
+  {
+    "id": "item:egw:spell_bottle",
+    "name": "Spell Bottle",
+    "sentences": [
+      "The spell uses the slot level, spell save DC, spell attack bonus, and spellcasting ability of the original caster, but is otherwise treated as if you cast the spell."
+    ]
+  },
+  {
+    "id": "item:bgdia:sword_of_zariel",
+    "name": "Sword of Zariel",
+    "sentences": [
+      "**Attunement.** The sword allows you to attune to it immediately, without having to take a short rest."
+    ]
+  },
+  {
+    "id": "item:xge:talking_doll",
+    "name": "Talking Doll",
+    "sentences": [
+      "Seltenheit: common Einstimmung: erforderlich While this stuffed doll is within 5 feet of you, you can spend a short rest telling it to say up to six phrases, none of which can be more than six words long, and set an observable condition under which the doll speaks each phrase."
+    ]
+  },
+  {
+    "id": "item:frhof:thayan_spell_tattoo",
+    "name": "Thayan Spell Tattoo",
+    "sentences": [
+      "If you have the Spellcasting or Pact Magic feature, the spell uses your spellcasting ability; otherwise, if the spell requires a saving throw or an attack roll, the spell save DC is 13 and the attack bonus is +5."
+    ]
+  },
+  {
+    "id": "item:imr:thessaltoxin",
+    "name": "Thessaltoxin",
+    "sentences": [
+      "This transformation lasts until the end of the target's next long rest."
+    ]
+  },
+  {
+    "id": "item:phb:thieves'_tools",
+    "name": "Thieves' Tools",
+    "sentences": [
+      "As part of a short rest, you can create a trap using items you have on hand."
+    ]
+  },
+  {
+    "id": "item:egw:vox_seeker",
+    "name": "Vox Seeker",
+    "sentences": [
+      "While operational, the item uses the accompanying Vox Seeker stat block."
+    ]
+  },
+  {
+    "id": "base:phb:weaver's_tools",
+    "name": "Weaver's Tools",
+    "sentences": [
+      "**Repair.** As part of a short rest, you can repair a single damaged cloth object.",
+      "**Craft Clothing.** Assuming you have access to sufficient cloth and thread, you can create an outfit for a creature as part of a long rest."
+    ]
+  },
+  {
+    "id": "item:dmg:wind_fan",
+    "name": "Wind Fan",
+    "sentences": [
+      "Once used, the fan shouldn't be used again until the next dawn."
+    ]
+  },
+  {
+    "id": "base:phb:woodcarver's_tools",
+    "name": "Woodcarver's Tools",
+    "sentences": [
+      "**Repair.** As part of a short rest, you can repair a single damaged wooden object.",
+      "**Craft Arrows.** As part of a short rest, you can craft up to five arrows.",
+      "As part of a long rest, you can craft up to twenty."
+    ]
+  },
+  {
+    "id": "item:idrotf:ythryn_mythallar",
+    "name": "Ythryn Mythallar",
+    "sentences": [
+      "To attune to this mythallar, a creature must finish a short rest within 30 feet of it, meditating on the mythallar.",
+      "As an action, you can cause one magic item you are holding within 30 feet of the Ythryn mythallar to immediately regain all its expended charges or uses.",
+      "A magic item recharged in this manner can't be recharged by the Ythryn mythallar again until after the item regains expended charges or uses on its own."
+    ]
+  },
+  {
+    "id": "tg:64",
+    "name": "Dancing Sword",
+    "sentences": [
+      "The sword uses your attack roll and ability score modifier to damage rolls."
+    ]
+  },
+  {
+    "id": "tg:302",
+    "name": "Sword of Wounding",
+    "sentences": [
+      "Hit points lost to this weapon's damage can be regained only through a short or long rest, rather than by regeneration, magic, or any other means."
+    ]
+  },
+  {
+    "id": "tg:411",
+    "name": "Helm of Baphomet",
+    "sentences": [
+      "Charge."
+    ]
+  },
+  {
+    "id": "tg:540",
+    "name": "Teddy Bear of Quiet Slumber",
+    "sentences": [
+      "They can not be woken by loud noises but will wake up if they take damage or if someone uses an action to shake them awake (a quick kick or shove won't do it)."
+    ]
+  },
+  {
+    "id": "tg-harvest:autognome_shock_coil:c88f78c8d1",
+    "name": "Autognome Shock Coil",
+    "sentences": [
+      "This 3-inch spring-like strand of metal is used by the autognome to help generate an electrical charge."
+    ]
+  },
+  {
+    "id": "tg-harvest:b_rohg_blood_7_vials:c032dad355",
+    "name": "B'rohg Blood (7 vials)",
+    "sentences": [
+      "The blood has many alchemical and medicinal uses."
+    ]
+  },
+  {
+    "id": "tg-harvest:baphomet_s_horn_x2:b0d47e4504",
+    "name": "Baphomet's Horn (x2)",
+    "sentences": [
+      "The iron, pointed horns of Baphomet have many uses."
+    ]
+  },
+  {
+    "id": "tg-harvest:barghest_fur_small_bag:4fa528af92",
+    "name": "Barghest Fur (small bag)",
+    "sentences": [
+      "Barghest fur has various uses."
+    ]
+  },
+  {
+    "id": "tg-harvest:bat_carcass:5529558364",
+    "name": "Bat Carcass",
+    "sentences": [
+      "The little beast's wings, tongue, eyes, and organs may have uses in potions, salves and ointments."
+    ]
+  },
+  {
+    "id": "tg-harvest:bat_carcass_x1d8:e5da46c9a2",
+    "name": "Bat Carcass (x1d8)",
+    "sentences": [
+      "The little beast's wings, tongue, eyes, and organs may have uses in potions, salves and ointments."
+    ]
+  },
+  {
+    "id": "tg-harvest:berbalang_brain_fluid_vial:c615678c3c",
+    "name": "Berbalang Brain Fluid (vial)",
+    "sentences": [
+      "The fluid has alchemical uses, but is highly valued by divination wizards and clerics."
+    ]
+  },
+  {
+    "id": "tg-harvest:blue_slaad_control_gem:5cdff664c0",
+    "name": "Blue Slaad Control Gem",
+    "sentences": [
+      "Uses: If a slaad is killed, that slaad's gem can not be used to control other slaadi by itself."
+    ]
+  },
+  {
+    "id": "tg-harvest:braxat_pineal_gland:9990955952",
+    "name": "Braxat Pineal Gland",
+    "sentences": [
+      "Uses: As a reaction, a creature can crush the Braxat's pineal gland, which will release a burst of psionic energy, allowing the creature to add their Intelligence modifier to their AC until the end of their next turn."
+    ]
+  },
+  {
+    "id": "tg-harvest:bulezau_horn_x2:b2fafe8002",
+    "name": "Bulezau Horn (x2)",
+    "sentences": [
+      "The hard, pointed horns of a Bulezau have many uses."
+    ]
+  },
+  {
+    "id": "tg-harvest:chasme_proboscis:f6550759c3",
+    "name": "Chasme Proboscis",
+    "sentences": [
+      "The curved, horn-like nose that a chasme uses to suck blood from it's victims."
+    ]
+  },
+  {
+    "id": "tg-harvest:chimera_dragon_wing_x2:e556b67d18",
+    "name": "Chimera Dragon Wing (x2)",
+    "sentences": [
+      "Artificers and enchanters may find other uses for the wings."
+    ]
+  },
+  {
+    "id": "tg-harvest:cloud_giant_blood_7_vials:9b0837ae69",
+    "name": "Cloud Giant Blood (7 vials)",
+    "sentences": [
+      "The blood has many alchemical and medicinal uses."
+    ]
+  },
+  {
+    "id": "tg-harvest:collection_of_insect_parts_x1d8:0636ac1e81",
+    "name": "Collection of Insect Parts (x1d8)",
+    "sentences": [
+      "The little beast's wings, legs, eyes and tiny organs may have uses in potions, salves and ointments."
+    ]
+  },
+  {
+    "id": "tg-harvest:darkmantle_otolith:e76d71e706",
+    "name": "Darkmantle Otolith",
+    "sentences": [
+      "The otolith is a cartilage structure in the darkmantle's head that it uses to sense gravity and movement."
+    ]
+  },
+  {
+    "id": "tg-harvest:death_giant_blood_7_vials:7ea9925da9",
+    "name": "Death Giant Blood (7 vials)",
+    "sentences": [
+      "The blood has many alchemical and medicinal uses."
+    ]
+  },
+  {
+    "id": "tg-harvest:death_slaad_control_gem:8189b9fc69",
+    "name": "Death Slaad Control Gem",
+    "sentences": [
+      "Uses: If a slaad is killed, that slaad's gem can not be used to control other slaadi by itself."
+    ]
+  },
+  {
+    "id": "tg-harvest:dragonblood_ooze_slime_5_vials:30ee257c47",
+    "name": "Dragonblood Ooze Slime (5 vials)",
+    "sentences": [
+      "Dragon blood normally has many beneficial uses, but the tainted slime of a dragonblood ooze is a vile, acidic substance."
+    ]
+  },
+  {
+    "id": "tg-harvest:duergar_xarrorn_oil:540fbb1348",
+    "name": "Duergar Xarrorn Oil",
+    "sentences": [
+      "A duergar xarrorn carries a small jug of green oil, that it coats its lance with, and uses to fuel its fire spray."
+    ]
+  },
+  {
+    "id": "tg-harvest:egg_hunter_hatchling_s_tooth:3a59c0ecfb",
+    "name": "Egg Hunter Hatchling's Tooth",
+    "sentences": [
+      "An egg hunter has a small, hard, needle-like tooth that it uses to crack into an egg and suck out its contents."
+    ]
+  },
+  {
+    "id": "tg-harvest:egg_hunter_s_tooth:c2e7fc5f2e",
+    "name": "Egg Hunter's Tooth",
+    "sentences": [
+      "An egg hunter has a small, hard, needle-like tooth that it uses to crack into an egg and suck out its contents."
+    ]
+  },
+  {
+    "id": "tg-harvest:elder_brain_fluid_3_vials:c70ec1b16c",
+    "name": "Elder Brain Fluid (3 vials)",
+    "sentences": [
+      "The fluid has many uses to many spellcasters, craftsmen and alchemists."
+    ]
+  },
+  {
+    "id": "tg-harvest:ettercap_spinneret:7b542b2646",
+    "name": "Ettercap Spinneret",
+    "sentences": [
+      "An ettercaps spinneret is a small group of organs that the creature uses to make spider webs."
+    ]
+  },
+  {
+    "id": "tg-harvest:eye_of_gruumsh_eyeball:d07f566e4d",
+    "name": "Eye of Gruumsh Eyeball",
+    "sentences": [
+      "Divination wizards and seers value the eye, but it also has uses among other spellcasters and alchemists."
+    ]
+  },
+  {
+    "id": "tg-harvest:fang_s_heart:b6ab085c65",
+    "name": "Fang's Heart",
+    "sentences": [
+      "Alchemists, demonologists, summoners and other spellcasters all have uses for the heart."
+    ]
+  },
+  {
+    "id": "tg-harvest:fire_giant_blood_7_vials:a4d685b210",
+    "name": "Fire Giant Blood (7 vials)",
+    "sentences": [
+      "The blood has many alchemical and medicinal uses."
+    ]
+  },
+  {
+    "id": "tg-harvest:flind_s_heart:00fc026c53",
+    "name": "Flind's Heart",
+    "sentences": [
+      "Alchemists, demonologists, summoners and other spellcasters all have uses for the heart."
+    ]
+  },
+  {
+    "id": "tg-harvest:flumph_stench_vial:0d80073e4a",
+    "name": "Flumph Stench (Vial)",
+    "sentences": [
+      "A creature can remove the stench on itself by using a short rest to bathe in water, alcohol, or vinegar."
+    ]
+  },
+  {
+    "id": "tg-harvest:fomorian_evil_eye:76d929f858",
+    "name": "Fomorian \"Evil Eye\"",
+    "sentences": [
+      "The eye can be difficult to harvest without popping, but has various uses."
+    ]
+  },
+  {
+    "id": "tg-harvest:frost_giant_blood_7_vials:ac7efe0a71",
+    "name": "Frost Giant Blood (7 vials)",
+    "sentences": [
+      "The blood has many alchemical and medicinal uses."
+    ]
+  },
+  {
+    "id": "tg-harvest:gas_spore_gas_vial:79ac5621e7",
+    "name": "Gas Spore Gas (vial)",
+    "sentences": [
+      "Tinkerers and artificers may find uses for the gases."
+    ]
+  },
+  {
+    "id": "tg-harvest:gauth_stomach:4e66100e00",
+    "name": "Gauth Stomach",
+    "sentences": [
+      "The item will lose all it's magical properties for 24 hours, as well as 1d4 charges (if it is a charged item)."
+    ]
+  },
+  {
+    "id": "tg-harvest:geryon_blood_9_vials:dd73d00732",
+    "name": "Geryon Blood (9 vials)",
+    "sentences": [
+      "Any creature successfully hit must succeed a DC 17 Constitution saving throw or suffer 2d12 poison damage and be poisoned until it finishes a short or long rest."
+    ]
+  },
+  {
+    "id": "tg-harvest:geryon_s_wings:3eadb66461",
+    "name": "Geryon's Wings",
+    "sentences": [
+      "Artificers and enchanters may be able to find other uses for the wings."
+    ]
+  },
+  {
+    "id": "tg-harvest:giant_badger_claws:b0c6970b03",
+    "name": "Giant Badger Claws",
+    "sentences": [
+      "The giant badger primarily uses it's claws to dig burrows and find food underground."
+    ]
+  },
+  {
+    "id": "tg-harvest:giant_mosquito_proboscis:c8af0e3b67",
+    "name": "Giant Mosquito Proboscis",
+    "sentences": [
+      "A giant mosquito has a long, needle-like proboscis that it uses to suck its victim's blood."
+    ]
+  },
+  {
+    "id": "tg-harvest:gray_slaad_control_gem:11adff2d12",
+    "name": "Gray Slaad Control Gem",
+    "sentences": [
+      "Uses: If a slaad is killed, that slaad's gem can not be used to control other slaadi by itself."
+    ]
+  },
+  {
+    "id": "tg-harvest:green_slaad_control_gem:df005db421",
+    "name": "Green Slaad Control Gem",
+    "sentences": [
+      "Uses: If a slaad is killed, that slaad's gem can not be used to control other slaadi by itself."
+    ]
+  },
+  {
+    "id": "tg-harvest:griffon_eye_x2:b6d293f660",
+    "name": "Griffon Eye (x2)",
+    "sentences": [
+      "Alchemists and healers may find other uses for the eyes."
+    ]
+  },
+  {
+    "id": "tg-harvest:hedgehog_hide:6943e2c413",
+    "name": "Hedgehog Hide",
+    "sentences": [
+      "The hedgehog's hide is covered in protective spines that it uses to roll into a protective ball."
+    ]
+  },
+  {
+    "id": "tg-harvest:hell_hound_sulfur_vial:77b6b26276",
+    "name": "Hell Hound Sulfur (vial)",
+    "sentences": [
+      "The sulfur has various alchemical properties and uses."
+    ]
+  },
+  {
+    "id": "tg-harvest:hill_giant_blood_7_vials:0a6864f1e5",
+    "name": "Hill Giant Blood (7 vials)",
+    "sentences": [
+      "The blood has many alchemical and medicinal uses."
+    ]
+  },
+  {
+    "id": "tg-harvest:hippogriff_eye_x2:1d1cc2940b",
+    "name": "Hippogriff Eye (x2)",
+    "sentences": [
+      "Alchemists and healers may find other uses for the eyes."
+    ]
+  },
+  {
+    "id": "tg-harvest:hutijin_s_wings:9571e7e272",
+    "name": "Hutijin's Wings",
+    "sentences": [
+      "Artificers and enchanters may be able to find other uses for the wings."
+    ]
+  },
+  {
+    "id": "tg-harvest:jackalwere_heart:328102a025",
+    "name": "Jackalwere Heart",
+    "sentences": [
+      "Summoners and alchemists may also find uses for the heart."
+    ]
+  },
+  {
+    "id": "tg-harvest:jammer_leech_secretions_vial:5634d7adf8",
+    "name": "Jammer Leech Secretions (vial)",
+    "sentences": [
+      "This glue is a strong adhesive with various uses."
+    ]
+  },
+  {
+    "id": "tg-harvest:kobold_dragonshield_blood_vial:ca04869598",
+    "name": "Kobold Dragonshield Blood (vial)",
+    "sentences": [
+      "Uses: If a creature is frightened or paralyzed, they can use an action to drink the blood, or pour it down another creatures throat."
+    ]
+  },
+  {
+    "id": "tg-harvest:kraken_ink_5_vials:e67eaceffc",
+    "name": "Kraken Ink (5 vials)",
+    "sentences": [
+      "The ink, which the kraken uses to expel a giant ink cloud, is a black, free flowing liquid."
+    ]
+  },
+  {
+    "id": "tg-harvest:lock_of_empyrean_hair_x10:decfa3d157",
+    "name": "Lock of Empyrean Hair (x10)",
+    "sentences": [
+      "The hair has many uses: it can be used to make fine wigs, it's celestial origins make it a useful alchemy ingredient, and it has numerous arcane properties, making it valued in the magic community."
+    ]
+  },
+  {
+    "id": "tg-harvest:mark_of_raxivort_vial:a95f968dae",
+    "name": "Mark of Raxivort (vial)",
+    "sentences": [
+      "The mark has several alchemical uses, but spellcasters may be able to tap into the demigod's power."
+    ]
+  },
+  {
+    "id": "tg-harvest:meenlock_claws_x2:81e14985f6",
+    "name": "Meenlock Claws (x2)",
+    "sentences": [
+      "The venom loses its potency when the creature dies, but the claws still have various uses."
+    ]
+  },
+  {
+    "id": "tg-harvest:merrow_blood_3_vials:64aa8deef8",
+    "name": "Merrow Blood (3 vials)",
+    "sentences": [
+      "One of the most common uses of their blood is for the ubiquitous potion of water breathing."
+    ]
+  },
+  {
+    "id": "tg-harvest:minotaur_horn_x2:8c57dc696b",
+    "name": "Minotaur Horn (x2)",
+    "sentences": [
+      "The hard, pointed horns of a minotaur have many uses."
+    ]
+  },
+  {
+    "id": "tg-harvest:morkoth_eye_x2:c2e3297528",
+    "name": "Morkoth Eye (x2)",
+    "sentences": [
+      "Spellcasters, artificers and alchemists all have uses for a morkoth's eyes."
+    ]
+  },
+  {
+    "id": "tg-harvest:naga_spine:59151c6f2a",
+    "name": "Naga Spine",
+    "sentences": [
+      "The bones have various uses, especially to make tools and sculptures."
+    ]
+  },
+  {
+    "id": "tg-harvest:naga_spine:faae430816",
+    "name": "Naga Spine",
+    "sentences": [
+      "The bones have various uses, especially to make tools and sculptures."
+    ]
+  },
+  {
+    "id": "tg-harvest:nightmare_fuel_flask:ffbe4f1ab1",
+    "name": "Nightmare Fuel (flask)",
+    "sentences": [
+      "Alchemists and spellcasters can find many uses for this liquid."
+    ]
+  },
+  {
+    "id": "tg-harvest:orc_chief_tusks:be1153da1d",
+    "name": "Orc Chief Tusks",
+    "sentences": [
+      "While these tusks have little uses, except for ornamentation and trophies, they can be used to collect the bounty for an orc."
+    ]
+  },
+  {
+    "id": "tg-harvest:orc_tusks:9ce6d2b000",
+    "name": "Orc Tusks",
+    "sentences": [
+      "While these tusks have little uses, except for ornamentation and trophies, they can be used to collect the bounty for an orc."
+    ]
+  },
+  {
+    "id": "tg-harvest:orc_tusks:e6e9a45cdc",
+    "name": "Orc Tusks",
+    "sentences": [
+      "While these tusks have little uses, except for ornamentation and trophies, they can be used to collect the bounty for an orc."
+    ]
+  },
+  {
+    "id": "tg-harvest:orcus_wings:1ffa4ae5d3",
+    "name": "Orcus' Wings",
+    "sentences": [
+      "Artificers and enchanters may be able to find other uses for the wings."
+    ]
+  },
+  {
+    "id": "tg-harvest:otyugh_saliva_vial:30c80e65a0",
+    "name": "Otyugh Saliva (vial)",
+    "sentences": [
+      "The fluid has a number of uses in the alchemical community."
+    ]
+  },
+  {
+    "id": "tg-harvest:piercer_slime_vial:edb287c595",
+    "name": "Piercer Slime (vial)",
+    "sentences": [
+      "A piercer's underbelly is covered in a thick, sticky slime that it uses to climb up walls and aid in clinging to the ceiling."
+    ]
+  },
+  {
+    "id": "tg-harvest:pixie_dust_small_pouch:f5f5182e23",
+    "name": "Pixie Dust (small pouch)",
+    "sentences": [
+      "The dust has a variety of uses, especially among spellcasters and alchemists."
+    ]
+  },
+  {
+    "id": "tg-harvest:rat_carcass:f88a83acee",
+    "name": "Rat Carcass",
+    "sentences": [
+      "The little beast's eyes, tiny teeth and organs may have uses in potions, salves and ointments."
+    ]
+  },
+  {
+    "id": "tg-harvest:red_slaad_control_gem:9ee10ddef3",
+    "name": "Red Slaad Control Gem",
+    "sentences": [
+      "Uses: If a slaad is killed, that slaad's gem can not be used to control other slaadi by itself."
+    ]
+  },
+  {
+    "id": "tg-harvest:rot_grubs_x2d10:39eaf48399",
+    "name": "Rot Grubs (x2d10)",
+    "sentences": [
+      "If the rot grubs aren't completely destroyed, dead rot grubs can be can sold to alchemists and healers, and may have uses in potions, salves and ointments."
+    ]
+  },
+  {
+    "id": "tg-harvest:satyr_horn_x2:7b56e99643",
+    "name": "Satyr Horn (x2)",
+    "sentences": [
+      "A satyr's horns are different for each satyr, and have a variety of uses."
+    ]
+  },
+  {
+    "id": "tg-harvest:sea_horse_carcass:55bdb7241b",
+    "name": "Sea Horse Carcass",
+    "sentences": [
+      "The little beast's eyes, snout, tail, bones and organs may have uses in potions, salves and ointments."
+    ]
+  },
+  {
+    "id": "tg-harvest:sea_serpent_fins_x10:3baa2f2398",
+    "name": "Sea Serpent Fins (x10)",
+    "sentences": [
+      "The fins of a young sea serpent have a variety of uses."
+    ]
+  },
+  {
+    "id": "tg-harvest:sea_serpent_fins_x6:0fb5ae0c20",
+    "name": "Sea Serpent Fins (x6)",
+    "sentences": [
+      "The fins of a young sea serpent have a variety of uses."
+    ]
+  },
+  {
+    "id": "tg-harvest:shambling_mound_moss_x3_pouch:40ca54799d",
+    "name": "Shambling Mound Moss (x3 pouch)",
+    "sentences": [
+      "The amorphous body of a shambling mound is often covered in a soft, green moss, which is usually layered with a variety of molds and fungus, all of which have some healing or botanical uses."
+    ]
+  },
+  {
+    "id": "tg-harvest:sibriex_chains:284786068a",
+    "name": "Sibriex Chains",
+    "sentences": [
+      "A sibriex often wears a harness of thick chains that is uses to tether itself, and move about the ground."
+    ]
+  },
+  {
+    "id": "tg-harvest:specter_dust:5739542496",
+    "name": "Specter Dust",
+    "sentences": [
+      "The dust resonates with dark necrotic energy and is highly valued by necromancers, but has uses in other areas."
+    ]
+  },
+  {
+    "id": "tg-harvest:spined_devil_spines:3a5489ba68",
+    "name": "Spined Devil Spines",
+    "sentences": [
+      "The spine devil's spines are hard, sharp needles that have a variety of uses."
+    ]
+  },
+  {
+    "id": "tg-harvest:sprite_dust_small_pouch:1420914c23",
+    "name": "Sprite Dust (small pouch)",
+    "sentences": [
+      "The dust has a variety of uses, especially among spellcasters and alchemists."
+    ]
+  },
+  {
+    "id": "tg-harvest:stirge_needle:a7218d7582",
+    "name": "Stirge Needle",
+    "sentences": [
+      "A stirge has a long, needle-like proboscis that it uses to suck its victim's blood."
+    ]
+  },
+  {
+    "id": "tg-harvest:stone_cursed_obsidian_skull:108e38aa7b",
+    "name": "Stone Cursed Obsidian Skull",
+    "sentences": [
+      "Use: At the end of a short rest, a character can make a DC 20 Intelligence (Arcana) check to attempt to extract a memory from the skull that is a response to a verbal question posed to the skull by the characters."
+    ]
+  },
+  {
+    "id": "tg-harvest:stone_giant_blood_7_vials:627511c4cb",
+    "name": "Stone Giant Blood (7 vials)",
+    "sentences": [
+      "The blood has many alchemical and medicinal uses."
+    ]
+  },
+  {
+    "id": "tg-harvest:storm_giant_blood_7_vials:0924c6a9bb",
+    "name": "Storm Giant Blood (7 vials)",
+    "sentences": [
+      "The blood has many alchemical and medicinal uses."
+    ]
+  },
+  {
+    "id": "tg-harvest:storm_giant_sternum:1e64330db5",
+    "name": "Storm Giant Sternum",
+    "sentences": [
+      "The storm giant uses the sternum to focus its innate magical abilities."
+    ]
+  },
+  {
+    "id": "tg-harvest:storm_giant_sternum:e010245838",
+    "name": "Storm Giant Sternum",
+    "sentences": [
+      "The storm giant uses the sternum to focus its innate magical abilities."
+    ]
+  },
+  {
+    "id": "tg-harvest:tanarukk_blood_vial:fc3fb8f318",
+    "name": "Tanarukk Blood (vial)",
+    "sentences": [
+      "Alchemists, summoners and demonologists have uses for this blood."
+    ]
+  },
+  {
+    "id": "tg-harvest:titivilus_blood_3_vials:73d5893f77",
+    "name": "Titivilus' Blood (3 vials)",
+    "sentences": [
+      "Fiend blood has many uses to alchemists and conjurers."
+    ]
+  },
+  {
+    "id": "tg-harvest:titivilus_wings:bb53f352d2",
+    "name": "Titivilus' Wings",
+    "sentences": [
+      "Artificers and enchanters may be able to find other uses for the wings."
+    ]
+  },
+  {
+    "id": "tg-harvest:vampire_hair_pouch:b661c40c8d",
+    "name": "Vampire Hair (pouch)",
+    "sentences": [
+      "The hair has uses in arcane rituals and potions."
+    ]
+  },
+  {
+    "id": "tg-harvest:velociraptor_pheromones_vial:7ca22d10a6",
+    "name": "Velociraptor Pheromones (vial)",
+    "sentences": [
+      "The velociraptor uses its pheromones to communicate with the rest of their pack.",
+      "The vials effect stops working after 3 uses."
+    ]
+  }
+]

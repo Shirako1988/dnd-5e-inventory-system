@@ -1,0 +1,83 @@
+import {chromium} from 'playwright';
+import {spawn} from 'node:child_process';
+import assert from 'node:assert/strict';
+import {mkdir} from 'node:fs/promises';
+const vite=spawn(process.execPath,['node_modules/vite/bin/vite.js','--host','127.0.0.1','--port','4173','--strictPort'],{stdio:'pipe'});
+let output='';vite.stdout.on('data',d=>output+=d);vite.stderr.on('data',d=>output+=d);
+const origin='http://127.0.0.1:4173/dnd-5e-inventory-system/';let browser;
+try{
+ for(let i=0;i<200;i++){try{if((await fetch(origin)).ok)break;}catch{}await new Promise(r=>setTimeout(r,100));}
+ browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_EXECUTABLE_PATH || chromium.executablePath(),args:['--no-sandbox']});
+ const page=await browser.newPage({viewport:{width:1440,height:1050}});const errors=[];
+ const thumbnail=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=c.height=1024;const ctx=c.getContext('2d');ctx.fillStyle='#94672f';ctx.fillRect(0,0,1024,1024);return c.toDataURL('image/png').split(',')[1];});
+ const imageRequests=[];
+ await page.route('https://images.test/**',async route=>{imageRequests.push(route.request().url());await route.fulfill({status:200,headers:{'access-control-allow-origin':'*','content-type':'image/png'},body:Buffer.from(thumbnail,'base64')});});
+ page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
+ await page.addInitScript(()=>{
+  if(localStorage.getItem('test-seeded'))return;
+  const access={targetMode:'all',targetUserIds:[],depositMode:'all',depositUserIds:[],readMode:'all',readUserIds:[],writeMode:'all',writeUserIds:[]};
+  const bag=id=>({id,name:id==='a'?'Testinventar':'Zielinventar',ownerUid:null,type:'party',kind:'inventory',sortIndex:id==='a'?0:1,maxWeight:null,maxVolume:null,currentWeight:20,currentVolume:0,currentValue:30,itemCount:7,currency:id==='a'?{pp:1,gp:2,ep:3,sp:4,cp:5}:{pp:0,gp:0,ep:0,sp:0,cp:0},access,targetAccessKeys:['__all__'],createdAt:1,updatedAt:1});
+  const item=(id,name,quantity)=>({id,bagId:'a',name,quantity,weightPerUnit:1,volumePerUnit:0,valuePerUnit:10,description:'',notes:'',category:'tool',createdBy:'local',updatedBy:'local',createdAt:1,updatedAt:1});
+  localStorage.setItem('dnd-inventory-bags',JSON.stringify([bag('a'),bag('b')]));
+  localStorage.setItem('dnd-inventory-items',JSON.stringify([
+   {...item('kit','Test-Kit',3),imageUrl:'https://images.test/kit.png',resources:[{id:'uses',name:'Anwendungen',current:10,maximum:10,reset:'none',recovery:'all'}]},
+   {...item('rest','Test-Stab',2),resources:[{id:'short',name:'Kurze Rast',current:0,maximum:3,reset:'shortRest',recovery:'all'},{id:'dawn',name:'Morgen',current:0,maximum:4,reset:'dawn',recovery:'all'}]},
+   {...item('goods','Schwert zum Verkauf',3),category:'sale'},
+   {...item('rations','Rationen',2),category:'sale'},
+  ]));localStorage.setItem('test-seeded','1');
+ });
+ await page.goto(origin);await page.getByRole('heading',{name:'Items in dieser Tasche'}).waitFor();
+ const records=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('dnd-inventory-items')));
+ const bags=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('dnd-inventory-bags')));
+ await page.locator('[data-item-id="kit"]').getByRole('button',{name:'Verbrauchen'}).click();
+ await page.waitForFunction(()=>JSON.parse(localStorage.getItem('dnd-inventory-items')).some(i=>i.name==='Test-Kit'&&i.resources[0].current===9));
+ let kits=(await records()).filter(i=>i.name==='Test-Kit');assert.deepEqual(kits.map(i=>[i.quantity,i.resources[0].current]).sort(),[[1,9],[2,10]]);
+ let partial=kits.find(i=>i.quantity===1);await page.locator(`[data-item-id="${partial.id}"]`).getByRole('spinbutton').fill('2');await page.locator(`[data-item-id="${partial.id}"]`).getByRole('button',{name:'Verbrauchen'}).click();
+ await page.waitForFunction(()=>JSON.parse(localStorage.getItem('dnd-inventory-items')).some(i=>i.name==='Test-Kit'&&i.resources[0].current===7));
+ await page.waitForFunction(()=>Array.from(document.images).some(i=>i.src.startsWith('blob:')&&i.complete&&i.naturalWidth===384));
+ assert.equal(imageRequests.length,1);
+ console.log('PASS: visible image downloads once and is resized to a 384px cached preview');
+ console.log('PASS: per-exemplar consumption and stack splitting');
+ await page.getByRole('button',{name:'Long Rest',exact:true}).click();await page.getByRole('button',{name:'Regenerieren',exact:true}).click();
+ await page.waitForFunction(()=>JSON.parse(localStorage.getItem('dnd-inventory-items')).some(i=>i.name==='Test-Stab'&&i.resources[0].current===3));
+ let staff=(await records()).find(i=>i.name==='Test-Stab');assert.equal(staff.resources[1].current,0);
+ await page.locator(`[data-item-id="${staff.id}"]`).getByRole('button',{name:'Verbrauchen',exact:true}).first().click();
+ await page.waitForFunction(()=>JSON.parse(localStorage.getItem('dnd-inventory-items')).filter(i=>i.name==='Test-Stab').length===2);
+ await page.getByRole('button',{name:'Long Rest',exact:true}).click();await page.getByRole('button',{name:'Regenerieren',exact:true}).click();
+ await page.waitForFunction(()=>JSON.parse(localStorage.getItem('dnd-inventory-items')).filter(i=>i.name==='Test-Stab').length===1);
+ assert.equal((await records()).find(i=>i.name==='Test-Stab').quantity,2);
+ console.log('PASS: rest merges matching recovered specimens without quantity loss');
+ await page.getByRole('button',{name:'Dawn',exact:true}).click();await page.getByRole('button',{name:'Regenerieren',exact:true}).click();
+ await page.waitForFunction(()=>JSON.parse(localStorage.getItem('dnd-inventory-items')).some(i=>i.name==='Test-Stab'&&i.resources[1].current===4));
+ assert.equal((await records()).find(i=>i.name==='Test-Kit'&&i.quantity===1).resources[0].current,7);
+ console.log('PASS: Long Rest includes Short Rest; Dawn and non-regenerating kits remain independent');
+ await page.locator('[data-item-id="goods"]').getByRole('button',{name:'Verkaufen',exact:true}).click();await page.getByRole('spinbutton',{name:'Verkaufsmenge'}).fill('2');await page.getByRole('button',{name:'Verkaufen und löschen'}).click();
+ await page.waitForFunction(()=>JSON.parse(localStorage.getItem('dnd-inventory-items')).find(i=>i.id==='goods')?.quantity===1);
+ assert.equal((await records()).find(i=>i.id==='rations').quantity,2);
+ console.log('PASS: partial single-item sale leaves rations and remaining sword intact');
+ await page.getByRole('button',{name:'Alle Münzen übertragen',exact:true}).click();
+ await page.waitForFunction(()=>Object.values(JSON.parse(localStorage.getItem('dnd-inventory-bags'))[0].currency).every(n=>n===0));
+ const money=await bags();assert.ok(Object.values(money.find(b=>b.id==='b').currency).some(n=>n>0));assert.ok(await page.getByRole('button',{name:'Rückgängig',exact:true}).isDisabled());
+ console.log('PASS: all denominations transferred together; no unsafe single-sided undo');
+ await page.getByRole('button',{name:'Inventar Zielinventar einklappen'}).click();await page.reload();await page.getByRole('button',{name:'Inventar Zielinventar ausklappen'}).waitFor();
+ assert.equal((await records()).filter(i=>i.name==='Test-Kit').reduce((n,i)=>n+i.quantity,0),3);
+ await page.locator('[data-item-id="kit"]').scrollIntoViewIfNeeded();
+ await page.waitForFunction(()=>Array.from(document.images).some(i=>i.src.startsWith('blob:')&&i.complete&&i.naturalWidth===384));
+ assert.equal(imageRequests.length,1);
+ console.log('PASS: thumbnail survives reload without another original download');
+ console.log('PASS: collapsed inventories and resource states survive reload');
+ await page.getByPlaceholder('z. B. Heiltrank, rope, longsword...').fill("Healer's Kit");
+ await page.getByRole('button').filter({hasText:/Healer's Kit/}).first().click();
+ await page.getByLabel('Maximale Anwendungen 1').waitFor();assert.equal(await page.getByLabel('Maximale Anwendungen 1').inputValue(),'10');assert.equal(await page.getByLabel('Regeneration 1').inputValue(),'none');
+ console.log('PASS: catalog loads on demand with configured kit resources');
+ await page.locator('[data-item-id="kit"]').getByRole('button',{name:'Bearbeiten',exact:true}).click();
+ const editor=page.locator('[data-item-id="kit"]');
+ await editor.getByLabel('Ressourcenname 1').fill('Verbände');await editor.getByLabel('Maximale Anwendungen 1').fill('12');await editor.getByLabel('Regeneration 1').selectOption('shortRest');await editor.getByLabel('Regenerationsmenge 1').fill('2');await editor.getByRole('button',{name:'Speichern',exact:true}).click();
+ await page.waitForFunction(()=>JSON.parse(localStorage.getItem('dnd-inventory-items')).find(i=>i.id==='kit')?.resources[0].name==='Verbände');
+ const edited=(await records()).find(i=>i.id==='kit');assert.equal(edited.resources[0].maximum,12);assert.equal(edited.resources[0].reset,'shortRest');assert.equal(edited.resources[0].recovery,'2');
+ console.log('PASS: resource name, maximum, reset and recovery are editable');
+ await mkdir('test-results',{recursive:true});await page.screenshot({path:'test-results/inventory-desktop.png',fullPage:true});
+ await page.setViewportSize({width:390,height:844});await page.screenshot({path:'test-results/inventory-mobile.png',fullPage:true});
+ assert.equal(errors.length,0,errors.join('\n'));
+ console.log('PASS: no browser runtime exceptions');
+}finally{await browser?.close();vite.kill('SIGTERM');if(!browser)console.log(output);}

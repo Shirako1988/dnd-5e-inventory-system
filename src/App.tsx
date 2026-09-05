@@ -1,3 +1,8 @@
+import { ThumbnailImage } from "./ThumbnailImage";
+import { itemResources, resourceSignature, resourceError, consumeResource, recoverResource, recoversAt, seededRandom, restLabels, type ItemResource, type RestEvent } from "./resources";
+import { commitInventoryOperation, finalizePlan, isResourceItem, type InventoryPlan, type PlanBuilder } from "./inventoryStore";
+import { ResourceEditor, ResourceControls } from "./ResourceEditor";
+import { catalogResources } from "./catalogResources";
 import React, { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   Backpack,
@@ -52,7 +57,7 @@ import {
   Maximize2,
   RotateCcw,
 } from "lucide-react";
-import itemCatalogData from "./data/itemCatalog.json";
+
 import { initializeApp } from "firebase/app";
 import {
   createUserWithEmailAndPassword,
@@ -70,6 +75,9 @@ import {
   doc,
   documentId,
   getDoc,
+  getDocFromServer,
+  getDocsFromServer,
+  runTransaction,
   getDocs,
   getFirestore,
   increment,
@@ -104,7 +112,7 @@ type CatalogItem = {
   description: string;
 };
 
-const baseItemCatalog = itemCatalogData as CatalogItem[];
+let baseItemCatalog: CatalogItem[] = [];
 
 type LootQualityVariant = {
   code: "TQ" | "LQ" | "SQ";
@@ -159,7 +167,11 @@ function buildLootQualityCatalogVariants(entries: CatalogItem[]) {
   return variants;
 }
 
-const itemCatalog = [...baseItemCatalog, ...buildLootQualityCatalogVariants(baseItemCatalog)];
+let itemCatalog: CatalogItem[] = [];
+let catalogLoading: Promise<void> | undefined;
+function loadItemCatalog() {
+  return catalogLoading ??= import("./data/itemCatalog.json").then(module=>{baseItemCatalog=module.default as CatalogItem[];itemCatalog=[...baseItemCatalog,...buildLootQualityCatalogVariants(baseItemCatalog)];}).catch(error=>{catalogLoading=undefined;throw error;});
+}
 
 const ITEM_CATEGORIES: { id: ItemCategory; label: string; shortLabel: string; hint: string }[] = [
   { id: "weapon", label: "Waffen", shortLabel: "Waffe", hint: "Nah- und Fernkampfwaffen" },
@@ -305,7 +317,10 @@ type CampaignMember = {
   campaignName?: string;
 };
 
-type Bag = {
+export type Bag = {
+  updatedBy?: string;
+  mutationVersion?: number;
+  resourceRevision?: number;
   id: string;
   name: string;
   description?: string;
@@ -341,7 +356,11 @@ type Bag = {
   updatedAt: number;
 };
 
-type InventoryItem = {
+export type InventoryItem = {
+  resources?: ItemResource[];
+  resourceVersion?: number;
+  resourceRevision?: number;
+  catalogId?: string;
   id: string;
   bagId: string;
   name: string;
@@ -369,7 +388,7 @@ type InventoryItem = {
 
 type AuditLogCategory = "all" | "items" | "currency" | "bags" | "members" | "campaign" | "system";
 
-type AuditLogEntry = {
+export type AuditLogEntry = {
   id: string;
   actorUid: string;
   actorName: string;
@@ -382,11 +401,11 @@ type AuditLogEntry = {
 
 
 type CampaignBackup = {
-  schema: "dnd_inventory_manager_backup_v1";
+  schema: "dnd_inventory_manager_backup_v1" | "dnd_inventory_manager_backup_v2";
   exportedAt: number;
   exportedBy: { uid: string; displayName: string; role: MemberRole | "local" };
   reason: "manual_export" | "mirror_auto" | "mirror_manual";
-  app: { name: "DND Inventory Manager"; backupVersion: 1 };
+  app: { name: "DND Inventory Manager"; backupVersion: 1 | 2 };
   campaign: Campaign | null;
   member: CampaignMember | null;
   members: CampaignMember[];
@@ -502,6 +521,8 @@ type TransferTarget = {
 
 type SaleConfirmTarget = {
   bagId: string;
+  itemId?: string;
+  quantity?: string;
 } | null;
 
 type ThumbnailTarget =
@@ -656,11 +677,12 @@ function downloadJsonFile(filename: string, payload: unknown) {
 function validateCampaignBackupPayload(payload: unknown): CampaignBackup {
   if (!payload || typeof payload !== "object") throw new Error("Die Datei enthält kein gültiges JSON-Objekt.");
   const backup = payload as Partial<CampaignBackup>;
-  if (backup.schema !== "dnd_inventory_manager_backup_v1") throw new Error("Diese Datei ist kein DND-Inventory-Backup oder nutzt ein unbekanntes Format.");
+  if (backup.schema !== "dnd_inventory_manager_backup_v1" && backup.schema !== "dnd_inventory_manager_backup_v2") throw new Error("Diese Datei ist kein DND-Inventory-Backup oder nutzt ein unbekanntes Format.");
   if (!backup.campaign || typeof backup.campaign.name !== "string") throw new Error("Im Backup fehlt die Kampagne.");
   if (!Array.isArray(backup.members)) throw new Error("Im Backup fehlt die Mitgliederliste.");
   if (!Array.isArray(backup.bags)) throw new Error("Im Backup fehlen die Taschen.");
   if (!Array.isArray(backup.items)) throw new Error("Im Backup fehlen die Items.");
+  for (const item of backup.items) { if (item.resources !== undefined) { if (!Array.isArray(item.resources)) throw new Error("Ungültige Ressourcen im Backup."); const error=resourceError(item.resources); if(error) throw new Error(`${item.name}: ${error}`); } }
   if (!Array.isArray(backup.auditLog)) backup.auditLog = [];
   if (!backup.localState) {
     backup.localState = { selectedBagId: "", bagOrderIds: [], itemSortKey: "custom", itemSortDirection: "asc", collapsedCategoryKeys: [] };
@@ -1098,13 +1120,10 @@ function stackComparableNumber(value: number | null | undefined) {
   return value === null || value === undefined ? "null" : String(value);
 }
 
-function itemStackKey(item: Pick<InventoryItem, "name" | "weightPerUnit" | "volumePerUnit" | "valuePerUnit">) {
-  return [
-    stackComparableText(item.name),
-    stackComparableNumber(item.weightPerUnit),
-    stackComparableNumber(item.volumePerUnit),
-    stackComparableNumber(item.valuePerUnit),
-  ].join("||");
+function itemStackKey(item: Pick<InventoryItem, "name" | "weightPerUnit" | "volumePerUnit" | "valuePerUnit"> & Partial<InventoryItem>) {
+  const legacyKey = [stackComparableText(item.name), stackComparableNumber(item.weightPerUnit), stackComparableNumber(item.volumePerUnit), stackComparableNumber(item.valuePerUnit)].join("||");
+  if (!itemResources(item).length) return legacyKey;
+  return legacyKey + "||resources-v1||" + resourceSignature(itemResources(item)) + "||" + JSON.stringify([item.description || "", item.notes || "", item.category || "gear", item.imageUrl || "", item.imageZoom ?? 1, item.imagePositionX ?? 50, item.imagePositionY ?? 50]);
 }
 
 function stableHash(value: string) {
@@ -1120,7 +1139,7 @@ function stableHash(value: string) {
   return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
 }
 
-function stackDocumentId(bagId: string, item: Pick<InventoryItem, "name" | "weightPerUnit" | "volumePerUnit" | "valuePerUnit">) {
+function stackDocumentId(bagId: string, item: Pick<InventoryItem, "name" | "weightPerUnit" | "volumePerUnit" | "valuePerUnit"> & Partial<InventoryItem>) {
   return `stack_${stableHash(`${bagId}||${itemStackKey(item)}`)}`;
 }
 
@@ -1507,7 +1526,19 @@ export default function App() {
   const [systemDark, setSystemDark] = useState(false);
 
   const [syncStatus, setSyncStatus] = useState<"local" | "connecting" | "online" | "error">(firebaseConfigured ? "connecting" : "local");
-  const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncError, setRawSyncError] = useState<string | null>(null);
+  const [persistentError, setPersistentError] = useState<string | null>(null);
+  function setSyncError(message: string | null) {
+    setRawSyncError(message);
+    if (message && !message.startsWith("Kampagnendaten werden")) setPersistentError(message);
+  }
+  const operationLock = useRef(false);
+  const [operationBusy, setOperationBusy] = useState(false);
+  const [restConfirm, setRestConfirm] = useState<{bagId: string; event: RestEvent; version: number; updatedAt: number} | null>(null);
+  const [operationNotice, setOperationNotice] = useState("");
+  const [collapsedBagIds, setCollapsedBagIds] = useState<string[]>([]);
+  const [newResources, setNewResources] = useState<ItemResource[]>([]);
+  const [newCatalogId, setNewCatalogId] = useState<string | undefined>();
   const [userUid, setUserUid] = useState<string | null>(null);
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [accountBusy, setAccountBusy] = useState(false);
@@ -1572,6 +1603,8 @@ export default function App() {
   const [expandedItemIds, setExpandedItemIds] = useState<string[]>([]);
   const [collapsedCategoryKeys, setCollapsedCategoryKeys] = useState<string[]>([]);
   const [itemCatalogOpen, setItemCatalogOpen] = useState(false);
+  const [catalogVersion,setCatalogVersion]=useState(itemCatalog.length);
+  useEffect(()=>{if(!itemCatalogOpen&&!editingItemId)return;let alive=true;loadItemCatalog().then(()=>{if(alive)setCatalogVersion(itemCatalog.length);}).catch(()=>{if(alive)setSyncError("Der Gegenstandskatalog konnte nicht geladen werden. Bitte erneut öffnen.");});return()=>{alive=false;};},[itemCatalogOpen,editingItemId]);
   const [newBagName, setNewBagName] = useState("");
   const [newBagKind, setNewBagKind] = useState<BagKind>("inventory");
   const [newItem, setNewItem] = useState({
@@ -1926,6 +1959,10 @@ export default function App() {
   const currentBagOrderStorageKey = bagOrderStorageKey(activeCampaignId, activeUid);
   const currentSelectedBagStorageKey = selectedBagStorageKey(activeCampaignId, activeUid);
   const currentCollapsedCategoriesStorageKey = collapsedCategoriesStorageKey(activeCampaignId, activeUid);
+  const collapsedBagsKey = `inventory-collapsed-bags:${activeCampaignId??'local'}:${activeUid}`;
+  useEffect(()=>{try{const saved=JSON.parse(localStorage.getItem(collapsedBagsKey)??'[]');setCollapsedBagIds(Array.isArray(saved)?saved.filter((x:unknown)=>typeof x==='string'):[]);}catch{setCollapsedBagIds([]);}},[collapsedBagsKey]);
+  function toggleBagCollapsed(id:string){setCollapsedBagIds(prev=>{const next=prev.includes(id)?prev.filter(x=>x!==id):[...prev,id];try{localStorage.setItem(collapsedBagsKey,JSON.stringify(next));}catch{}return next;});}
+
   const currentSidebarWidthStorageKey = sidebarWidthStorageKey(activeCampaignId, activeUid);
   const sortedMembers = useMemo(() => [...members].sort(compareCampaignMembers), [members]);
   const tradeRates = useMemo(() => campaignTradeRates(campaign), [campaign?.tradeRateName, campaign?.tradeBuyMultiplier, campaign?.tradeSellMultiplier]);
@@ -2036,7 +2073,7 @@ export default function App() {
 
   function buildCampaignBackup(reason: CampaignBackup["reason"]): CampaignBackup {
     return {
-      schema: "dnd_inventory_manager_backup_v1",
+      schema: "dnd_inventory_manager_backup_v2",
       exportedAt: Date.now(),
       exportedBy: {
         uid: activeUid,
@@ -2044,7 +2081,7 @@ export default function App() {
         role: member?.role ?? "local",
       },
       reason,
-      app: { name: "DND Inventory Manager", backupVersion: 1 },
+      app: { name: "DND Inventory Manager", backupVersion: 2 },
       campaign,
       member,
       members: [...members],
@@ -2207,6 +2244,9 @@ export default function App() {
   function normalizeLiveItem(raw: Partial<InventoryItem> | undefined, fallbackId: string, timestamp = Date.now()): InventoryItem {
     const source = raw ?? {};
     return {
+      ...(Array.isArray(source.resources) ? { resources: source.resources } : {}),
+      ...(source.resourceVersion === 1 ? { resourceVersion: 1, resourceRevision: source.resourceRevision ?? 0 } : {}),
+      ...(typeof source.catalogId === "string" ? { catalogId: source.catalogId } : {}),
       id: typeof source.id === "string" && source.id ? source.id : fallbackId,
       bagId: typeof source.bagId === "string" ? source.bagId : "",
       name: typeof source.name === "string" && source.name.trim() ? source.name.trim() : "Unbenanntes Item",
@@ -2368,6 +2408,7 @@ export default function App() {
         for (let index = 0; index < ops.length; index += 400) {
           const batch = writeBatch(db);
           for (const op of ops.slice(index, index + 400)) op(batch);
+          batch.update(doc(db, "campaigns", activeCampaignId!), {maintenanceRevision: increment(1)});
           await batch.commit();
         }
       }
@@ -2629,7 +2670,8 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (!firebaseConfigured || !firebaseDb || !activeCampaignId || !userUid || !member || !campaignAccessReady || !isApprovedMember) {
+    if (!firebaseConfigured) return;
+    if (!firebaseDb || !activeCampaignId || !userUid || !member || !campaignAccessReady || !isApprovedMember) {
       setBags([]);
       return;
     }
@@ -2692,7 +2734,8 @@ export default function App() {
   const selectedOpenableBagId = selectedBag && canOpenBag(selectedBag) ? selectedBag.id : "";
 
   useEffect(() => {
-    if (!firebaseConfigured || !firebaseDb || !activeCampaignId || !userUid || !member || !campaignAccessReady || !isApprovedMember || !selectedOpenableBagId) {
+    if (!firebaseConfigured) { setActiveItemsLoadedBagId(selectedOpenableBagId || null); return; }
+    if (!firebaseDb || !activeCampaignId || !userUid || !member || !campaignAccessReady || !isApprovedMember || !selectedOpenableBagId) {
       setItems([]);
       setActiveItemsLoadedBagId(null);
       return;
@@ -2822,7 +2865,7 @@ export default function App() {
       for (let nextIndex = 0; nextIndex < reordered.length; nextIndex += 1) {
         const entry = reordered[nextIndex];
         if (getItemOrderIndex(entry) !== nextIndex || entry.id === moved.id) {
-          batch.update(doc(firebaseDb, "campaigns", activeCampaignId, "items", entry.id), { orderIndex: nextIndex, updatedAt: nowTs, updatedBy: activeUid });
+          batch.update(doc(firebaseDb, "campaigns", activeCampaignId, "items", entry.id), { orderIndex: nextIndex, updatedAt: nowTs, updatedBy: activeUid, ...(isResourceItem(entry) ? {resourceVersion:1, resourceRevision:increment(1)} : {}) });
         }
       }
       await batch.commit();
@@ -2878,7 +2921,7 @@ export default function App() {
       .sort((a, b) => b.score - a.score || a.entry.name.localeCompare(b.entry.name, "de-DE"))
       .slice(0, 8)
       .map((value) => value.entry);
-  }, [newItem.name]);
+  }, [newItem.name, catalogVersion]);
 
   const bagTotals = useMemo(() => {
     const totals = new Map<string, { weight: number; volume: number; value: number; count: number }>();
@@ -2899,21 +2942,39 @@ export default function App() {
   }, [bags, itemsByBag, selectedOpenableBagId, activeItemsLoadedBagId]);
 
   useEffect(() => {
-    if (!firebaseConfigured || !firebaseDb || !activeCampaignId || !isDm || !campaignAccessReady || bags.length === 0) return;
-    if (!selectedOpenableBagId || activeItemsLoadedBagId !== selectedOpenableBagId) return;
-
-    for (const bag of bags) {
-      if (bag.id !== selectedOpenableBagId) continue;
-      const totals = bagTotals.get(bag.id) ?? { weight: 0, volume: 0, value: 0, count: 0 };
-      const weightChanged = Math.abs((bag.currentWeight ?? 0) - totals.weight) > 0.0001;
-      const volumeChanged = Math.abs((bag.currentVolume ?? 0) - totals.volume) > 0.0001;
-      const valueChanged = Math.abs((bag.currentValue ?? 0) - totals.value) > 0.0001;
-      const countChanged = (bag.itemCount ?? 0) !== totals.count;
-
-      if (weightChanged || volumeChanged || valueChanged || countChanged) {
-        updateDoc(doc(firebaseDb, "campaigns", activeCampaignId, "bags", bag.id), capacityPatchFromTotals(totals)).catch(() => undefined);
-      }
-    }
+    if (!firebaseConfigured || !firebaseDb || !activeCampaignId || !isDm || !campaignAccessReady) return;
+    const bag = bags.find(b => b.id === selectedOpenableBagId);
+    if (!bag || activeItemsLoadedBagId !== bag.id) return;
+    const totals = bagTotals.get(bag.id);
+    if (!totals || (Math.abs((bag.currentWeight ?? 0)-totals.weight)<0.0001 && Math.abs((bag.currentVolume ?? 0)-totals.volume)<0.0001 && Math.abs((bag.currentValue ?? 0)-totals.value)<0.0001 && bag.itemCount===totals.count)) return;
+    const db = firebaseDb, campaignId = activeCampaignId;
+    let cancelled = false;
+    // Never write totals from independently delivered UI snapshots. Read a
+    // server baseline and re-read every item inside the transaction instead.
+    const timer = setTimeout(() => { void (async () => {
+      const ref = doc(db, "campaigns", campaignId, "bags", bag.id);
+      const baseline = await getDocFromServer(ref);
+      if (!baseline.exists() || cancelled) return;
+      const rows = await getDocsFromServer(query(collection(db, "campaigns", campaignId, "items"), where("bagId", "==", bag.id)));
+      if (cancelled) return;
+      await runTransaction(db, async tx => {
+        const latest = await tx.get(ref);
+        if (!latest.exists() || cancelled || JSON.stringify(latest.data()) !== JSON.stringify(baseline.data())) return;
+        const values: InventoryItem[] = [];
+        for (const row of rows.docs) {
+          const fresh = await tx.get(row.ref);
+          if (fresh.exists() && fresh.data().bagId === bag.id) values.push(fresh.data() as InventoryItem);
+        }
+        const current = latest.data() as Bag;
+        tx.update(ref, {...capacityPatchFromTotals({
+          weight: values.reduce((n,i)=>n+totalWeight(i),0)+currencyWeight(bagCurrency(current)),
+          volume: values.reduce((n,i)=>n+totalVolume(i),0),
+          value: values.reduce((n,i)=>n+totalValue(i),0),
+          count: values.reduce((n,i)=>n+i.quantity,0),
+        }), mutationVersion:(current.mutationVersion ?? 0)+1, updatedAt:Date.now()});
+      });
+    })().catch(() => { /* Explicit DM repair remains available if offline. */ }); }, 500);
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [firebaseConfigured, activeCampaignId, isDm, campaignAccessReady, bags, bagTotals, selectedOpenableBagId, activeItemsLoadedBagId]);
 
   async function createCampaign(campaignName: string, displayName: string) {
@@ -3490,6 +3551,7 @@ export default function App() {
 
       const commitIfNeeded = () => {
         if (!ops) return;
+        batch.update(doc(firebaseDb, "campaigns", activeCampaignId), {maintenanceRevision: increment(1)});
         commits.push(batch.commit());
         batch = writeBatch(firebaseDb);
         ops = 0;
@@ -3734,7 +3796,7 @@ export default function App() {
         }
         const bag = bags.find((entry) => entry.id === deleteTarget.id);
         if (!bag) return;
-        const deletedItems = items.filter((item) => item.bagId === deleteTarget.id);
+        let deletedItems = items.filter((item) => item.bagId === deleteTarget.id);
 
         if (!firebaseConfigured) {
           const remaining = visibleBags.filter((entry) => entry.id !== deleteTarget.id);
@@ -3742,10 +3804,21 @@ export default function App() {
           setItems((prev) => prev.filter((item) => item.bagId !== deleteTarget.id));
           setSelectedBagId(remaining[0]?.id ?? "");
         } else if (firebaseDb && activeCampaignId) {
-          const batch = writeBatch(firebaseDb);
-          batch.delete(doc(firebaseDb, "campaigns", activeCampaignId, "bags", deleteTarget.id));
-          for (const item of deletedItems) batch.delete(doc(firebaseDb, "campaigns", activeCampaignId, "items", item.id));
-          await batch.commit();
+          const bagRef = doc(firebaseDb, "campaigns", activeCampaignId, "bags", deleteTarget.id);
+          const baseline = await getDocFromServer(bagRef);
+          const serverItems = await getDocsFromServer(query(collection(firebaseDb, "campaigns", activeCampaignId, "items"), where("bagId", "==", deleteTarget.id)));
+          deletedItems = serverItems.docs.map(row => ({...row.data(), id:row.id} as InventoryItem));
+          if (deletedItems.length > 450) throw new Error("Das Inventar enthält mehr als 450 Stapel. Bitte zunächst Gegenstände verschieben oder entfernen.");
+          await runTransaction(firebaseDb, async tx => {
+            const current = await tx.get(bagRef);
+            if (!current.exists() || JSON.stringify(current.data()) !== JSON.stringify(baseline.data())) throw new Error("Das Inventar wurde inzwischen geändert. Bitte vor dem Löschen erneut prüfen.");
+            for (const row of serverItems.docs) {
+              const fresh = await tx.get(row.ref);
+              if (JSON.stringify(fresh.data()) !== JSON.stringify(row.data())) throw new Error("Ein Gegenstand wurde inzwischen geändert. Bitte vor dem Löschen erneut prüfen.");
+            }
+            for (const row of serverItems.docs) tx.delete(row.ref);
+            tx.delete(bagRef);
+          });
           const remaining = visibleBags.filter((entry) => entry.id !== deleteTarget.id);
           setSelectedBagId(remaining[0]?.id ?? "");
           logAction("bag_deleted", `${member?.displayName ?? "Jemand"} hat die Tasche „${deleteTarget.label}“ gelöscht. Enthaltene gelöschte Items: ${deletedItems.length} Stapel · ${deletedItems.reduce((sum, entry) => sum + entry.quantity, 0)} Gegenstände · Gewicht ${formatNumber(deletedItems.reduce((sum, entry) => sum + totalWeight(entry), 0))} lb · Wert ${formatNumber(deletedItems.reduce((sum, entry) => sum + totalValue(entry), 0))} gp.`, deleteTarget.id);
@@ -3753,19 +3826,13 @@ export default function App() {
       }
 
       if (deleteTarget.kind === "item") {
-        const item = items.find((entry) => entry.id === deleteTarget.id);
-        const bag = bags.find((entry) => entry.id === item?.bagId);
-        if (!canWriteBag(bag)) return;
-
-        if (!firebaseConfigured) {
-          setItems((prev) => prev.filter((entry) => entry.id !== deleteTarget.id));
-        } else if (firebaseDb && activeCampaignId && item && bag) {
-          const batch = writeBatch(firebaseDb);
-          batch.delete(doc(firebaseDb, "campaigns", activeCampaignId, "items", deleteTarget.id));
-          batch.update(doc(firebaseDb, "campaigns", activeCampaignId, "bags", bag.id), capacityPatchFromTotals(bagTotalsAfterDelta(bag, { weight: -totalWeight(item), volume: -totalVolume(item), value: -totalValue(item), count: -item.quantity })));
-          await batch.commit();
-          logAction("item_deleted", `${member?.displayName ?? "Jemand"} hat ${item?.quantity ?? "?"}x „${deleteTarget.label}“ aus „${bag?.name ?? "unbekannte Tasche"}“ gelöscht. Gewicht ${formatNumber(item ? totalWeight(item) : 0)} lb · Wert ${formatNumber(item ? totalValue(item) : 0)} gp.`, deleteTarget.id);
-        }
+        const expected=items.find(i=>i.id===deleteTarget.id);if(!expected)return;
+        const ok=await executeInventoryOperation(async read=>{
+          const item=requireItem(await read.item(expected.id),expected);const bag=await read.bag(item.bagId);requireWrite(bag);
+          if(item.updatedAt!==undefined && item.updatedAt!==expected.updatedAt)throw new Error("Der Gegenstand wurde inzwischen geändert. Bitte erneut prüfen.");
+          return {items:new Map([[item.id,null]]),bags:new Map([[bag.id,totalsDelta(bag,{weight:-totalWeight(item),volume:-totalVolume(item),value:-totalValue(item),count:-item.quantity})]]),audit:makeAuditLogEntry("item_deleted",`${item.quantity}x „${item.name}“ gelöscht.`,item.id)};
+        });
+        if(!ok)return;
       }
 
       setSyncStatus(firebaseConfigured ? "online" : "local");
@@ -3780,6 +3847,8 @@ export default function App() {
 
 
   function applyCatalogItem(entry: CatalogItem) {
+    setNewResources(catalogResources(entry));
+    setNewCatalogId(entry.id);
     setNewItem((previous) => ({
       ...previous,
       name: entry.name,
@@ -3793,203 +3862,103 @@ export default function App() {
   }
 
 
+  async function executeInventoryOperation(build: PlanBuilder): Promise<boolean> {
+    if (operationLock.current) return false;
+    operationLock.current = true;
+    setOperationBusy(true);
+    setOperationNotice("");
+    try {
+      let plan: InventoryPlan;
+      if (firebaseConfigured) {
+        if (!firebaseDb || !activeCampaignId) throw new Error("Keine aktive Kampagne.");
+        plan = await commitInventoryOperation(firebaseDb, activeCampaignId, activeUid, build);
+      } else {
+        const oldBags = new Map(bags.map(b => [b.id, b]));
+        const oldItems = new Map<string, InventoryItem | null>(items.map(i => [i.id, i]));
+        plan = finalizePlan(await build({
+          bag: async id => { const bag = oldBags.get(id); if (!bag) throw new Error("Inventar fehlt."); return structuredClone(bag); },
+          item: async id => structuredClone(oldItems.get(id) ?? null),
+        }), oldBags, oldItems, activeUid, Date.now());
+        setBags(prev => prev.map(b => ({ ...b, ...(plan.bags.get(b.id) ?? {}) })));
+        if (plan.items) setItems(prev => [...prev.filter(i => !plan.items!.has(i.id)), ...Array.from(plan.items!.values()).filter((i): i is InventoryItem => i !== null)]);
+      }
+      if (plan.audit) addAuditLogLocally(plan.audit);
+      setSyncStatus(firebaseConfigured ? "online" : "local");
+      setRawSyncError(null);
+      return true;
+    } catch (error) {
+      setSyncStatus("error");
+      setSyncError(error instanceof Error ? error.message : "Die Änderung ist fehlgeschlagen. Es wurde nichts übernommen.");
+      return false;
+    } finally { operationLock.current = false; setOperationBusy(false); }
+  }
+
+  function snapshotTotals(bag: Bag) {
+    return { weight: bag.currentWeight ?? 0, volume: bag.currentVolume ?? 0, value: bag.currentValue ?? 0, count: bag.itemCount ?? 0 };
+  }
+  function totalsDelta(bag: Bag, delta: {weight?: number; volume?: number; value?: number; count?: number}) {
+    const base = snapshotTotals(bag);
+    if (getBagKind(bag) === "container" && (((delta.weight ?? 0)>0 && typeof bag.currentWeight !== "number") || ((delta.volume ?? 0)>0 && typeof bag.currentVolume !== "number"))) throw new Error("Diesem Behälter fehlen Kapazitätsdaten. Bitte den DM das Inventar öffnen oder die Datenreparatur ausführen lassen.");
+    const totals = { weight: base.weight + (delta.weight ?? 0), volume: base.volume + (delta.volume ?? 0), value: base.value + (delta.value ?? 0), count: base.count + (delta.count ?? 0) };
+    if (getBagKind(bag) === "container" && ((bag.maxWeight !== null && totals.weight > bag.maxWeight + 0.00001 && (delta.weight ?? 0) > 0) || (bag.maxVolume !== null && totals.volume > bag.maxVolume + 0.00001 && (delta.volume ?? 0) > 0))) throw new Error("Der Zielbehälter hat nicht genügend Kapazität.");
+    return capacityPatchFromTotals(totals);
+  }
+  function requireItem(item: InventoryItem | null, expected: InventoryItem): InventoryItem {
+    if (!item || item.bagId !== expected.bagId) throw new Error("Der Gegenstand wurde inzwischen entfernt oder verschoben. Bitte erneut auswählen.");
+    return item;
+  }
+  function requireWrite(bag: Bag) { if (!canWriteBag(bag)) throw new Error("Keine Bearbeitungsrechte für dieses Inventar."); }
+
   async function addItem() {
-    setSyncError(null);
-    setSyncStatus(firebaseConfigured ? "online" : "local");
-    if (!selectedBag || !canWriteBag(selectedBag)) return;
-    const name = newItem.name.trim();
-    if (!name) return;
-    const quantity = normalizeItemQuantity(newItem.quantity, 1);
-    const createdAt = Date.now();
-    const itemBase = {
-      bagId: selectedBag.id,
-      name,
-      weightPerUnit: numberOrNull(newItem.weightPerUnit),
-      volumePerUnit: numberOrNull(newItem.volumePerUnit),
-      valuePerUnit: numberOrNull(newItem.valuePerUnit),
+    if (!selectedBag || !newItem.name.trim()) return;
+    const error = resourceError(newResources); if (error) { setSyncError(error); return; }
+    const now = Date.now();
+    const base: InventoryItem = {
+      id: "", bagId: selectedBag.id, name: newItem.name.trim(), quantity: normalizeItemQuantity(newItem.quantity, 1),
+      weightPerUnit: numberOrNull(newItem.weightPerUnit), volumePerUnit: numberOrNull(newItem.volumePerUnit), valuePerUnit: numberOrNull(newItem.valuePerUnit),
+      description: newItem.description.trim(), notes: "", category: newItem.category, orderIndex: nextItemOrderIndex(selectedBag.id, newItem.category),
+      imageUrl: "", imageZoom: DEFAULT_IMAGE_ZOOM, imagePositionX: DEFAULT_IMAGE_POSITION, imagePositionY: DEFAULT_IMAGE_POSITION,
+      createdBy: activeUid, updatedBy: activeUid, createdAt: now, updatedAt: now,
+      ...(newResources.length ? { resources: structuredClone(newResources) } : {}), ...(newCatalogId ? {catalogId: newCatalogId} : {}),
     };
-    const itemCategory = normalizeItemCategory(newItem.category);
-    const nextOrderIndex = nextItemOrderIndex(selectedBag.id, itemCategory);
-    const item: InventoryItem = {
-      id: stackDocumentId(selectedBag.id, itemBase),
-      bagId: selectedBag.id,
-      name,
-      quantity,
-      weightPerUnit: numberOrNull(newItem.weightPerUnit),
-      volumePerUnit: numberOrNull(newItem.volumePerUnit),
-      valuePerUnit: numberOrNull(newItem.valuePerUnit),
-      description: newItem.description.trim(),
-      notes: "",
-      stackKey: itemStackKey(itemBase),
-      category: itemCategory,
-      orderIndex: nextOrderIndex,
-      imageUrl: "",
-      imageZoom: DEFAULT_IMAGE_ZOOM,
-      imagePositionX: DEFAULT_IMAGE_POSITION,
-      imagePositionY: DEFAULT_IMAGE_POSITION,
-      createdBy: activeUid,
-      updatedBy: activeUid,
-      createdAt,
-      updatedAt: createdAt,
-    };
-
-    const fit = canFitIntoContainer(selectedBag, totalWeight(item), totalVolume(item));
-    if (!fit.ok) {
-      blockWithCapacityMessage(fit.reason ?? "Der Behälter ist voll.");
-      return;
-    }
-
-    const existingStack = findStackMatch(items, selectedBag.id, item);
-
-    if (!firebaseConfigured) {
-      if (existingStack) {
-        setItems((prev) => prev.map((entry) => entry.id === existingStack.id ? {
-          ...entry,
-          quantity: entry.quantity + item.quantity,
-          stackKey: entry.stackKey ?? itemStackKey(entry),
-          category: normalizeItemCategory(entry.category),
-          imageUrl: entry.imageUrl ?? "",
-          imageZoom: entry.imageZoom ?? DEFAULT_IMAGE_ZOOM,
-          imagePositionX: entry.imagePositionX ?? DEFAULT_IMAGE_POSITION,
-          imagePositionY: entry.imagePositionY ?? DEFAULT_IMAGE_POSITION,
-          updatedBy: activeUid,
-          updatedAt: createdAt,
-        } : entry));
-      } else {
-        setItems((prev) => [...prev, item]);
-      }
-      logAction(existingStack ? "item_stacked" : "item_created", `${member?.displayName ?? "Jemand"} hat ${item.quantity}x „${item.name}“ in „${selectedBag.name}“ gelegt${existingStack ? ` und mit einem vorhandenen Stapel zusammengeführt (${existingStack.quantity} → ${existingStack.quantity + item.quantity})` : ""}. Kategorie: ${getCategoryDef(item.category).label}; Gewicht +${formatNumber(totalWeight(item))} lb; Wert +${formatNumber(totalValue(item))} gp.`, existingStack?.id ?? item.id);
-      setNewItem({ name: "", quantity: "1", weightPerUnit: "", volumePerUnit: "", valuePerUnit: "", description: "", category: "gear" });
-      return;
-    }
-
-    try {
-      const bagRef = campaignDocPath("bags", selectedBag.id);
-      if (!bagRef || !firebaseDb) throw new Error("Keine aktive Kampagne gefunden.");
-      const batch = writeBatch(firebaseDb);
-      if (existingStack) {
-        const existingStackPatch: Record<string, any> = {
-          quantity: existingStack.quantity + item.quantity,
-          updatedBy: activeUid,
-          updatedAt: createdAt,
-        };
-        if (existingStack.stackKey !== itemStackKey(existingStack)) existingStackPatch.stackKey = itemStackKey(existingStack);
-        if (existingStack.category === undefined) existingStackPatch.category = normalizeItemCategory(existingStack.category);
-        if (existingStack.imageUrl === undefined) existingStackPatch.imageUrl = "";
-        if (existingStack.imageZoom === undefined) existingStackPatch.imageZoom = DEFAULT_IMAGE_ZOOM;
-        if (existingStack.imagePositionX === undefined) existingStackPatch.imagePositionX = DEFAULT_IMAGE_POSITION;
-        if (existingStack.imagePositionY === undefined) existingStackPatch.imagePositionY = DEFAULT_IMAGE_POSITION;
-        batch.update(campaignDocPath("items", existingStack.id)!, cleanFirestorePayload(existingStackPatch));
-      } else {
-        const itemRef = campaignDocPath("items", item.id);
-        if (!itemRef) throw new Error("Keine aktive Kampagne gefunden.");
-        batch.set(itemRef, cleanFirestorePayload(item as any));
-      }
-      batch.update(bagRef, capacityPatchFromTotals(bagTotalsAfterDelta(selectedBag, { weight: totalWeight(item), volume: totalVolume(item), value: totalValue(item), count: item.quantity })));
-      await batch.commit();
-      logAction(existingStack ? "item_stacked" : "item_created", `${member?.displayName ?? "Jemand"} hat ${item.quantity}x „${item.name}“ in „${selectedBag.name}“ gelegt${existingStack ? ` und mit einem vorhandenen Stapel zusammengeführt (${existingStack.quantity} → ${existingStack.quantity + item.quantity})` : ""}. Kategorie: ${getCategoryDef(item.category).label}; Gewicht +${formatNumber(totalWeight(item))} lb; Wert +${formatNumber(totalValue(item))} gp.`, existingStack?.id ?? item.id);
-      setNewItem({ name: "", quantity: "1", weightPerUnit: "", volumePerUnit: "", valuePerUnit: "", description: "", category: "gear" });
-      setSyncStatus("online");
-      setSyncError(null);
-    } catch (error) {
-      setSyncStatus("error");
-      setSyncError(error instanceof Error ? error.message : "Item konnte nicht erstellt werden.");
-    }
+    const candidate = findStackMatch(items, base.bagId, base);
+    base.id = candidate?.id ?? stackDocumentId(base.bagId, base);
+    base.stackKey = itemStackKey(base);
+    const ok = await executeInventoryOperation(async read => {
+      const bag = await read.bag(base.bagId); requireWrite(bag);
+      const existing = await read.item(base.id);
+      if (existing && (existing.bagId !== bag.id || !isSameStackItem(existing, base))) throw new Error("Der Zielstapel hat sich geändert. Bitte erneut versuchen.");
+      const next = existing ? { ...existing, quantity: existing.quantity + base.quantity } : base;
+      return { items: new Map([[base.id, next]]), bags: new Map([[bag.id, totalsDelta(bag, {weight: totalWeight(base), volume: totalVolume(base), value: totalValue(base), count: base.quantity})]]),
+        audit: makeAuditLogEntry("item_created", `${base.quantity}x „${base.name}“ in „${bag.name}“ hinzugefügt.`, base.id) };
+    });
+    if (ok) { setNewItem({ name: "", quantity: "1", weightPerUnit: "", volumePerUnit: "", valuePerUnit: "", description: "", category: "gear" }); setNewResources([]); setNewCatalogId(undefined); }
   }
 
-
-  async function updateItem(id: string, patch: Partial<InventoryItem>) {
-    setSyncError(null);
-    setSyncStatus(firebaseConfigured ? "online" : "local");
-    const current = items.find((entry) => entry.id === id);
-    const currentBag = bags.find((bag) => bag.id === current?.bagId);
-    const targetBag = patch.bagId ? bags.find((bag) => bag.id === patch.bagId) : currentBag;
-    const isMove = Boolean(patch.bagId && patch.bagId !== current?.bagId);
-
-    if (isMove) {
-      if (!canWriteBag(currentBag) || !canDepositBag(targetBag)) return;
-    } else if (!canWriteBag(currentBag)) {
-      return;
-    }
-
-    if (current && targetBag) {
-      const nextWeight = itemWeightAfterPatch(current, patch);
-      const nextVolume = itemVolumeAfterPatch(current, patch);
-      const fit = canFitIntoContainer(targetBag, nextWeight, nextVolume, { replacingItem: current });
-      if (!fit.ok) {
-        blockWithCapacityMessage(fit.reason ?? "Der Behälter ist voll.");
-        return;
+  async function updateItem(id: string, patch: Partial<InventoryItem>, baseline?: InventoryItem): Promise<boolean> {
+    const expected = baseline ?? items.find(i => i.id === id); if (!expected) return false;
+    return executeInventoryOperation(async read => {
+      const current = requireItem(await read.item(id), expected);
+      // Compare the same defaults shown by the editor for legacy documents.
+      const comparable = normalizeLiveItem(current, id, expected.updatedAt);
+      // Explicit editor values must not silently overwrite a concurrent edit.
+      for (const key of Object.keys(patch) as (keyof InventoryItem)[]) {
+        if (JSON.stringify(comparable[key]) !== JSON.stringify(expected[key])) throw new Error("Dieser Gegenstand wurde gleichzeitig geändert. Bitte die aktuellen Werte prüfen und erneut speichern.");
       }
-    }
-
-    const nowTs = Date.now();
-    const nextCategory = normalizeItemCategory(patch.category ?? current?.category ?? "gear");
-    const currentCategory = normalizeItemCategory(current?.category ?? "gear");
-    const categoryChanged = Boolean(current && patch.category !== undefined && nextCategory !== currentCategory);
-    const shouldAppendToTargetCategory = Boolean(current && targetBag && (isMove || categoryChanged));
-    const safePatch: Partial<InventoryItem> = cleanFirestorePayload({ ...patch, updatedBy: activeUid, updatedAt: nowTs } as any);
-    const stackFieldsChanged = Boolean(
-      current && (
-        patch.name !== undefined ||
-        patch.weightPerUnit !== undefined ||
-        patch.volumePerUnit !== undefined ||
-        patch.valuePerUnit !== undefined
-      ),
-    );
-    if (stackFieldsChanged && current) {
-      safePatch.stackKey = itemStackKey({
-        name: patch.name ?? current.name,
-        weightPerUnit: patch.weightPerUnit === undefined ? current.weightPerUnit : patch.weightPerUnit,
-        volumePerUnit: patch.volumePerUnit === undefined ? current.volumePerUnit : patch.volumePerUnit,
-        valuePerUnit: patch.valuePerUnit === undefined ? current.valuePerUnit : patch.valuePerUnit,
-      });
-    }
-    if (patch.category !== undefined) safePatch.category = nextCategory;
-    if (shouldAppendToTargetCategory && targetBag) safePatch.orderIndex = nextItemOrderIndex(targetBag.id, nextCategory);
-
-    if (!firebaseConfigured) {
-      setItems((prev) => prev.map((entry) => (entry.id === id ? { ...entry, ...safePatch } : entry)));
-      return;
-    }
-
-    try {
-      if (!current || !targetBag || !currentBag || !firebaseDb || !activeCampaignId) throw new Error("Item oder Tasche nicht gefunden.");
-      const itemRef = campaignDocPath("items", id);
-      if (!itemRef) throw new Error("Keine aktive Kampagne gefunden.");
-
-      const batch = writeBatch(firebaseDb);
-      batch.update(itemRef, safePatch);
-
-      const oldTotals = { weight: totalWeight(current), volume: totalVolume(current), value: totalValue(current), count: current.quantity };
-      const nextItem = { ...current, ...safePatch } as InventoryItem;
-      const newTotals = { weight: totalWeight(nextItem), volume: totalVolume(nextItem), value: totalValue(nextItem), count: nextItem.quantity };
-
-      if (isMove && targetBag.id !== currentBag.id) {
-        batch.update(doc(firebaseDb, "campaigns", activeCampaignId, "bags", currentBag.id), capacityPatchFromTotals(bagTotalsAfterDelta(currentBag, { weight: -oldTotals.weight, volume: -oldTotals.volume, value: -oldTotals.value, count: -oldTotals.count })));
-        batch.update(doc(firebaseDb, "campaigns", activeCampaignId, "bags", targetBag.id), capacityPatchFromTotals(bagTotalsAfterDelta(targetBag, { weight: newTotals.weight, volume: newTotals.volume, value: newTotals.value, count: newTotals.count })));
-      } else {
-        batch.update(doc(firebaseDb, "campaigns", activeCampaignId, "bags", currentBag.id), capacityPatchFromTotals(bagTotalsAfterDelta(currentBag, { weight: newTotals.weight - oldTotals.weight, volume: newTotals.volume - oldTotals.volume, value: newTotals.value - oldTotals.value, count: newTotals.count - oldTotals.count })));
-      }
-
-      await batch.commit();
-
-      const details = itemAuditDetails(current, nextItem, currentBag.name, targetBag.name);
-      if (isMove) {
-        logAction("item_moved", `${member?.displayName ?? "Jemand"} hat „${current.name}“ von „${currentBag.name}“ nach „${targetBag.name}“ verschoben. Details: ${details}.`, id);
-      } else if (typeof patch.quantity === "number" && patch.quantity !== current.quantity) {
-        logAction("item_quantity_changed", `${member?.displayName ?? "Jemand"} hat die Menge von „${current.name}“ in „${currentBag.name}“ geändert. Details: ${details}.`, id);
-      } else {
-        logAction("item_updated", `${member?.displayName ?? "Jemand"} hat „${current.name}“ in „${currentBag.name}“ geändert. Details: ${details}.`, id);
-      }
-
-      setSyncStatus("online");
-      setSyncError(null);
-    } catch (error) {
-      setSyncStatus("error");
-      setSyncError(error instanceof Error ? error.message : "Item konnte nicht geändert werden.");
-    }
+      const bag = await read.bag(current.bagId); requireWrite(bag);
+      const target = patch.bagId && patch.bagId !== bag.id ? await read.bag(patch.bagId) : bag;
+      if (target.id !== bag.id && !canDepositBag(target)) throw new Error("Keine Rechte für das Zielinventar.");
+      const next: InventoryItem = { ...current, ...patch };
+      if (next.resources) { const error = resourceError(next.resources); if (error) throw new Error(error); }
+      next.stackKey = itemStackKey(next);
+      const oldTotals = {weight:totalWeight(current), volume:totalVolume(current), value:totalValue(current), count:current.quantity};
+      const nextTotals = {weight:totalWeight(next), volume:totalVolume(next), value:totalValue(next), count:next.quantity};
+      const bagPatches = new Map<string, Partial<Bag>>();
+      if (target.id === bag.id) bagPatches.set(bag.id, totalsDelta(bag, {weight:nextTotals.weight-oldTotals.weight, volume:nextTotals.volume-oldTotals.volume, value:nextTotals.value-oldTotals.value, count:nextTotals.count-oldTotals.count}));
+      else { bagPatches.set(bag.id, totalsDelta(bag, {weight:-oldTotals.weight, volume:-oldTotals.volume, value:-oldTotals.value, count:-oldTotals.count})); bagPatches.set(target.id, totalsDelta(target, nextTotals)); }
+      return { items:new Map([[id,next]]), bags:bagPatches, audit:makeAuditLogEntry("item_updated", `„${current.name}“ geändert. ${itemAuditDetails(current,next,bag.name,target.name)}${patch.resources ? " Ressourcen: " + next.resources!.map(r=>`${r.name} ${r.current}/${r.maximum}, ${restLabels[r.reset]}, ${r.recovery}`).join("; ") : ""}`,id) };
+    });
   }
-
 
   async function saveThumbnailState(target: Exclude<ThumbnailTarget, null>, rawUrl: string, rawZoom: number, rawPositionX: number, rawPositionY: number) {
     const imageUrl = sanitizeImageUrl(rawUrl);
@@ -4071,173 +4040,35 @@ export default function App() {
 
   async function confirmItemTransfer() {
     if (!transferTarget) return;
-
-    const item = items.find((entry) => entry.id === transferTarget.itemId);
-    const sourceBag = bags.find((bag) => bag.id === item?.bagId);
-    const targetBag = bags.find((bag) => bag.id === transferTarget.targetBagId);
-    if (!item || !sourceBag || !targetBag) {
-      setTransferTarget(null);
-      return;
-    }
-
-    const amount = clampedTransferAmount(transferTarget.quantity, item.quantity);
-    if (amount <= 0) return;
-    if (!canWriteBag(sourceBag) || !canDepositBag(targetBag)) return;
-
-    const movedItem: InventoryItem = { ...item, bagId: targetBag.id, quantity: amount };
-    const movedWeight = totalWeight(movedItem);
-    const movedVolume = totalVolume(movedItem);
-    const movedValue = totalValue(movedItem);
-
-    const fit = canFitIntoContainer(targetBag, movedWeight, movedVolume);
-    if (!fit.ok) {
-      blockWithCapacityMessage(fit.reason ?? "Der Behälter ist voll.");
-      return;
-    }
-
-    setSyncError(null);
-    setSyncStatus(firebaseConfigured ? "online" : "local");
-
-    const transferBaseDetails = `Menge ${amount}/${item.quantity}; Gewicht ${formatNumber(movedWeight)} lb; Wert ${formatNumber(movedValue)} gp; Quelle danach ${item.quantity - amount}x.`;
-    // Schonmodus: Die Ziel-Items sind oft nicht live geladen.
-    // Pragmatische Gruppen-App-Lösung: Wir fragen gezielt bagId+stackKey ab, auch wenn die Ziel-Tasche im UI nicht geöffnet werden darf.
-    // Die UI zeigt die Zielitems dadurch weiterhin nicht an; die Abfrage dient nur sauberem Stacking.
-    const movedStackKey = movedItem.stackKey || itemStackKey(movedItem);
-    let targetStack = findStackMatch(items, targetBag.id, movedItem, item.id);
-    let targetStackId = targetStack?.id ?? uid("stack");
-
-    if (!firebaseConfigured) {
-      const nowTs = Date.now();
-      if (targetStack) {
-        if (amount >= item.quantity) {
-          setItems((prev) => prev
-            .filter((entry) => entry.id !== item.id)
-            .map((entry) => entry.id === targetStack!.id ? { ...entry, quantity: entry.quantity + amount, updatedBy: activeUid, updatedAt: nowTs } : entry));
-        } else {
-          setItems((prev) => prev.map((entry) => {
-            if (entry.id === item.id) return { ...entry, quantity: item.quantity - amount, updatedBy: activeUid, updatedAt: nowTs };
-            if (entry.id === targetStack!.id) return { ...entry, quantity: entry.quantity + amount, updatedBy: activeUid, updatedAt: nowTs };
-            return entry;
-          }));
-        }
-      } else {
-        const newStackItem: InventoryItem = {
-          ...item,
-          id: targetStackId,
-          bagId: targetBag.id,
-          quantity: amount,
-          stackKey: itemStackKey(item),
-          imageUrl: sanitizeImageUrl(item.imageUrl),
-          imageZoom: sanitizeImageZoom(item.imageZoom),
-          imagePositionX: sanitizeImagePosition(item.imagePositionX),
-          imagePositionY: sanitizeImagePosition(item.imagePositionY),
-          createdBy: activeUid,
-          category: normalizeItemCategory(item.category),
-          orderIndex: nextItemOrderIndex(targetBag.id, normalizeItemCategory(item.category)),
-          updatedBy: activeUid,
-          createdAt: nowTs,
-          updatedAt: nowTs,
-        };
-        if (amount >= item.quantity) {
-          setItems((prev) => prev.filter((entry) => entry.id !== item.id).concat(newStackItem));
-        } else {
-          setItems((prev) => prev.map((entry) => (entry.id === item.id ? { ...entry, quantity: item.quantity - amount, updatedBy: activeUid, updatedAt: nowTs } : entry)).concat(newStackItem));
-        }
-      }
-      logAction(targetStack ? "item_stacked" : "item_moved", `${member?.displayName ?? "Jemand"} hat ${amount}x „${item.name}“ von „${sourceBag.name}“ nach „${targetBag.name}“ übertragen${targetStack ? ` und gestackt (${targetStack.quantity} → ${targetStack.quantity + amount})` : amount >= item.quantity ? " als kompletten Stapel verschoben" : " als Teilmenge aufgeteilt"}. ${transferBaseDetails}`, targetStack ? targetStackId : item.id);
-      setTransferTarget(null);
-      return;
-    }
-
-    try {
-      if (!firebaseDb || !activeCampaignId) throw new Error("Keine aktive Kampagne gefunden.");
-      const batch = writeBatch(firebaseDb);
-      const sourceBagRef = doc(firebaseDb, "campaigns", activeCampaignId, "bags", sourceBag.id);
-      const targetBagRef = doc(firebaseDb, "campaigns", activeCampaignId, "bags", targetBag.id);
-      const itemRef = doc(firebaseDb, "campaigns", activeCampaignId, "items", item.id);
-      const nowTs = Date.now();
-
-      if (!targetStack) {
-        const targetStackSnapshot = await getDocs(query(
-          collection(firebaseDb, "campaigns", activeCampaignId, "items"),
-          where("bagId", "==", targetBag.id),
-          where("stackKey", "==", movedStackKey),
-          limit(1),
-        ));
-        const loadedTargetStackDoc = targetStackSnapshot.docs.find((entry) => entry.id !== item.id);
-        if (loadedTargetStackDoc) {
-          const loadedTargetStack = normalizeLiveItem(loadedTargetStackDoc.data() as Partial<InventoryItem>, loadedTargetStackDoc.id, nowTs);
-          if (loadedTargetStack.bagId === targetBag.id && isSameStackItem(loadedTargetStack, movedItem)) {
-            targetStack = loadedTargetStack;
-            targetStackId = loadedTargetStack.id;
-          }
-        }
-      }
-
-      const targetStackRef = doc(firebaseDb, "campaigns", activeCampaignId, "items", targetStackId);
-      const moveWholeStackWithoutMerge = amount >= item.quantity && !targetStack;
-
-      if (moveWholeStackWithoutMerge) {
-        // Gleicher sicherer Pfad wie im Item-Bearbeitungsfenster:
-        // bestehendes Item direkt in die Ziel-Tasche verschieben, statt Quelle zu löschen und Ziel neu anzulegen.
-        // Das vermeidet unnötige Firestore-Rules-Probleme beim Schnelltransfer-Dropdown.
-        batch.update(itemRef, cleanFirestorePayload({
-          bagId: targetBag.id,
-          category: normalizeItemCategory(item.category),
-          stackKey: itemStackKey(item),
-          imageUrl: sanitizeImageUrl(item.imageUrl),
-          imageZoom: sanitizeImageZoom(item.imageZoom),
-          imagePositionX: sanitizeImagePosition(item.imagePositionX),
-          imagePositionY: sanitizeImagePosition(item.imagePositionY),
-          orderIndex: nextItemOrderIndex(targetBag.id, normalizeItemCategory(item.category)),
-          lastTransferSourceItemId: item.id,
-          lastTransferSourceBagId: sourceBag.id,
-          updatedBy: activeUid,
-          updatedAt: nowTs,
-        } as any));
-      } else {
-        if (targetStack) {
-          const stackUpdate: Record<string, any> = {
-            quantity: targetStack.quantity + amount,
-            updatedBy: activeUid,
-            updatedAt: nowTs,
-            lastTransferSourceItemId: item.id,
-            lastTransferSourceBagId: sourceBag.id,
-          };
-          // Beim Stacken nur Mengen-/Transferfelder ändern. Metadaten-Reparatur hier würde die Firestore-Regeln
-          // für Spieler unnötig blockieren; dafür gibt es die Reparaturfunktion.
-          batch.update(targetStackRef, cleanFirestorePayload(stackUpdate));
-        } else {
-          const stackPayload = transferredStackPayloadFromSource(item, targetStackId, targetBag.id, amount, nowTs);
-          batch.set(targetStackRef, cleanFirestorePayload(stackPayload));
-        }
-
-        if (amount >= item.quantity) {
-          batch.delete(itemRef);
-        } else {
-          batch.update(itemRef, { quantity: item.quantity - amount, updatedBy: activeUid, updatedAt: nowTs });
-        }
-      }
-
-      batch.update(sourceBagRef, capacityPatchFromTotals(bagTotalsAfterDelta(sourceBag, { weight: -movedWeight, volume: -movedVolume, value: -movedValue, count: -amount })));
-      batch.update(targetBagRef, capacityPatchFromTotals(bagTotalsAfterDelta(targetBag, { weight: movedWeight, volume: movedVolume, value: movedValue, count: amount })));
-
-      const transferLog = makeAuditLogEntry(targetStack ? "item_stacked" : "item_moved", `${member?.displayName ?? "Jemand"} hat ${amount}x „${item.name}“ von „${sourceBag.name}“ nach „${targetBag.name}“ übertragen${targetStack ? ` und gestackt (${targetStack.quantity} → ${targetStack.quantity + amount})` : amount >= item.quantity ? " als kompletten Stapel verschoben" : " als Teilmenge aufgeteilt"}. ${transferBaseDetails}`, targetStack ? targetStackId : item.id);
-      if (transferLog) {
-        batch.set(doc(firebaseDb, "campaigns", activeCampaignId, "auditLog", transferLog.id), cleanFirestorePayload(transferLog as any));
-      }
-
-      await batch.commit();
-
-      if (transferLog) addAuditLogLocally(transferLog);
-      setTransferTarget(null);
-      setSyncStatus("online");
-      setSyncError(null);
-    } catch (error) {
-      setSyncStatus("error");
-      setSyncError(error instanceof Error ? error.message : "Item konnte nicht übertragen werden.");
-    }
+    const expected = items.find(i=>i.id === transferTarget.itemId); if (!expected) return;
+    const targetBagId = transferTarget.targetBagId;
+    const amount = normalizeItemQuantity(transferTarget.quantity, 0); if (!amount) return;
+    let candidateId: string | undefined;
+    if (firebaseConfigured && firebaseDb && activeCampaignId) {
+      try {
+        const snap = await getDocs(query(collection(firebaseDb, "campaigns", activeCampaignId, "items"), where("bagId", "==", targetBagId), where("stackKey", "==", itemStackKey(expected)), limit(10)));
+        candidateId = snap.docs.find(d => isSameStackItem(d.data() as InventoryItem, expected))?.id;
+      } catch (error) { setSyncError(error instanceof Error ? error.message : "Zielinventar konnte nicht geprüft werden."); return; }
+    } else candidateId = findStackMatch(items, targetBagId, expected)?.id;
+    const canonicalTargetId = candidateId ?? stackDocumentId(targetBagId, expected);
+    const targetId = canonicalTargetId === expected.id ? canonicalTargetId + "_moved" : canonicalTargetId;
+    const ok = await executeInventoryOperation(async read => {
+      const source = requireItem(await read.item(expected.id),expected);
+      if (!isSameStackItem(source,expected) || amount > source.quantity) throw new Error("Der Gegenstand oder seine Menge hat sich geändert. Bitte erneut auswählen.");
+      const bag = await read.bag(source.bagId); requireWrite(bag);
+      const targetBag = await read.bag(targetBagId);
+      if (bag.id === targetBag.id || !canDepositBag(targetBag)) throw new Error("Ungültiges Zielinventar oder fehlende Rechte.");
+      const target = await read.item(targetId);
+      if (target && (target.bagId !== targetBagId || !isSameStackItem(target,source))) throw new Error("Der Zielstapel hat sich geändert.");
+      const moved = { ...source, quantity: amount };
+      const next = target ? { ...target, quantity: target.quantity + amount } : { ...source, id: targetId, bagId: targetBagId, quantity: amount, stackKey:itemStackKey(source), orderIndex:nextItemOrderIndex(targetBagId,normalizeItemCategory(source.category)) };
+      Object.assign(next,{lastTransferSourceItemId:source.id,lastTransferSourceBagId:bag.id});
+      const writes = new Map<string,InventoryItem|null>([[source.id,amount===source.quantity ? null : {...source,quantity:source.quantity-amount}], [targetId,next]]);
+      return { items:writes, bags:new Map([[bag.id,totalsDelta(bag,{weight:-totalWeight(moved),volume:-totalVolume(moved),value:-totalValue(moved),count:-amount})],[targetBag.id,totalsDelta(targetBag,{weight:totalWeight(moved),volume:totalVolume(moved),value:totalValue(moved),count:amount})]]), audit:makeAuditLogEntry("item_moved",`${amount}x „${source.name}“ von „${bag.name}“ nach „${targetBag.name}“ übertragen.`,source.id) };
+    });
+    if(ok) setTransferTarget(null);
   }
+
 
 
   function saleEntriesForBag(bagId: string) {
@@ -4260,165 +4091,132 @@ export default function App() {
     };
   }
 
+  async function useItemResource(itemId: string, resourceId: string, amount: number) {
+    const expected=items.find(i=>i.id===itemId);if(!expected)return;
+    await executeInventoryOperation(async read=>{
+      const source=requireItem(await read.item(itemId),expected);
+      const bag=await read.bag(source.bagId);requireWrite(bag);
+      if(source.quantity<1)throw new Error("Kein Exemplar vorhanden.");
+      if(resourceSignature(itemResources(source))!==resourceSignature(itemResources(expected)))throw new Error("Die Anwendungen wurden inzwischen geändert. Bitte erneut auswählen.");
+      const next={...source,quantity:1,resources:consumeResource(itemResources(source),resourceId,amount)};
+      next.stackKey=itemStackKey(next);
+      const candidate=findStackMatch(items,bag.id,next,source.id);
+      let targetId=candidate?.id ?? stackDocumentId(bag.id,next);
+      if(targetId===source.id)targetId += "_used";
+      const target=await read.item(targetId);
+      if(target && (target.bagId!==bag.id || !isSameStackItem(target,next)))throw new Error("Der Zielstapel hat sich geändert. Bitte erneut versuchen.");
+      const writes=new Map<string,InventoryItem|null>([[source.id,source.quantity===1?null:{...source,quantity:source.quantity-1}],[targetId,target?{...target,quantity:target.quantity+1}:{...next,id:targetId}]]);
+      const resource=itemResources(next).find(r=>r.id===resourceId)!;
+      return {items:writes,bags:new Map([[bag.id,{}]]),audit:makeAuditLogEntry("item_resource_used",`„${source.name}“: ${amount} ${resource.name} verbraucht; ein Exemplar jetzt ${resource.current}/${resource.maximum}.`,source.id)};
+    });
+  }
+
+  async function confirmInventoryRest() {
+    if(!restConfirm)return;
+    const {bagId,event,version,updatedAt}=restConfirm;
+    const expected=items.filter(i=>i.bagId===bagId && itemResources(i).length>0);
+    const seed=crypto.getRandomValues(new Uint32Array(1))[0];
+    let report="";
+    const ok=await executeInventoryOperation(async read=>{
+      const bag=await read.bag(bagId);requireWrite(bag);
+      if((bag.mutationVersion??0)!==version || bag.updatedAt!==updatedAt)throw new Error("Das Inventar hat sich seit dem Öffnen geändert. Bitte die Rast erneut öffnen; es wurde nichts regeneriert.");
+      const originals:InventoryItem[]=[];
+      for(const expectedItem of expected) originals.push(requireItem(await read.item(expectedItem.id),expectedItem));
+      const random=seededRandom(seed);
+      const grouped=new Map<string,InventoryItem>();
+      let changed=0, examined=0;const details:string[]=[];
+      for(const item of originals.sort((a,b)=>a.id.localeCompare(b.id))) {
+        const validation=resourceError(itemResources(item));if(validation)throw new Error(`${item.name}: ${validation}`);
+        if(item.quantity===0)continue;
+        const relevant=itemResources(item).some(r=>recoversAt(r,event)&&r.current<r.maximum);
+        if(!relevant){const key=itemStackKey(item);const group=grouped.get(key);grouped.set(key,group?{...group,quantity:group.quantity+item.quantity}:{...item});continue;}
+        examined+=item.quantity;if(examined>10000)throw new Error("Mehr als 10000 Exemplare müssten regeneriert werden. Bitte das Inventar aufteilen.");
+        for(let n=0;n<item.quantity;n++){
+          const resources=itemResources(item).map(r=>recoverResource(r,event,random));
+          if(resourceSignature(resources)!==resourceSignature(itemResources(item)))changed++;
+          const next={...item,quantity:1,resources};next.stackKey=itemStackKey(next);
+          const group=grouped.get(next.stackKey);grouped.set(next.stackKey,group?{...group,quantity:group.quantity+1}:next);
+        }
+      }
+      if(!changed)throw new Error("Keine verbrauchten Ressourcen für diesen Zeitpunkt vorhanden.");
+      const writes=new Map<string,InventoryItem|null>(originals.filter(i=>i.quantity>0).map(i=>[i.id,null]));
+      const usedIds=new Set<string>();
+      for(const [key,group] of grouped){
+        let targetId=originals.find(i=>i.quantity>0&&itemStackKey(i)===key&&!usedIds.has(i.id))?.id ?? stackDocumentId(bagId,group);
+        if(usedIds.has(targetId))targetId+="_rest";
+        const target=await read.item(targetId);
+        if(target && !originals.some(i=>i.id===targetId))throw new Error("Ein Zielstapel hat sich geändert. Bitte erneut versuchen.");
+        usedIds.add(targetId);writes.set(targetId,{...group,id:targetId,stackKey:key});
+        details.push(`${group.quantity}x ${group.name}: ${itemResources(group).map(r=>`${r.name} ${r.current}/${r.maximum}`).join(", ")}`);
+      }
+      report=`${restLabels[event]}: ${changed} Exemplar(e) regeneriert.`;
+      return {items:writes,bags:new Map([[bagId,{}]]),audit:makeAuditLogEntry("item_resources_recovered",`${report} ${details.join("; ")}`,bagId)};
+    });
+    if(ok){setRestConfirm(null);setOperationNotice(report);}
+  }
+
+  function selectedSaleEntries(bagId: string) {
+    const entries = saleEntriesForBag(bagId);
+    if (!saleConfirmTarget?.itemId) return entries;
+    return entries.filter(i => i.id === saleConfirmTarget.itemId).map(i => ({...i,quantity:Math.min(i.quantity,normalizeItemQuantity(saleConfirmTarget.quantity,1))})).filter(i=>i.quantity>0);
+  }
   async function confirmSellSaleGoods(bagId: string) {
-    const bag = bags.find((entry) => entry.id === bagId);
-    if (!bag || !canWriteBag(bag)) return;
-    const saleEntries = saleEntriesForBag(bag.id);
-    if (!saleEntries.length) {
-      setSaleConfirmTarget(null);
-      return;
-    }
-
-    const totals = saleTotalsForEntries(saleEntries);
-    const currentCurrency = bagCurrency(bag);
-    const nextCurrency = addCurrency(currentCurrency, totals.payoutCurrency);
-    const coinWeightDelta = currencyWeight(nextCurrency) - currencyWeight(currentCurrency);
-    const finalTotals = bagTotalsAfterDelta(bag, {
-      weight: -totals.weight + coinWeightDelta,
-      volume: -totals.volume,
-      value: -totals.baseValue,
-      count: -totals.quantity,
-    });
-    const fit = canFitIntoContainer(bag, -totals.weight + coinWeightDelta, -totals.volume);
-    if (!fit.ok) {
-      blockWithCapacityMessage(fit.reason ?? "Der Behälter ist voll.");
-      return;
-    }
-
-    const nowTs = Date.now();
-    const saleList = saleEntries.map((item) => `${item.quantity}x ${item.name}`).join("; ");
-    const payoutText = currencyDeltaText(totals.payoutCurrency);
-    const message = `${member?.displayName ?? "Jemand"} hat Verkaufsgut aus „${bag.name}“ verkauft: ${saleList}. Verkauft: ${saleEntries.length} Stapel · ${totals.quantity} Gegenstände · Gewicht -${formatNumber(totals.weight)} lb · Basiswert ${formatNumber(totals.baseValue)} gp · lokaler Verkauf ${formatNumber(totals.localSellValue)} gp. Gutgeschrieben: ${payoutText}. Münzen vorher: ${currencyAuditState(currentCurrency)}. Münzen nachher: ${currencyAuditState(nextCurrency)}.`;
-    const bagPatch = cleanFirestorePayload({
-      ...capacityPatchFromTotals(finalTotals),
-      currency: nextCurrency,
-      updatedAt: nowTs,
-    } as any);
-
-    setSyncError(null);
-    setSyncStatus(firebaseConfigured ? "online" : "local");
-
-    if (!firebaseConfigured) {
-      const soldIds = new Set(saleEntries.map((item) => item.id));
-      setItems((prev) => prev.filter((item) => !soldIds.has(item.id)));
-      setBags((prev) => prev.map((entry) => entry.id === bag.id ? { ...entry, ...bagPatch } : entry));
-      logAction("item_sold", message, bag.id);
-      setSaleConfirmTarget(null);
-      return;
-    }
-
-    try {
-      if (!firebaseDb || !activeCampaignId) throw new Error("Keine aktive Kampagne gefunden.");
-      if (saleEntries.length > 430) throw new Error("Zu viele Verkaufsgut-Stacks auf einmal. Bitte verkaufe vorher einen Teil oder lösche alte Stapel.");
-      const batch = writeBatch(firebaseDb);
-      for (const item of saleEntries) {
-        batch.delete(doc(firebaseDb, "campaigns", activeCampaignId, "items", item.id));
+    const expected = selectedSaleEntries(bagId); if (!expected.length) return;
+    const saleRate = tradeRates.sellMultiplier;
+    const ok = await executeInventoryOperation(async read => {
+      const bag = await read.bag(bagId); requireWrite(bag);
+      const writes = new Map<string,InventoryItem|null>(); const sold: InventoryItem[] = [];
+      for (const wanted of expected) {
+        const item = requireItem(await read.item(wanted.id),wanted);
+        if (normalizeItemCategory(item.category) !== "sale" || item.quantity < wanted.quantity || item.valuePerUnit !== wanted.valuePerUnit) throw new Error("Verkaufsgut oder Preis wurde inzwischen geändert. Bitte den Verkauf erneut prüfen.");
+        sold.push({...item,quantity:wanted.quantity});
+        writes.set(item.id,item.quantity===wanted.quantity ? null : {...item,quantity:item.quantity-wanted.quantity});
       }
-      batch.update(doc(firebaseDb, "campaigns", activeCampaignId, "bags", bag.id), bagPatch);
-      const logEntry = makeAuditLogEntry("item_sold", message, bag.id);
-      if (logEntry) batch.set(doc(firebaseDb, "campaigns", activeCampaignId, "auditLog", logEntry.id), cleanFirestorePayload(logEntry as any));
-      await batch.commit();
-      if (logEntry) addAuditLogLocally(logEntry);
-      setSaleConfirmTarget(null);
-      setSyncStatus("online");
-      setSyncError(null);
-    } catch (error) {
-      setSyncStatus("error");
-      setSyncError(error instanceof Error ? error.message : "Verkaufsgut konnte nicht verkauft werden.");
-    }
+      const totals = saleTotalsForEntries(sold);
+      const payout = copperToCurrency(Math.max(0,Math.round(tradeAdjustedValue(totals.baseValue,saleRate)*100)));
+      const currency = addCurrency(bagCurrency(bag),payout);
+      const patch = {...totalsDelta(bag,{weight:-totals.weight+currencyWeight(payout),volume:-totals.volume,value:-totals.baseValue,count:-totals.quantity}),currency};
+      return {items:writes,bags:new Map([[bagId,patch]]),audit:makeAuditLogEntry("item_sold",`Verkauft aus „${bag.name}“: ${sold.map(i=>`${i.quantity}x ${i.name}`).join("; ")}. Erlös: ${currencyText(payout)}. ${currencyAuditBeforeAfter(bagCurrency(bag),currency)}`,bagId)};
+    });
+    if (ok) { setSaleConfirmTarget(null); setCurrencyUndoByBag(prev=>{const next={...prev};delete next[bagId];return next;}); }
   }
 
-
-  function rememberCurrencyUndo(bagId: string, previous: CurrencyPouch) {
-    setCurrencyUndoByBag((prev) => ({ ...prev, [bagId]: previous }));
+  const currencyUndoExpected = useRef<Record<string,CurrencyPouch>>({});
+  function rememberCurrencyUndo(bagId: string, previous: CurrencyPouch, expected: CurrencyPouch) {
+    currencyUndoExpected.current[bagId]=expected;
+    setCurrencyUndoByBag(prev=>({...prev,[bagId]:previous}));
   }
-
   async function setBagCurrency(bagId: string, nextCurrency: CurrencyPouch, logMessage: string, logType = "currency_updated") {
-    const bag = bags.find((entry) => entry.id === bagId);
-    if (!bag) return;
-    if (!canWriteBag(bag) && !isDm) return;
-    const beforeCurrency = bagCurrency(bag);
-    const safeCurrency = normalizeCurrency(nextCurrency);
-    const detailedLogMessage = `${logMessage} ${currencyAuditBeforeAfter(beforeCurrency, safeCurrency)}`;
-    const addedCoinWeight = currencyWeight(safeCurrency) - currencyWeight(beforeCurrency);
-    if (addedCoinWeight > 0) {
-      const fit = canFitIntoContainer(bag, addedCoinWeight, 0);
-      if (!fit.ok) {
-        blockWithCapacityMessage(fit.reason ?? "Der Behälter ist voll.");
-        return;
-      }
-    }
-
-    const nowTs = Date.now();
-    const patch = { ...currencyWeightPatchForBag(bag, safeCurrency), updatedAt: nowTs } as Partial<Bag>;
-
-    try {
-      rememberCurrencyUndo(bagId, beforeCurrency);
-
-      if (!firebaseConfigured) {
-        setBags((prev) => prev.map((entry) => entry.id === bagId ? { ...entry, ...patch } : entry));
-        logAction(logType, detailedLogMessage, bagId);
-        return;
-      }
-
-      if (!firebaseDb || !activeCampaignId) throw new Error("Keine aktive Kampagne gefunden.");
-      await patchBag(bagId, patch);
-
-      // Sofort lokal spiegeln. Sonst wirkt die Aktion je nach Listener/Cache kurz oder dauerhaft so,
-      // als wäre sie nur geloggt worden.
-      setBags((prev) => prev.map((entry) => entry.id === bagId ? { ...entry, ...patch } : entry));
-      logAction(logType, detailedLogMessage, bagId);
-      setSyncStatus("online");
-      setSyncError(null);
-    } catch (error) {
-      setSyncStatus("error");
-      setSyncError(error instanceof Error ? error.message : "Münzen konnten nicht geändert werden.");
-    }
-  }
-
-  async function changeBagCurrency(bagId: string, key: CurrencyKey, delta: number) {
-    const bag = bags.find((entry) => entry.id === bagId);
-    if (!bag || !canWriteBag(bag)) return;
-    const current = bagCurrency(bag);
-    const nextAmount = current[key] + delta;
-    if (nextAmount < 0) return;
-    const next = { ...current, [key]: nextAmount };
-    const addedCoinWeight = delta > 0 ? delta * COIN_WEIGHT_LB : 0;
-    if (addedCoinWeight > 0) {
-      const fit = canFitIntoContainer(bag, addedCoinWeight, 0);
-      if (!fit.ok) {
-        blockWithCapacityMessage(fit.reason ?? "Der Behälter ist voll.");
-        return;
-      }
-    }
-    rememberCurrencyUndo(bagId, current);
-    await updateBag(bagId, currencyWeightPatchForBag(bag, next), { silent: true });
-    logAction(
-      delta >= 0 ? "currency_added" : "currency_removed",
-      `${member?.displayName ?? "Jemand"} hat ${Math.abs(delta)} ${currencyDefs[key].short} ${delta >= 0 ? "in" : "aus"} „${bag.name}“ ${delta >= 0 ? "gelegt" : "entnommen"}. ${currencyAuditBeforeAfter(current, next)}`,
-      bagId,
-    );
-  }
-
-  async function undoBagCurrency(bagId: string) {
-    const bag = bags.find((entry) => entry.id === bagId);
-    const previous = currencyUndoByBag[bagId];
-    if (!bag || !previous || !canWriteBag(bag)) return;
-    const addedCoinWeight = currencyWeight(previous) - currencyWeight(bagCurrency(bag));
-    if (addedCoinWeight > 0) {
-      const fit = canFitIntoContainer(bag, addedCoinWeight, 0);
-      if (!fit.ok) {
-        blockWithCapacityMessage(fit.reason ?? "Der Behälter ist voll.");
-        return;
-      }
-    }
-    await updateBag(bagId, currencyWeightPatchForBag(bag, previous), { silent: true });
-    setCurrencyUndoByBag((prev) => {
-      const next = { ...prev };
-      delete next[bagId];
-      return next;
+    const expected = bagCurrency(bags.find(b=>b.id===bagId));
+    const safe = normalizeCurrency(nextCurrency);
+    const ok = await executeInventoryOperation(async read=>{
+      const bag = await read.bag(bagId); requireWrite(bag);
+      const before=bagCurrency(bag);
+      if (JSON.stringify(before)!==JSON.stringify(expected)) throw new Error("Der Münzbestand wurde gleichzeitig geändert. Bitte erneut prüfen.");
+      return {bags:new Map([[bagId,{...totalsDelta(bag,{weight:currencyWeight(safe)-currencyWeight(before)}),currency:safe}]]),audit:makeAuditLogEntry(logType,`${logMessage} ${currencyAuditBeforeAfter(before,safe)}`,bagId)};
     });
-    logAction("currency_undo", `${member?.displayName ?? "Jemand"} hat die letzte Münzänderung in „${bag.name}“ zurückgesetzt. ${currencyAuditBeforeAfter(bagCurrency(bag), previous)}`, bagId);
+    if(ok) rememberCurrencyUndo(bagId,expected,safe);
+  }
+  async function changeBagCurrency(bagId: string, key: CurrencyKey, delta: number) {
+    if(!Number.isSafeInteger(delta) || !delta) return;
+    let before:CurrencyPouch=emptyCurrency(), after:CurrencyPouch=emptyCurrency();
+    const ok=await executeInventoryOperation(async read=>{
+      const bag=await read.bag(bagId);requireWrite(bag);before=bagCurrency(bag);
+      after={...before,[key]:before[key]+delta};
+      if(after[key]<0 || !Number.isSafeInteger(after[key])) throw new Error("Ungültiger Münzbestand.");
+      return {bags:new Map([[bagId,{...totalsDelta(bag,{weight:delta*COIN_WEIGHT_LB}),currency:after}]]),audit:makeAuditLogEntry(delta>0?"currency_added":"currency_removed",`${Math.abs(delta)} ${key.toUpperCase()} ${delta>0?"hinzugefügt":"entnommen"}. ${currencyAuditBeforeAfter(before,after)}`,bagId)};
+    });
+    if(ok) rememberCurrencyUndo(bagId,before,after);
+  }
+  async function undoBagCurrency(bagId: string) {
+    const previous=currencyUndoByBag[bagId],expected=currencyUndoExpected.current[bagId];
+    if(!previous || !expected)return;
+    const ok=await executeInventoryOperation(async read=>{
+      const bag=await read.bag(bagId);requireWrite(bag);const current=bagCurrency(bag);
+      if(JSON.stringify(current)!==JSON.stringify(expected))throw new Error("Seitdem hat sich der Münzbestand geändert. Rückgängig wurde zum Schutz der neuen Änderungen abgebrochen.");
+      return {bags:new Map([[bagId,{...totalsDelta(bag,{weight:currencyWeight(previous)-currencyWeight(current)}),currency:previous}]]),audit:makeAuditLogEntry("currency_undo",`Münzänderung rückgängig. ${currencyAuditBeforeAfter(current,previous)}`,bagId)};
+    });
+    if(ok)setCurrencyUndoByBag(prev=>{const next={...prev};delete next[bagId];return next;});
   }
 
   async function convertBagCurrency(bagId: string, source: CurrencyKey | "all", target: CurrencyKey, targetAmountRaw: string, convertAll: boolean) {
@@ -4435,7 +4233,7 @@ export default function App() {
         const remainder = total % currencyValueInCopper[target];
         const converted = emptyCurrency();
         converted[target] = targetCount;
-        converted.cp = remainder;
+        converted.cp += remainder;
         await setBagCurrency(bagId, converted, `${member?.displayName ?? "Jemand"} hat alle Münzen in „${bag.name}“ in möglichst viele ${currencyDefs[target].short} umgewandelt. Zielmünzen: ${targetCount} ${currencyDefs[target].short}; Rest: ${remainder} CP.`, "currency_converted");
         return;
       }
@@ -4478,72 +4276,23 @@ export default function App() {
     await setBagCurrency(bagId, next, `${member?.displayName ?? "Jemand"} hat in „${bag.name}“ ${sourceAmount} ${currencyDefs[source].short} zu ${targetAmount} ${currencyDefs[target].short} gewechselt.`, "currency_converted");
   }
 
-  async function transferBagCurrency(sourceBagId: string, targetBagId: string, key: CurrencyKey, amountRaw: string) {
-    const sourceBag = bags.find((entry) => entry.id === sourceBagId);
-    const targetBag = bags.find((entry) => entry.id === targetBagId);
+  async function transferBagCurrency(sourceBagId: string, targetBagId: string, key: CurrencyKey | "all", amountRaw: string) {
+    if (sourceBagId === targetBagId) return;
     const amount = normalizeCoinInput(amountRaw);
-    if (!sourceBag || !targetBag || sourceBag.id === targetBag.id || amount <= 0) return;
-    if (!canWriteBag(sourceBag)) {
-      setSyncStatus("error");
-      setSyncError("Du brauchst Bearbeitungsrechte an der Quelltasche, um Münzen daraus zu entnehmen.");
-      return;
-    }
-    if (!canDepositBag(targetBag)) {
-      setSyncStatus("error");
-      setSyncError("Du brauchst 'Items hineinlegen'-Rechte an der Zieltasche, um Münzen dorthin zu übertragen.");
-      return;
-    }
-    const sourceCurrency = bagCurrency(sourceBag);
-    const targetCurrency = bagCurrency(targetBag);
-    if (sourceCurrency[key] < amount) return;
-    const addedCoinWeight = amount * COIN_WEIGHT_LB;
-    const fit = canFitIntoContainer(targetBag, addedCoinWeight, 0);
-    if (!fit.ok) {
-      blockWithCapacityMessage(fit.reason ?? "Der Zielbehälter ist voll.");
-      return;
-    }
-    const nextSource = { ...sourceCurrency, [key]: sourceCurrency[key] - amount };
-    const nextTarget = { ...targetCurrency, [key]: targetCurrency[key] + amount };
-    rememberCurrencyUndo(sourceBag.id, sourceCurrency);
-    rememberCurrencyUndo(targetBag.id, targetCurrency);
-
-    const nowTs = Date.now();
-    const sourcePatch = { ...currencyWeightPatchForBag(sourceBag, nextSource), updatedAt: nowTs } as Partial<Bag>;
-    const targetPatch = { ...currencyWeightPatchForBag(targetBag, nextTarget), updatedAt: nowTs } as Partial<Bag>;
-    const logMessage = `${member?.displayName ?? "Jemand"} hat ${amount} ${currencyDefs[key].short} von „${sourceBag.name}“ nach „${targetBag.name}“ übertragen. Quelle vorher: ${currencyAuditState(sourceCurrency)}. Quelle nachher: ${currencyAuditState(nextSource)}. Ziel vorher: ${currencyAuditState(targetCurrency)}. Ziel nachher: ${currencyAuditState(nextTarget)}.`;
-
-    if (!firebaseConfigured) {
-      setBags((prev) => prev.map((entry) => {
-        if (entry.id === sourceBag.id) return { ...entry, ...sourcePatch };
-        if (entry.id === targetBag.id) return { ...entry, ...targetPatch };
-        return entry;
-      }));
-      logAction("currency_transferred", logMessage, sourceBag.id);
-      return;
-    }
-
-    try {
-      if (!firebaseDb || !activeCampaignId) throw new Error("Keine aktive Kampagne gefunden.");
-      const batch = writeBatch(firebaseDb);
-      batch.update(doc(firebaseDb, "campaigns", activeCampaignId, "bags", sourceBag.id), sourcePatch);
-      batch.update(doc(firebaseDb, "campaigns", activeCampaignId, "bags", targetBag.id), targetPatch);
-      await batch.commit();
-
-      // Sofort lokal spiegeln, damit Quelle und Ziel direkt sichtbar aktualisiert werden.
-      setBags((prev) => prev.map((entry) => {
-        if (entry.id === sourceBag.id) return { ...entry, ...sourcePatch };
-        if (entry.id === targetBag.id) return { ...entry, ...targetPatch };
-        return entry;
-      }));
-      logAction("currency_transferred", logMessage, sourceBag.id);
-      setSyncStatus("online");
-      setSyncError(null);
-    } catch (error) {
-      setSyncStatus("error");
-      setSyncError(error instanceof Error ? error.message : "Münzen konnten nicht übertragen werden.");
-    }
+    const ok = await executeInventoryOperation(async read => {
+      const source = await read.bag(sourceBagId); requireWrite(source);
+      const target = await read.bag(targetBagId); if (!canDepositBag(target)) throw new Error("Keine Einzahlungsrechte für das Zielinventar.");
+      const from = bagCurrency(source), to = bagCurrency(target);
+      const moved = key === "all" ? {...from} : {...emptyCurrency(),[key]:amount};
+      if (currencyCoinCount(moved)<=0) throw new Error("Keine Münzen zum Übertragen vorhanden.");
+      for (const coin of currencyKeys) if (moved[coin] > from[coin]) throw new Error("Nicht genügend Münzen vorhanden.");
+      const nextFrom = {...from}; for (const coin of currencyKeys) nextFrom[coin]-=moved[coin];
+      const nextTo = addCurrency(to,moved);
+      return {bags:new Map([[source.id,{...totalsDelta(source,{weight:-currencyWeight(moved)}),currency:nextFrom}],[target.id,{...totalsDelta(target,{weight:currencyWeight(moved)}),currency:nextTo}]]),audit:makeAuditLogEntry("currency_transferred",`${currencyText(moved)} von „${source.name}“ nach „${target.name}“ übertragen. Quelle: ${currencyAuditBeforeAfter(from,nextFrom)} Ziel: ${currencyAuditBeforeAfter(to,nextTo)}`,source.id)};
+    });
+    // Undoing only one side of a transfer would duplicate currency.
+    if(ok) setCurrencyUndoByBag(prev=>{const next={...prev};delete next[sourceBagId];delete next[targetBagId];return next;});
   }
-
 
   function resetLocalPrototype() {
     setBags(initialBags);
@@ -4801,6 +4550,10 @@ export default function App() {
             </div>
           </div>
 
+          {persistentError && <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-red-500/60 bg-red-950/80 p-3 text-sm text-red-100"><span className="min-w-0 flex-1 break-words">{persistentError}</span><button className={secondaryButton} onClick={()=>{void navigator.clipboard.writeText(persistentError).catch(()=>{});}}>Fehler kopieren</button><button aria-label="Fehlermeldung schließen" className={secondaryButton} onClick={()=>setPersistentError(null)}><X className="h-4 w-4"/></button></div>}
+          {operationBusy && <p role="status" className="text-sm">Änderung wird sicher gespeichert…</p>}
+          {operationNotice && <p role="status" className="text-sm font-semibold">{operationNotice}</p>}
+
           <div className="flex flex-wrap items-center gap-2">
             {isDm && activeCampaignId && campaign && (
               <button className={secondaryButton} onClick={() => setTradeRateModalOpen(true)} title="Lokalen Handelskurs bearbeiten">
@@ -4882,11 +4635,13 @@ export default function App() {
               const weightStatus = bagLoadStatus(bag, totals?.weight ?? 0);
               const overloadedVolume = getBagKind(bag) === "container" && bag.maxVolume !== null && (totals?.volume ?? 0) > bag.maxVolume;
               const editing = editingBagId === bag.id;
-              const writable = canWriteBag(bag);
+              const writable = canWriteBag(bag) && !operationBusy;
+              const collapsed = collapsedBagIds.includes(bag.id);
 
               return (
                 <div
                   key={bag.id}
+                  data-bag-id={bag.id}
                   className={`rounded-2xl border p-3 transition ${
                     active
                       ? isDark
@@ -4912,6 +4667,8 @@ export default function App() {
                       }}
                       onCancel={() => setEditingBagId(null)}
                     />
+                  ) : collapsed ? (
+                    <div className="flex items-center gap-2"><button className="min-w-0 flex-1 truncate text-left text-sm font-bold opacity-75" onClick={()=>setSelectedBagId(bag.id)}>{bag.name}</button><button type="button" className={secondaryButton} aria-label={`Inventar ${bag.name} ausklappen`} aria-expanded={false} onClick={()=>toggleBagCollapsed(bag.id)}><ChevronDown className="h-4 w-4"/></button></div>
                   ) : (
                     <>
                       <div className="mb-2 flex w-full items-start justify-between gap-2">
@@ -4936,6 +4693,7 @@ export default function App() {
                             </p>
                           </button>
                         </div>
+                        <button type="button" className={secondaryButton} aria-label={`Inventar ${bag.name} einklappen`} aria-expanded={true} onClick={()=>toggleBagCollapsed(bag.id)}><ChevronUp className="h-4 w-4"/></button>
                         {writable ? <Unlock className="h-4 w-4 opacity-70" /> : <Lock className="h-4 w-4 opacity-70" />}
                       </div>
 
@@ -5051,10 +4809,11 @@ export default function App() {
                   </div>
                 </div>
                 {canOpenBag(selectedBag) ? (
+                  <><div className="mt-4 flex flex-wrap items-center gap-2"><span className="mr-1 text-xs font-bold">Ressourcen regenerieren:</span>{(["shortRest","longRest","dawn"] as RestEvent[]).map(event=><button key={event} className={secondaryButton} disabled={!canWriteBag(selectedBag)||operationBusy||activeItemsLoadedBagId!==selectedBag.id} onClick={()=>setRestConfirm({bagId:selectedBag.id,event,version:selectedBag.mutationVersion??0,updatedAt:selectedBag.updatedAt})}>{event==="dawn"?<Sun className="h-4 w-4"/>:<Moon className="h-4 w-4"/>}{restLabels[event]}</button>)}</div>
                   <CurrencyPanel
                     bag={selectedBag}
                     targetBags={visibleBags.filter((bag) => bag.id !== selectedBag.id && canDepositBag(bag))}
-                    canEdit={canWriteBag(selectedBag)}
+                    canEdit={canWriteBag(selectedBag) && !operationBusy}
                     inputClass={inputClass}
                     primaryButton={primaryButton}
                     secondaryButton={secondaryButton}
@@ -5065,7 +4824,7 @@ export default function App() {
                     onUndo={() => undoBagCurrency(selectedBag.id)}
                     onConvert={(source, target, amount, all) => convertBagCurrency(selectedBag.id, source, target, amount, all)}
                     onTransfer={(targetBagId, key, amount) => transferBagCurrency(selectedBag.id, targetBagId, key, amount)}
-                  />
+                  /></>
                 ) : (
                   <div className={`mt-4 rounded-2xl border border-current/10 bg-current/5 p-3 text-sm font-bold ${mutedText}`}>
                     Münzen und Inhalt dieser Tasche sind für dich gesperrt.
@@ -5082,7 +4841,7 @@ export default function App() {
                   <input value={search} onChange={(event) => setSearch(event.target.value)} className={`rounded-xl border px-3 py-2 text-sm xl:w-72 ${inputClass}`} placeholder="In dieser Tasche suchen..." />
                 </div>
 
-                <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-[minmax(340px,2.6fr)_118px_72px_86px_86px_92px_minmax(180px,1.1fr)_130px]">
+                <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
                   <Field label="Name / D&D-Katalog" mutedText={mutedText}>
                     <div className="relative">
                       <input
@@ -5095,9 +4854,11 @@ export default function App() {
                         onBlur={() => window.setTimeout(() => setItemCatalogOpen(false), 150)}
                         onChange={(e) => {
                           setNewItem((p) => ({ ...p, name: e.target.value }));
+                          setNewCatalogId(undefined);
                           setItemCatalogOpen(true);
                         }}
                       />
+                      {itemCatalogOpen && !catalogVersion && <div className="absolute z-40 mt-1 rounded-xl bg-amber-950 p-3 text-sm text-amber-50">Katalog wird geladen…</div>}
                       {itemCatalogOpen && catalogMatches.length > 0 && canWriteBag(selectedBag) && (
                         <div className={`absolute left-0 right-0 top-full z-40 mt-2 max-h-80 overflow-auto rounded-2xl border p-2 shadow-2xl ${isDark ? "border-[#8d713e]/60 bg-[#16100b]" : "border-[#9b7339]/35 bg-[#fff8df]"}`}>
                           <div className={`mb-1 px-2 text-[11px] font-bold ${mutedText}`}>Item-Katalog · {catalogMatches.length} Treffer</div>
@@ -5128,8 +4889,10 @@ export default function App() {
                   <Field label="Volumen" mutedText={mutedText}><input disabled={!canWriteBag(selectedBag)} className={`w-full rounded-xl border px-2 py-2 text-sm ${inputClass}`} placeholder="0" type="number" step="0.01" value={newItem.volumePerUnit} onChange={(e) => setNewItem((p) => ({ ...p, volumePerUnit: e.target.value }))} /></Field>
                   <Field label="Wert" mutedText={mutedText}><input disabled={!canWriteBag(selectedBag)} className={`w-full rounded-xl border px-2 py-2 text-sm ${inputClass}`} placeholder="gp" type="number" step="0.01" value={newItem.valuePerUnit} onChange={(e) => setNewItem((p) => ({ ...p, valuePerUnit: e.target.value }))} /></Field>
                   <Field label="Beschreibung" mutedText={mutedText} className="md:col-span-2 xl:col-span-1"><input disabled={!canWriteBag(selectedBag)} className={`w-full rounded-xl border px-3 py-2 text-sm ${inputClass}`} placeholder="Kurze Beschreibung des Items" value={newItem.description} onChange={(e) => setNewItem((p) => ({ ...p, description: e.target.value }))} /></Field>
-                  <div className="flex items-end"><button className={`${primaryButton} w-full`} onClick={addItem} disabled={!canWriteBag(selectedBag)}><Plus className="h-4 w-4" /> Hinzufügen</button></div>
+                  <div className="flex items-end"><button className={`${primaryButton} w-full`} onClick={addItem} disabled={!canWriteBag(selectedBag) || operationBusy || !!resourceError(newResources)}><Plus className="h-4 w-4" /> Hinzufügen</button></div>
                 </div>
+                {canWriteBag(selectedBag) && <div className="mt-3"><ResourceEditor resources={newResources} onChange={setNewResources} inputClass={inputClass} buttonClass={secondaryButton}/></div>}
+
               </div>
 
               <div className={`rounded-3xl border p-3 shadow-xl ${panelClass}`}>
@@ -5213,7 +4976,7 @@ export default function App() {
                                 onClick={() => selectedBag && setSaleConfirmTarget({ bagId: selectedBag.id })}
                                 title="Verkaufsgut dieser Tasche verkaufen"
                               >
-                                <Coins className="h-4 w-4" /> Sell
+                                <Coins className="h-4 w-4" /> Alles verkaufen
                               </button>
                             </>
                           )}
@@ -5238,11 +5001,11 @@ export default function App() {
                         ...entries.map((item) => {
                       const editing = editingItemId === item.id;
                       const currentBag = bags.find((bag) => bag.id === item.bagId);
-                      const writable = canWriteBag(currentBag);
+                      const writable = canWriteBag(currentBag) && !operationBusy;
                       const categoryEntries = entries;
                       const categoryIndex = categoryEntries.findIndex((entry) => entry.id === item.id);
                       return editing ? (
-                        <div key={item.id} className={`rounded-2xl border border-current/10 ${isDark ? "bg-[#1d150e]/70" : "bg-[#fff8df]/70"}`}>
+                        <div key={item.id} data-item-id={item.id} className={`rounded-2xl border border-current/10 ${isDark ? "bg-[#1d150e]/70" : "bg-[#fff8df]/70"}`}>
                           <ItemEditor
                             item={item}
                             bags={visibleBags.length ? visibleBags : [selectedBag]}
@@ -5250,14 +5013,13 @@ export default function App() {
                             primaryButton={primaryButton}
                             secondaryButton={secondaryButton}
                             onCancel={() => setEditingItemId(null)}
-                            onSave={(patch) => {
-                              updateItem(item.id, patch);
-                              setEditingItemId(null);
+                            onSave={async (patch, baseline) => {
+                              if(await updateItem(item.id, patch, baseline)) setEditingItemId(null);
                             }}
                           />
                         </div>
                       ) : (
-                        <div key={item.id} className={`rounded-2xl border px-3 py-2 ${isDark ? "border-[#7b6237]/35 bg-[#1d150e]/70" : "border-[#9b7339]/25 bg-[#fff8df]/70"}`}>
+                        <div key={item.id} data-item-id={item.id} className={`rounded-2xl border px-3 py-2 ${isDark ? "border-[#7b6237]/35 bg-[#1d150e]/70" : "border-[#9b7339]/25 bg-[#fff8df]/70"}`}>
                           <div className="flex items-stretch gap-4">
                             <ThumbnailButton
                               imageUrl={item.imageUrl}
@@ -5332,6 +5094,9 @@ export default function App() {
                                 </div>
                               </div>
 
+                              {!!itemResources(item).length && <div className="mt-2 space-y-2">{itemResources(item).map(r=><ResourceControls key={r.id} resource={r} canEdit={writable} onUse={amount=>useItemResource(item.id,r.id,amount)} inputClass={inputClass} buttonClass={secondaryButton}/>)}</div>}
+                              {normalizeItemCategory(item.category)==="sale" && <button className={`${primaryButton} mt-2 px-3 py-1.5 text-xs`} disabled={!writable||item.quantity<1} onClick={()=>setSaleConfirmTarget({bagId:item.bagId,itemId:item.id,quantity:"1"})}><Coins className="h-4 w-4"/> Verkaufen</button>}
+
                               <div className="mt-2 flex min-w-0 items-start gap-2">
                             <button
                               className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${isDark ? "border-[#8d713e]/50 bg-[#1a130d] hover:bg-[#3a2a16]" : "border-[#9b7339]/35 bg-[#fff8df] hover:bg-[#ead6a9]"}`}
@@ -5374,9 +5139,11 @@ export default function App() {
         </section>
       </main>
 
+      {restConfirm && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"><div role="dialog" aria-label="Rast bestätigen" className={`w-full max-w-lg space-y-4 rounded-2xl border p-5 ${panelClass}`}><h3 className="text-lg font-black">{restLabels[restConfirm.event]} — {bags.find(b=>b.id===restConfirm.bagId)?.name}</h3><p className="text-sm">Passende Ressourcen werden bis zum Maximum regeneriert. Würfel werden pro Exemplar geworfen. Long Rest schließt Short Rest ein; Dawn bleibt unabhängig.</p><p className="text-xs opacity-75">Bitte einmal pro tatsächlich vergangener Rast bzw. Morgendämmerung auslösen.</p><div className="flex flex-wrap justify-end gap-2"><button className={secondaryButton} disabled={operationBusy} onClick={()=>setRestConfirm(null)}>Abbrechen</button><button className={primaryButton} disabled={operationBusy} onClick={confirmInventoryRest}>Regenerieren</button></div></div></div>}
+
       {saleConfirmTarget && (() => {
         const saleBag = visibleBags.find((bag) => bag.id === saleConfirmTarget.bagId) ?? bags.find((bag) => bag.id === saleConfirmTarget.bagId);
-        const saleEntries = saleBag ? saleEntriesForBag(saleBag.id) : [];
+        const saleEntries = saleBag ? selectedSaleEntries(saleBag.id) : [];
         const saleTotals = saleTotalsForEntries(saleEntries);
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
@@ -5402,6 +5169,7 @@ export default function App() {
                 </div>
               </div>
 
+              {saleConfirmTarget.itemId && <label className="mb-4 flex flex-wrap items-center gap-2 text-sm">Anzahl verkaufen<input aria-label="Verkaufsmenge" type="number" min="1" max={items.find(i=>i.id===saleConfirmTarget.itemId)?.quantity??1} className={`w-24 rounded-xl border px-3 py-2 ${inputClass}`} value={saleConfirmTarget.quantity??"1"} onChange={e=>setSaleConfirmTarget({...saleConfirmTarget,quantity:e.target.value})}/><button className={secondaryButton} onClick={()=>setSaleConfirmTarget({...saleConfirmTarget,quantity:String(items.find(i=>i.id===saleConfirmTarget.itemId)?.quantity??1)})}>Ganzer Stapel</button></label>}
               <div className={`mb-4 max-h-72 overflow-auto rounded-2xl border p-2 ${isDark ? "border-[#7b6237]/35 bg-[#1d150e]/70" : "border-[#9b7339]/25 bg-[#fff8df]/70"}`}>
                 {saleEntries.length === 0 ? (
                   <div className={`p-4 text-center text-sm ${mutedText}`}>Kein Verkaufsgut mit Menge über 0 vorhanden.</div>
@@ -5411,7 +5179,7 @@ export default function App() {
                       const itemBase = totalValue(item);
                       const itemLocalSell = tradeAdjustedValue(itemBase, tradeRates.sellMultiplier);
                       return (
-                        <div key={item.id} className="grid gap-2 rounded-xl border border-current/10 px-3 py-2 text-sm sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center">
+                        <div key={item.id} data-item-id={item.id} className="grid gap-2 rounded-xl border border-current/10 px-3 py-2 text-sm sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center">
                           <div className="min-w-0">
                             <div className="truncate font-black">{item.quantity}x {item.name}</div>
                             <div className={`text-xs ${mutedText}`}>{getCategoryDef(normalizeItemCategory(item.category)).label} · {formatNumber(totalWeight(item))} lb</div>
@@ -5427,7 +5195,7 @@ export default function App() {
 
               <div className="flex flex-wrap justify-end gap-2">
                 <button className={secondaryButton} onClick={() => setSaleConfirmTarget(null)}><X className="h-4 w-4" /> Abbrechen</button>
-                <button className={`${dangerButton} px-4 py-2`} disabled={!saleBag || !canWriteBag(saleBag) || saleEntries.length === 0} onClick={() => saleBag && confirmSellSaleGoods(saleBag.id)}><Trash2 className="h-4 w-4" /> Verkaufen und löschen</button>
+                <button className={`${dangerButton} px-4 py-2`} disabled={operationBusy || !saleBag || !canWriteBag(saleBag) || saleEntries.length === 0} onClick={() => saleBag && confirmSellSaleGoods(saleBag.id)}><Trash2 className="h-4 w-4" /> Verkaufen und löschen</button>
               </div>
             </div>
           </div>
@@ -6175,7 +5943,7 @@ function ThumbnailButton({ imageUrl, imageZoom, imagePositionX, imagePositionY, 
       title={cleanUrl ? `${label} ändern` : `${label} setzen`}
     >
       {cleanUrl ? (
-        <img src={cleanUrl} alt="" draggable={false} className="h-full w-full select-none" style={thumbnailImageStyle(cleanUrl, imageZoom, imagePositionX, imagePositionY)} referrerPolicy="no-referrer" />
+        <ThumbnailImage key={cleanUrl} src={cleanUrl} style={thumbnailImageStyle(cleanUrl, imageZoom, imagePositionX, imagePositionY)}/>
       ) : (
         <div className="flex flex-col items-center justify-center gap-1 text-[9px] font-black uppercase tracking-wide opacity-70">
           <ImageIcon className={placeholderIconClass} />
@@ -6800,7 +6568,7 @@ function CurrencyPanel({
   onDelta: (key: CurrencyKey, delta: number) => void;
   onUndo: () => void;
   onConvert: (source: CurrencyKey | "all", target: CurrencyKey, amount: string, all: boolean) => void;
-  onTransfer: (targetBagId: string, key: CurrencyKey, amount: string) => void;
+  onTransfer: (targetBagId: string, key: CurrencyKey | "all", amount: string) => void;
 }) {
   const currency = bagCurrency(bag);
   const [coinInputs, setCoinInputs] = useState<Record<CurrencyKey, string>>({ pp: "", gp: "", ep: "", sp: "", cp: "" });
@@ -6875,6 +6643,7 @@ function CurrencyPanel({
             <label className="space-y-1 text-xs"><span className={mutedText}>Menge</span><input className={`w-full rounded-xl border px-2 py-2 text-sm ${inputClass}`} disabled={!canEdit} inputMode="numeric" pattern="[0-9]*" placeholder="0" value={transferAmount} onChange={(e) => setTransferAmount(e.target.value.replace(/\D/g, ""))} /></label>
             <label className="space-y-1 text-xs"><span className={mutedText}>Ziel</span><select className={`w-full rounded-xl border px-2 py-2 text-sm ${inputClass}`} disabled={!canEdit || targetBags.length === 0} value={transferTargetBagId} onChange={(e) => setTransferTargetBagId(e.target.value)}>{targetBags.length === 0 ? <option value="">Kein Ziel</option> : targetBags.map((target) => <option key={target.id} value={target.id}>{target.name}</option>)}</select></label>
             <button className={`${primaryButton} px-3 py-2`} disabled={!canEdit || !transferTargetBagId || normalizeCoinInput(transferAmount) <= 0 || currency[transferKey] < normalizeCoinInput(transferAmount)} onClick={() => { onTransfer(transferTargetBagId, transferKey, transferAmount); setTransferAmount(""); }}>Übertragen</button>
+            <button className={`${secondaryButton} px-3 py-2 md:col-span-4`} disabled={!canEdit || !transferTargetBagId || currencyCoinCount(currency)===0} onClick={()=>{if(window.confirm(`Alle Münzen (${currencyText(currency)}) nach „${targetBags.find(b=>b.id===transferTargetBagId)?.name}“ übertragen?`))onTransfer(transferTargetBagId,"all","");}}>Alle Münzen übertragen</button>
           </div>
         </div>
       </div>
@@ -6978,7 +6747,8 @@ function InlineDescriptionEditor({
   );
 }
 
-function ItemEditor({ item, inputClass, primaryButton, secondaryButton, onSave, onCancel }: { item: InventoryItem; bags: Bag[]; inputClass: string; primaryButton: string; secondaryButton: string; onSave: (patch: Partial<InventoryItem>) => void; onCancel: () => void }) {
+function ItemEditor({ item, inputClass, primaryButton, secondaryButton, onSave, onCancel }: { item: InventoryItem; bags: Bag[]; inputClass: string; primaryButton: string; secondaryButton: string; onSave: (patch: Partial<InventoryItem>, baseline: InventoryItem) => Promise<void> | void; onCancel: () => void }) {
+  const [baseline] = useState(()=>structuredClone(item));
   const [name, setName] = useState(item.name ?? "");
   const [quantity, setQuantity] = useState(String(normalizeItemQuantity(item.quantity, 1)));
   const [weight, setWeight] = useState(item.weightPerUnit?.toString() ?? "");
@@ -6986,6 +6756,10 @@ function ItemEditor({ item, inputClass, primaryButton, secondaryButton, onSave, 
   const [value, setValue] = useState(item.valuePerUnit?.toString() ?? "");
   const [description, setDescription] = useState(typeof item.description === "string" ? item.description : "");
   const [notes, setNotes] = useState(typeof item.notes === "string" ? item.notes : "");
+  const [resources, setResources] = useState<ItemResource[]>(()=>structuredClone(itemResources(item)));
+  const catalogEntry = baseItemCatalog.find(e=>item.catalogId ? e.id===item.catalogId : e.name===item.name);
+  const defaults = catalogEntry ? catalogResources(catalogEntry) : [];
+  const [saving, setSaving] = useState(false);
   const [category, setCategory] = useState<ItemCategory>(normalizeItemCategory(item.category));
   const descriptionRows = Math.max(5, Math.min(16, description.split(/\r?\n/).length + 3));
   const notesRows = Math.max(3, Math.min(10, notes.split(/\r?\n/).length + 2));
@@ -7028,8 +6802,11 @@ function ItemEditor({ item, inputClass, primaryButton, secondaryButton, onSave, 
         </label>
       </div>
 
+      {!resources.length && !!defaults.length && <button className={secondaryButton} onClick={()=>setResources(defaults)}>Ressourcen aus Katalog übernehmen</button>}
+      <ResourceEditor resources={resources} onChange={setResources} inputClass={inputClass} buttonClass={secondaryButton}/>
+
       <div className="flex flex-wrap gap-2">
-        <button className={`${primaryButton} px-4 py-2`} onClick={() => onSave({ name: name.trim() || item.name, quantity: normalizeItemQuantity(quantity, 0), weightPerUnit: numberOrNull(weight), volumePerUnit: numberOrNull(volume), valuePerUnit: numberOrNull(value), description: description.trim(), notes: notes.trim(), category })}><Save className="h-4 w-4" /> Speichern</button>
+        <button className={`${primaryButton} px-4 py-2`} disabled={saving || !!resourceError(resources)} onClick={async () => {setSaving(true);try{await onSave({ resources, name: name.trim() || item.name, quantity: normalizeItemQuantity(quantity, 0), weightPerUnit: numberOrNull(weight), volumePerUnit: numberOrNull(volume), valuePerUnit: numberOrNull(value), description: description.trim(), notes: notes.trim(), category }, baseline);}finally{setSaving(false);}}}><Save className="h-4 w-4" /> Speichern</button>
         <button className={`${secondaryButton} px-4 py-2`} onClick={onCancel}><X className="h-4 w-4" /> Abbrechen</button>
       </div>
     </div>
