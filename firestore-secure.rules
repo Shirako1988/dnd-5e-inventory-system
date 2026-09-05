@@ -59,8 +59,7 @@ service cloud.firestore {
     }
 
     function accessAllowed(campaignId, mode, userIds) {
-      return isDm(campaignId)
-        || mode == "all"
+      return mode == "all"
         || (mode == "custom" && userIds is list && request.auth.uid in userIds);
     }
 
@@ -133,11 +132,11 @@ service cloud.firestore {
     }
 
     function onlyCapacityChanged() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(["currentWeight", "currentVolume", "currentValue", "itemCount", "updatedAt", "updatedBy"]);
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(["currentWeight", "currentVolume", "currentValue", "itemCount", "updatedAt", "updatedBy", "mutationVersion", "resourceRevision"]);
     }
 
     function currencyMapOrEmpty(data) {
-      return (data.currency is map) ? data.currency : {};
+      return (data.get("currency", {}) is map) ? data.get("currency", {}) : {};
     }
 
     function coinCount(currency, key) {
@@ -163,7 +162,7 @@ service cloud.firestore {
     }
 
     function onlyCurrencyChanged() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(["currency", "currentWeight", "updatedAt", "updatedBy"]);
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(["currency", "currentWeight", "updatedAt", "updatedBy", "mutationVersion", "resourceRevision"]);
     }
 
     function currencyDepositChanged() {
@@ -180,18 +179,69 @@ service cloud.firestore {
     }
 
     function saleSettlementChanged() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(["currency", "currentWeight", "currentVolume", "currentValue", "itemCount", "updatedAt"])
+      // Summary fields may be absent/stale in legacy bags. Check the new shape;
+      // access still requires write permission, and the item writes are atomic.
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(["currency", "currentWeight", "currentVolume", "currentValue", "itemCount", "updatedAt", "updatedBy", "mutationVersion", "resourceRevision"])
         && validCurrency(request.resource.data)
         && currencyCopper(request.resource.data) >= currencyCopper(resource.data)
-        && request.resource.data.currentValue is number
-        && resource.data.currentValue is number
-        && request.resource.data.currentValue <= resource.data.currentValue
-        && request.resource.data.itemCount is number
-        && resource.data.itemCount is number
-        && request.resource.data.itemCount <= resource.data.itemCount
-        && request.resource.data.currentVolume is number
-        && resource.data.currentVolume is number
-        && request.resource.data.currentVolume <= resource.data.currentVolume;
+        && request.resource.data.currentValue is number && request.resource.data.currentValue >= 0
+        && request.resource.data.itemCount is number && request.resource.data.itemCount >= 0
+        && request.resource.data.currentVolume is number && request.resource.data.currentVolume >= 0;
+    }
+
+    function resourceEnabled(data) {
+      return data.get("resourceVersion", 0) == 1 || data.get("resources", []).size() > 0;
+    }
+    function maintenanceWrite(campaignId) {
+      return isDm(campaignId)
+        && getAfter(campaignPath(campaignId)).data.get("maintenanceRevision", 0)
+          > get(campaignPath(campaignId)).data.get("maintenanceRevision", 0);
+    }
+    function validResource(r) {
+      let current = r.current;
+      let maximum = r.maximum;
+      return r.id is string && r.name is string && r.recovery is string
+        && current is int && maximum is int
+        && current >= 0 && current <= maximum && maximum >= 1 && maximum <= 100000
+        && r.reset in ["none", "shortRest", "longRest", "dawn"]
+        && r.get("note", "") is string;
+    }
+    function validResources(rs) {
+      let n = rs.size();
+      return n <= 8
+        && (n <= 0 || validResource(rs[0]))
+        && (n <= 1 || validResource(rs[1]))
+        && (n <= 2 || validResource(rs[2]))
+        && (n <= 3 || validResource(rs[3]))
+        && (n <= 4 || validResource(rs[4]))
+        && (n <= 5 || validResource(rs[5]))
+        && (n <= 6 || validResource(rs[6]))
+        && (n <= 7 || validResource(rs[7]))
+        ;
+    }
+    function resourceShape(data) {
+      return data.get("resources", []) is list
+        && data.get("resources", []).size() <= 8
+        && data.get("resourceVersion", 0) == 1
+        && data.get("resourceRevision", 0) is int && data.resourceRevision > 0
+        && data.quantity is int && data.quantity >= 0;
+    }
+    function resourceCreateSafe(campaignId, data) {
+      return !resourceEnabled(data) || (resourceShape(data) && validResources(data.get("resources", [])));
+    }
+    function resourceUpdateSafe(campaignId, before, after) {
+      return (!resourceEnabled(before) && !resourceEnabled(after))
+        || (after.get("resourceRevision", 0) == before.get("resourceRevision", 0) + 1
+          && resourceShape(after)
+          && (after.get("resources", []) == before.get("resources", []) || validResources(after.get("resources", []))))
+        || maintenanceWrite(campaignId);
+    }
+    function resourceDeleteSafe(campaignId, data) {
+      return !resourceEnabled(data)
+        || (isDm(campaignId) && !existsAfter(bagPath(campaignId, data.bagId)))
+        || maintenanceWrite(campaignId)
+        || getAfter(bagPath(campaignId, data.bagId)).data.get("resourceRevision", 0)
+          == get(bagPath(campaignId, data.bagId)).data.get("resourceRevision", 0) + 1;
     }
 
 
@@ -274,38 +324,19 @@ service cloud.firestore {
           );
 
         allow update: if isApprovedMember(campaignId)
-          && (
-            isDm(campaignId)
-            || (
-              // Tasche bearbeiten: Stammdaten, aber keine Rechtefelder.
-              canWriteBagData(campaignId, resource.data)
-              && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          && (isDm(campaignId)
+            || (canWriteBagData(campaignId, resource.data) && (
+              request.resource.data.diff(resource.data).affectedKeys().hasOnly([
                 "name", "description", "type", "kind", "maxWeight", "maxVolume",
                 "imageUrl", "imageZoom", "imagePositionX", "imagePositionY", "imageUpdatedAt", "imageUpdatedBy",
-                "updatedAt", "updatedBy"
+                "updatedAt", "updatedBy", "mutationVersion", "resourceRevision"
               ])
-            )
-            || (
-              // Item-Transfer: Quelle senkt Kapazitätswerte, Ziel erhöht sie.
-              // Quelle braucht Bearbeiten, Ziel braucht Hineinlegen. Bei ALL-Rechten ist beides erfüllt.
-              onlyCapacityChanged()
-              && (canWriteBagData(campaignId, resource.data) || canDepositBagData(campaignId, resource.data))
-            )
-            || (
-              // Münzen in eine Tasche einzahlen: Hineinlegen reicht.
-              currencyDepositChanged()
-              && canDepositBagData(campaignId, resource.data)
-            )
-            || (
-              // Münzen entnehmen oder wechseln: Bearbeiten nötig.
-              currencyWithdrawalOrExchangeChanged()
-              && canWriteBagData(campaignId, resource.data)
-            )
-            || (
-              // Verkaufsgut verkaufen: Bearbeiten nötig.
-              saleSettlementChanged()
-              && canWriteBagData(campaignId, resource.data)
-            )
+              || onlyCapacityChanged()
+              || currencyWithdrawalOrExchangeChanged()
+              || saleSettlementChanged()
+            ))
+            || (canDepositBagData(campaignId, resource.data)
+              && (onlyCapacityChanged() || currencyDepositChanged()))
           );
 
         allow delete: if isDm(campaignId);
@@ -314,9 +345,10 @@ service cloud.firestore {
       match /items/{itemId} {
         // UI-Öffnen bleibt in der App über readMode geregelt.
         // Für sauberes Transfer-Stacking darf Deposit-Recht Zielitems lesen.
-        allow get, list: if isApprovedMember(campaignId) && (isDm(campaignId) || canOpenBagId(campaignId, resource.data.bagId) || canDepositBagId(campaignId, resource.data.bagId));
+        allow get: if isApprovedMember(campaignId) && (!exists(itemPath(campaignId, itemId)) || isDm(campaignId) || canOpenBagId(campaignId, resource.data.bagId) || canDepositBagId(campaignId, resource.data.bagId));
+        allow list: if isApprovedMember(campaignId) && (isDm(campaignId) || canOpenBagId(campaignId, resource.data.bagId) || canDepositBagId(campaignId, resource.data.bagId));
 
-        allow create: if isApprovedMember(campaignId)
+        allow create: if resourceCreateSafe(campaignId, request.resource.data) && isApprovedMember(campaignId)
           && (
             isDm(campaignId)
             || (
@@ -335,7 +367,7 @@ service cloud.firestore {
             )
           );
 
-        allow update: if isApprovedMember(campaignId)
+        allow update: if resourceUpdateSafe(campaignId, resource.data, request.resource.data) && isApprovedMember(campaignId)
           && (
             isDm(campaignId)
             || (
@@ -374,7 +406,7 @@ service cloud.firestore {
             )
           );
 
-        allow delete: if isApprovedMember(campaignId) && (isDm(campaignId) || canWriteBagId(campaignId, resource.data.bagId));
+        allow delete: if resourceDeleteSafe(campaignId, resource.data) && isApprovedMember(campaignId) && (isDm(campaignId) || canWriteBagId(campaignId, resource.data.bagId));
       }
 
       match /auditLog/{logId} {

@@ -1,0 +1,5892 @@
+{
+  "item:tce:+1_all-purpose_tool": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:tce:+1_amulet_of_the_devout": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:tce:+1_bloodwell_vial": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:ftd:+1_dragonhide_belt": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't use this action again until the next dawn."
+    }
+  ],
+  "item:tce:+1_rhythm-maker's_drum": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:dmg:+1_rod_of_the_pact_keeper": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "longRest",
+      "recovery": "all",
+      "note": "can't use this property again until you finish a long rest."
+    }
+  ],
+  "item:tce:+2_all-purpose_tool": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:tce:+2_amulet_of_the_devout": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:tce:+2_bloodwell_vial": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:ftd:+2_dragonhide_belt": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't use this action again until the next dawn."
+    }
+  ],
+  "item:tce:+2_rhythm-maker's_drum": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:dmg:+2_rod_of_the_pact_keeper": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "longRest",
+      "recovery": "all",
+      "note": "can't use this property again until you finish a long rest."
+    }
+  ],
+  "item:tce:+3_all-purpose_tool": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:tce:+3_amulet_of_the_devout": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:tce:+3_bloodwell_vial": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:ftd:+3_dragonhide_belt": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't use this action again until the next dawn."
+    }
+  ],
+  "item:tce:+3_rhythm-maker's_drum": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:dmg:+3_rod_of_the_pact_keeper": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "longRest",
+      "recovery": "all",
+      "note": "can't use this property again until you finish a long rest."
+    }
+  ],
+  "item:idrotf:abracadabrus": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 20,
+      "maximum": 20,
+      "reset": "dawn",
+      "recovery": "1d20",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:bgg:adze_of_annam": [
+    {
+      "id": "divine-mattock",
+      "name": "Divine Mattock",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:tce:alchemical_compendium": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:dmg:alchemy_jug": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't produce a different one, or more of one that has reached its maximum, until the next dawn."
+    }
+  ],
+  "item:cm:alchemy_jug_(blue)": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't produce a different one, or more of one that has reached its maximum, until the next dawn."
+    }
+  ],
+  "item:cm:alchemy_jug_(orange)": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't produce a different one, or more of one that has reached its maximum, until the next dawn."
+    }
+  ],
+  "item:ftd:amethyst_lodestone": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 6,
+      "maximum": 6,
+      "reset": "dawn",
+      "recovery": "1d6"
+    }
+  ],
+  "item:tftyp:amulet_of_protection_from_turning": [
+    {
+      "id": "turning-abwehren",
+      "name": "Turning abwehren",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:toa:amulet_of_the_black_skull": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 6,
+      "maximum": 6,
+      "reset": "dawn",
+      "recovery": "1d6"
+    }
+  ],
+  "item:egw:amulet_of_the_drunkard": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't do so again until the next dawn."
+    }
+  ],
+  "item:qftis:antigravity_belt": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 10,
+      "maximum": 10,
+      "reset": "none",
+      "recovery": "all",
+      "note": "Wird durch eine neue Energiezelle aufgefüllt; manuell bearbeiten."
+    }
+  ],
+  "item:dmg:armor_of_invulnerability": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:ftd:ascendant_dragon_vessel": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used until the next dawn."
+    }
+  ],
+  "item:ftd:ascendant_dragon-touched_focus": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used to cast that spell again until the next dawn."
+    },
+    {
+      "id": "anwendung-12",
+      "name": "Anwendung 12",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:ftd:ascendant_scaled_ornament": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:tce:astromancy_archive": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:tce:atlas_of_endless_horizons": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:dmg:axe_of_the_dwarvish_lords": [
+    {
+      "id": "conjure-earth-elemental",
+      "name": "Conjure Earth Elemental",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't use this property again until the next dawn."
+    }
+  ],
+  "item:ggr:azorius_guild_signet": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:wdh:azuredge": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:tce:baba_yaga's_mortar_and_pestle": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 12,
+      "maximum": 12,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "perfect-tools",
+      "name": "Perfect Tools",
+      "current": 1,
+      "maximum": 1,
+      "reset": "shortRest",
+      "recovery": "all",
+      "note": "can't do so again until you finish a short or long rest."
+    }
+  ],
+  "item:tce:baba_yaga's_pestle": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 12,
+      "maximum": 12,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:dmg:bag_of_tricks,_gray": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:dmg:bag_of_tricks,_rust": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:dmg:bag_of_tricks,_tan": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:bmt:balance_card": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:skt:banner_of_the_krig_rune": [
+    {
+      "id": "mark-of-courage",
+      "name": "Mark of Courage",
+      "current": 1,
+      "maximum": 1,
+      "reset": "shortRest",
+      "recovery": "all",
+      "note": "can't use it again until you finish a short or long rest."
+    },
+    {
+      "id": "standard-s-shield",
+      "name": "Standard's Shield",
+      "current": 1,
+      "maximum": 1,
+      "reset": "shortRest",
+      "recovery": "all",
+      "note": "can't use it again until you finish a short or long rest."
+    }
+  ],
+  "item:egw:battering_shield": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:erlw:belashyrra's_beholder_crown": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 10,
+      "maximum": 10,
+      "reset": "dawn",
+      "recovery": "1d6+3"
+    }
+  ],
+  "item:tce:bell_branch": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:bgg:bigby's_beneficent_bracelet": [
+    {
+      "id": "helpful-hand",
+      "name": "Helpful Hand",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:wdmm:black_crystal_tablet": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "cannot be used again until the next dawn."
+    }
+  ],
+  "item:dmg:black_dragon_scale_mail": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:wdh:blackstaff": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 20,
+      "maximum": 20,
+      "reset": "dawn",
+      "recovery": "2d8+4",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:bmt:blasted_goggles": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:tce:blood_fury_tattoo": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 10,
+      "maximum": 10,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:dmg:blue_dragon_scale_mail": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:toa:bookmark": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    },
+    {
+      "id": "anwendung-7",
+      "name": "Anwendung 7",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:dmg:boots_of_speed": [
+    {
+      "id": "minuten",
+      "name": "Minuten",
+      "current": 10,
+      "maximum": 10,
+      "reset": "longRest",
+      "recovery": "all"
+    }
+  ],
+  "item:ggr:boros_guild_signet": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:dmg:bowl_of_commanding_water_elementals": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used this way again until the next dawn."
+    }
+  ],
+  "item:dmg:brass_dragon_scale_mail": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:dmg:brazier_of_commanding_fire_elementals": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used this way again until the next dawn."
+    }
+  ],
+  "item:bmt:breastplate_of_balance": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 4,
+      "maximum": 4,
+      "reset": "dawn",
+      "recovery": "1d4"
+    }
+  ],
+  "item:dmg:bronze_dragon_scale_mail": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:nf:brooch_of_the_elements": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:wtthc:cap_of_vanishing": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:pabtso:cape_of_enlargement": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:dmg:cape_of_the_mountebank": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:bmt:card_sharp's_deck": [
+    {
+      "id": "spray-of-cards",
+      "name": "Spray of Cards",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't cast the spell again until the next dawn."
+    }
+  ],
+  "item:ai:cartographer's_map_case": [
+    {
+      "id": "map-of-shortcuts",
+      "name": "Map of Shortcuts",
+      "current": 1,
+      "maximum": 1,
+      "reset": "longRest",
+      "recovery": "all",
+      "note": "cannot use it again until you finish a long rest."
+    },
+    {
+      "id": "map-of-the-moment",
+      "name": "Map of the Moment",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "cannot use it again until dawn."
+    }
+  ],
+  "item:idrotf:cauldron_of_plenty": [
+    {
+      "id": "eintopf-zubereiten",
+      "name": "Eintopf zubereiten",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:dmg:censer_of_controlling_air_elementals": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used this way again until the next dawn."
+    }
+  ],
+  "item:gos:charm_of_plant_command": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:veor:chime_of_exile": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used this way again until the next dawn."
+    }
+  ],
+  "item:ai:chronolometer": [
+    {
+      "id": "time-bandit",
+      "name": "Time Bandit",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "cannot be used again until the next dawn."
+    },
+    {
+      "id": "fate-swap",
+      "name": "Fate Swap",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "cannot be used again until the next dawn."
+    }
+  ],
+  "item:dmg:circlet_of_blasting": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used this way again until the next dawn."
+    }
+  ],
+  "item:skt:claw_of_the_wyrm_rune": [
+    {
+      "id": "wyrmslayer",
+      "name": "Wyrmslayer",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:dmg:cloak_of_arachnida": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:dmg:cloak_of_the_bat": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used this way again until the next dawn."
+    }
+  ],
+  "item:xge:clockwork_amulet": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:ai:coin_of_decisionry": [
+    {
+      "id": "better-odds",
+      "name": "Better Odds",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:bmt:comet_card": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:rmbre:concertina": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:skt:conch_of_teleportation": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:kftgv:constantori's_portrait": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "none",
+      "recovery": "all",
+      "note": "Sonderregel zum Aufladen: siehe Beschreibung; manuell bearbeiten."
+    }
+  ],
+  "item:dmg:copper_dragon_scale_mail": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:tce:crook_of_rao": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 6,
+      "maximum": 6,
+      "reset": "dawn",
+      "recovery": "1d6",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:bgg:crown_of_the_wrath_bringer": [
+    {
+      "id": "invoking-the-rune",
+      "name": "Invoking the Rune",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be invoked again until the next dawn."
+    }
+  ],
+  "item:bmt:crown_of_whirling_comets": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 6,
+      "maximum": 6,
+      "reset": "dawn",
+      "recovery": "1d6"
+    }
+  ],
+  "item:cos:crusader's_shortsword": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:dmg:crystal_ball_of_telepathy": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:tce:crystalline_chronicle": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:dmg:cube_of_force": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 36,
+      "maximum": 36,
+      "reset": "dawn",
+      "recovery": "1d20"
+    }
+  ],
+  "item:dmg:cubic_gate": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:scc:cuddly_strixhaven_mascot": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "longRest",
+      "recovery": "all",
+      "note": "can't use the toy in this way until you finish a long rest."
+    }
+  ],
+  "item:gos:cursed_luckstone": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used this way again until the next dawn."
+    }
+  ],
+  "item:dmg:dagger_of_venom": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used this way again until the next dawn."
+    }
+  ],
+  "item:xge:dark_shard_amulet": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "longRest",
+      "recovery": "all",
+      "note": "can't use this property again until you finish a long rest."
+    }
+  ],
+  "item:oota:dawnbringer": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:bmt:deck_of_dimensions": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 6,
+      "maximum": 6,
+      "reset": "dawn",
+      "recovery": "1d6"
+    }
+  ],
+  "item:bmt:deck_of_oracles": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:bgg:delver's_claws": [
+    {
+      "id": "invoking-the-rune",
+      "name": "Invoking the Rune",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be invoked again until the next dawn."
+    }
+  ],
+  "item:tce:demonomicon_of_iggwilv": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 8,
+      "maximum": 8,
+      "reset": "dawn",
+      "recovery": "1d8"
+    }
+  ],
+  "item:tce:devotee's_censer": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:ai:dimensional_loop": [
+    {
+      "id": "dimensional-cloak",
+      "name": "Dimensional Cloak",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "cannot be used again until the next dawn."
+    },
+    {
+      "id": "fold-space",
+      "name": "Fold Space",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "cannot be used again until the next dawn."
+    }
+  ],
+  "item:ggr:dimir_guild_signet": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:ai:documancy_satchel": [
+    {
+      "id": "satchel-of-holding",
+      "name": "Satchel of Holding",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:bmt:donjon_card": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:bmt:donjon's_sundering_sphere": [
+    {
+      "id": "isolating-smite",
+      "name": "Isolating Smite",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:hotdq:dragongleam": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 10,
+      "maximum": 10,
+      "reset": "none",
+      "recovery": "all"
+    }
+  ],
+  "item:wdh:dragonstaff_of_ahghairon": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 10,
+      "maximum": 10,
+      "reset": "dawn",
+      "recovery": "1d10"
+    }
+  ],
+  "item:dmg:driftglobe": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:pota:drown": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used this way again until the next dawn."
+    },
+    {
+      "id": "tears-of-endless-anguish",
+      "name": "Tears of Endless Anguish",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used to perform the ritual again until the next dawn."
+    }
+  ],
+  "item:tce:duplicitous_manuscript": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:egw:duskcrusher": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:tftyp:eagle_whistle": [
+    {
+      "id": "flug",
+      "name": "Flug",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:crcotn:earring_of_message": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 5,
+      "maximum": 5,
+      "reset": "dawn",
+      "recovery": "1d4+1"
+    }
+  ],
+  "item:erlw:earworm": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 4,
+      "maximum": 4,
+      "reset": "dawn",
+      "recovery": "1d4"
+    }
+  ],
+  "item:tce:eldritch_claw_tattoo": [
+    {
+      "id": "eldritch-maul",
+      "name": "Eldritch Maul",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:wbtw:eldritch_staff": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 10,
+      "maximum": 10,
+      "reset": "dawn",
+      "recovery": "1d6+4",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:bmt:euryale_card": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:bmt:euryale's_aegis": [
+    {
+      "id": "petrifying-heraldry",
+      "name": "Petrifying Heraldry",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    },
+    {
+      "id": "spellcasting",
+      "name": "Spellcasting",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't cast that spell again until the next dawn."
+    }
+  ],
+  "item:dmg:eye_of_vecna": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 8,
+      "maximum": 8,
+      "reset": "none",
+      "recovery": "all"
+    }
+  ],
+  "item:dmg:eyes_of_charming": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:bmt:fabulist_gem": [
+    {
+      "id": "counterfeit-coins",
+      "name": "Counterfeit Coins",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:ai:failed_experiment_wand": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 2,
+      "maximum": 2,
+      "reset": "dawn",
+      "recovery": "1d6+1",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:ai:far_gear": [
+    {
+      "id": "aberrant-ally",
+      "name": "Aberrant Ally",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "cannot be used again until the next dawn."
+    },
+    {
+      "id": "unnatural-bane",
+      "name": "Unnatural Bane",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "cannot be used again until the next dawn."
+    }
+  ],
+  "item:bmt:fate_cutter_shears": [
+    {
+      "id": "sever-threads",
+      "name": "Sever Threads",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:bmt:fates_card": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:tce:feywild_shard": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:dmg:figurine_of_wondrous_power,_ivory_goats": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 24,
+      "maximum": 24,
+      "reset": "none",
+      "recovery": "all",
+      "note": "regains all its charges."
+    }
+  ],
+  "item:erlw:finder's_goggles": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:ftd:flail_of_tiamat": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:bmt:flames_card": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:bmt:fool_card": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:nf:fork_of_eddy_summoning": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used this way again until the next dawn."
+    }
+  ],
+  "item:tce:fulminating_treatise": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:llk:galder's_bubble_pipe": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:bgdia:gauntlets_of_flaming_fury": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:coa:gauntlets_of_rage": [
+    {
+      "id": "fury",
+      "name": "Fury",
+      "current": 1,
+      "maximum": 1,
+      "reset": "shortRest",
+      "recovery": "all"
+    }
+  ],
+  "item:skt:gavel_of_the_venn_rune": [
+    {
+      "id": "bond-of-amity",
+      "name": "Bond of Amity",
+      "current": 1,
+      "maximum": 1,
+      "reset": "longRest",
+      "recovery": "all",
+      "note": "can't use it again until you finish a long rest."
+    }
+  ],
+  "item:bmt:gem_card": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:dmg:gem_of_brightness": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 50,
+      "maximum": 50,
+      "reset": "none",
+      "recovery": "all"
+    }
+  ],
+  "item:dmg:gem_of_seeing": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:tce:ghost_step_tattoo": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:egw:goggles_of_object_reading": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't do so again until the next dawn."
+    }
+  ],
+  "item:ftd:gold_canary_figurine_of_wondrous_power": [
+    {
+      "id": "giant-canary-form",
+      "name": "Giant Canary Form",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used this way again until the next dawn."
+    }
+  ],
+  "item:dmg:gold_dragon_scale_mail": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:ggr:golgari_guild_signet": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:cos:green_copper_ewer": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't produce more wine until the next dawn."
+    }
+  ],
+  "item:dmg:green_dragon_scale_mail": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:ggr:gruul_guild_signet": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:tce:guardian_emblem": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:cos:gulthias_staff": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 10,
+      "maximum": 10,
+      "reset": "none",
+      "recovery": "1d6+4",
+      "note": "regains 1d6 + 4 of its expended charges daily at dusk."
+    }
+  ],
+  "item:skt:gurt's_greataxe": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:bmt:hammer_of_runic_focus": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:dmg:hammer_of_thunderbolts": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 5,
+      "maximum": 5,
+      "reset": "dawn",
+      "recovery": "1d4+1"
+    }
+  ],
+  "item:dmg:hand_of_vecna": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 8,
+      "maximum": 8,
+      "reset": "none",
+      "recovery": "all"
+    }
+  ],
+  "item:bgg:harp_of_gilded_plenty": [
+    {
+      "id": "soothing-melody",
+      "name": "Soothing Melody",
+      "current": 5,
+      "maximum": 5,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "feast-of-plenty",
+      "name": "Feast of Plenty",
+      "current": 1,
+      "maximum": 1,
+      "reset": "none",
+      "recovery": "all",
+      "note": "Erst nach 1d10+10 Tagen erneut nutzbar; manuell auffüllen."
+    }
+  ],
+  "item:xge:hat_of_vermin": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:nf:hat_of_vortexes": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:xge:hat_of_wizardry": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "longRest",
+      "recovery": "all",
+      "note": "can't use this property again until you finish a long rest."
+    }
+  ],
+  "item:hotdq:hazirawn": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 4,
+      "maximum": 4,
+      "reset": "none",
+      "recovery": "1d4",
+      "note": "regains 1d4 expended charges."
+    }
+  ],
+  "item:phb:healer's_kit": [
+    {
+      "id": "anwendungen",
+      "name": "Anwendungen",
+      "current": 10,
+      "maximum": 10,
+      "reset": "none",
+      "recovery": "all"
+    }
+  ],
+  "item:tce:heart_weaver's_primer": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:bgdia:helm_of_devil_command": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "none",
+      "recovery": "all",
+      "note": "regains all its charges 24 hours after its last charge is expended. Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:bgg:helm_of_perfect_potential": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 6,
+      "maximum": 6,
+      "reset": "dawn",
+      "recovery": "1d6"
+    }
+  ],
+  "item:dmg:helm_of_telepathy": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:dmg:helm_of_teleportation": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:mot:helm_of_the_gods": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:qftis:heretic": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 6,
+      "maximum": 6,
+      "reset": "dawn",
+      "recovery": "1d4+1"
+    }
+  ],
+  "item:xge:heward's_handy_spice_pouch": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 10,
+      "maximum": 10,
+      "reset": "dawn",
+      "recovery": "1d6+4"
+    }
+  ],
+  "item:egw:hide_of_the_feral_guardian_(dormant)": [
+    {
+      "id": "dormant",
+      "name": "Dormant",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:hat-lmi:hither-thither_staff": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 4,
+      "maximum": 4,
+      "reset": "dawn",
+      "recovery": "1d4"
+    }
+  ],
+  "item:cos:holy_symbol_of_ravenkind": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 10,
+      "maximum": 10,
+      "reset": "dawn",
+      "recovery": "1d6+4"
+    }
+  ],
+  "item:idrotf:hook_of_fisher's_delight": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't do so again until the next dawn."
+    }
+  ],
+  "item:xge:horn_of_silent_alarm": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 4,
+      "maximum": 4,
+      "reset": "dawn",
+      "recovery": "1d4"
+    }
+  ],
+  "item:bmt:house_of_cards": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:egw:hunter's_coat": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:cos:icon_of_ravenloft": [
+    {
+      "id": "augury",
+      "name": "Augury",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    },
+    {
+      "id": "cure-wounds",
+      "name": "Cure Wounds",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:ditlcot:iggwilv's_horn": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used to cast that spell again until the next dawn."
+    }
+  ],
+  "item:tce:illuminator's_tattoo": [
+    {
+      "id": "magical-scribing",
+      "name": "Magical Scribing",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:skt:ingot_of_the_skold_rune": [
+    {
+      "id": "shield-bond",
+      "name": "Shield Bond",
+      "current": 1,
+      "maximum": 1,
+      "reset": "shortRest",
+      "recovery": "all",
+      "note": "can't use it again until you finish a short or long rest."
+    }
+  ],
+  "item:xge:instrument_of_scribing": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:dmg:instrument_of_the_bards,_anstruth_harp": [
+    {
+      "id": "fly",
+      "name": "Fly",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "invisibility",
+      "name": "Invisibility",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "levitate",
+      "name": "Levitate",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "protection-from-evil-and-good",
+      "name": "Protection from evil and good",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "control-weather",
+      "name": "Control weather",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "cure-wounds-5th-level",
+      "name": "Cure wounds (5th level)",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "wall-of-thorns",
+      "name": "Wall of thorns",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:dmg:instrument_of_the_bards,_canaith_mandolin": [
+    {
+      "id": "fly",
+      "name": "Fly",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "invisibility",
+      "name": "Invisibility",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "levitate",
+      "name": "Levitate",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "protection-from-evil-and-good",
+      "name": "Protection from evil and good",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "cure-wounds-3rd-level",
+      "name": "Cure wounds (3rd level)",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "dispel-magic",
+      "name": "Dispel magic",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "protection-from-energy-lightning-only",
+      "name": "Protection from energy (lightning only)",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:dmg:instrument_of_the_bards,_cli_lyre": [
+    {
+      "id": "fly",
+      "name": "Fly",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "invisibility",
+      "name": "Invisibility",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "levitate",
+      "name": "Levitate",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "protection-from-evil-and-good",
+      "name": "Protection from evil and good",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "stone-shape",
+      "name": "Stone shape",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "wall-of-fire",
+      "name": "Wall of fire",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "wind-wall",
+      "name": "Wind wall",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:dmg:instrument_of_the_bards,_doss_lute": [
+    {
+      "id": "fly",
+      "name": "Fly",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "invisibility",
+      "name": "Invisibility",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "levitate",
+      "name": "Levitate",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "protection-from-evil-and-good",
+      "name": "Protection from evil and good",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "animal-friendship",
+      "name": "Animal friendship",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "protection-from-energy-fire-only",
+      "name": "Protection from energy (fire only)",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "protection-from-poison",
+      "name": "Protection from poison",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:dmg:instrument_of_the_bards,_fochlucan_bandore": [
+    {
+      "id": "fly",
+      "name": "Fly",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "invisibility",
+      "name": "Invisibility",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "levitate",
+      "name": "Levitate",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "protection-from-evil-and-good",
+      "name": "Protection from evil and good",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "entangle",
+      "name": "Entangle",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "faerie-fire",
+      "name": "Faerie fire",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "shillelagh",
+      "name": "Shillelagh",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "speak-with-animals",
+      "name": "Speak with animals",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:dmg:instrument_of_the_bards,_mac-fuirmidh_cittern": [
+    {
+      "id": "fly",
+      "name": "Fly",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "invisibility",
+      "name": "Invisibility",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "levitate",
+      "name": "Levitate",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "protection-from-evil-and-good",
+      "name": "Protection from evil and good",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "barkskin",
+      "name": "Barkskin",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "cure-wounds",
+      "name": "Cure wounds",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "fog-cloud",
+      "name": "Fog cloud",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:dmg:instrument_of_the_bards,_ollamh_harp": [
+    {
+      "id": "fly",
+      "name": "Fly",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "invisibility",
+      "name": "Invisibility",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "levitate",
+      "name": "Levitate",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "protection-from-evil-and-good",
+      "name": "Protection from evil and good",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "confusion",
+      "name": "Confusion",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "control-weather",
+      "name": "Control weather",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "fire-storm",
+      "name": "Fire storm",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:dmg:iron_bands_of_bilarro": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:pota:ironfang": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    },
+    {
+      "id": "earth-mastery",
+      "name": "Earth Mastery",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used this way again until the next dawn."
+    },
+    {
+      "id": "the-rumbling",
+      "name": "The Rumbling",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used to perform the ritual again until the next dawn."
+    }
+  ],
+  "item:ggr:izzet_guild_signet": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:dmg:javelin_of_lightning": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:bmt:jester_card": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:bmt:jester's_mask": [
+    {
+      "id": "marvelous-escape",
+      "name": "Marvelous Escape",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    },
+    {
+      "id": "topsy-turvy",
+      "name": "Topsy-Turvy",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:crcotn:jewel_of_three_prayers_(dormant)": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:dsotdq:kagonesti_forest_shroud": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:bmt:key_card": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 5,
+      "maximum": 5,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:mot:khrusor,_spear_of_heliod": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 10,
+      "maximum": 10,
+      "reset": "dawn",
+      "recovery": "1d6+4"
+    },
+    {
+      "id": "sun-s-retaliation",
+      "name": "Sun's Retaliation",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:coa:knife_of_stolen_resistance": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "longRest",
+      "recovery": "all",
+      "note": "can't be used again until you finish a long rest."
+    }
+  ],
+  "item:bmt:knight_card": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:skt:korolnor_scepter": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 10,
+      "maximum": 10,
+      "reset": "dawn",
+      "recovery": "1d6+4"
+    }
+  ],
+  "item:erlw:kyrzin's_ooze": [
+    {
+      "id": "amorphous",
+      "name": "Amorphous",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    },
+    {
+      "id": "acid-breath",
+      "name": "Acid Breath",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:bgg:lash_of_immolation": [
+    {
+      "id": "invoking-the-rune",
+      "name": "Invoking the Rune",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be invoked again until the next dawn."
+    }
+  ],
+  "item:egw:lash_of_shadows_(dormant)": [
+    {
+      "id": "dormant",
+      "name": "Dormant",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:tce:libram_of_souls_and_flesh": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:tce:lifewell_tattoo": [
+    {
+      "id": "life-ward",
+      "name": "Life Ward",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:ai:living_loot_satchel": [
+    {
+      "id": "gegenstand-ziehen",
+      "name": "Gegenstand ziehen",
+      "current": 5,
+      "maximum": 5,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:bgg:longbow_of_the_healing_hearth": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 8,
+      "maximum": 8,
+      "reset": "dawn",
+      "recovery": "1d4+1"
+    }
+  ],
+  "item:scc:lorehold_primer": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:pota:lost_crown_of_besilmer": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:tce:luba's_tarokka_of_souls": [
+    {
+      "id": "spells",
+      "name": "Spells",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't cast that spell again from it until the next dawn."
+    }
+  ],
+  "item:bgg:lucent_destroyer": [
+    {
+      "id": "invoking-the-rune",
+      "name": "Invoking the Rune",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be invoked again until the next dawn."
+    }
+  ],
+  "item:pabtso:luminous_war_pick": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:egw:luxon_beacon": [
+    {
+      "id": "fragment-of-possibility",
+      "name": "Fragment of Possibility",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:tce:lyre_of_building": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be cast from it again until the next dawn."
+    }
+  ],
+  "item:dmg:mace_of_terror": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:egw:mace_of_the_black_crown_(dormant)": [
+    {
+      "id": "dormant",
+      "name": "Dormant",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:nf:mask_of_changed_appearance": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:toa:mask_of_the_beast": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:tce:masquerade_tattoo": [
+    {
+      "id": "disguise-self",
+      "name": "Disguise Self",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be cast from the tattoo again until the next dawn."
+    }
+  ],
+  "item:dmg:medallion_of_thoughts": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:sato:mimir": [
+    {
+      "id": "esoteric-knowledge",
+      "name": "Esoteric Knowledge",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:pabtso:mindblasting_cap": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:dsotdq:mirror_of_reflected_pasts": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be activated again until the next dawn."
+    }
+  ],
+  "item:tftyp:mirror_of_the_past": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:bgg:mistral_mantle": [
+    {
+      "id": "invoking-the-rune",
+      "name": "Invoking the Rune",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be invoked again until the next dawn."
+    }
+  ],
+  "item:ggr:mizzium_mortar": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 4,
+      "maximum": 4,
+      "reset": "dawn",
+      "recovery": "1d4"
+    }
+  ],
+  "item:bmt:moon_card": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:nf:mythallar_cloak": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 10,
+      "maximum": 10,
+      "reset": "dawn",
+      "recovery": "1d10"
+    }
+  ],
+  "item:dmg:necklace_of_prayer_beads": [
+    {
+      "id": "perle-typ-festlegen",
+      "name": "Perle: Typ festlegen",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "1d4+2 magische Perlen, Typen durch DM festlegen. Für jede tatsächlich vorhandene Perle eine Ressource anlegen.",
+      "needsSetup": true
+    }
+  ],
+  "item:qftis:needler_pistol": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 10,
+      "maximum": 10,
+      "reset": "none",
+      "recovery": "all",
+      "note": "Wird durch eine neue Energiezelle aufgefüllt; manuell bearbeiten."
+    }
+  ],
+  "item:mcv2dc:nightbringer": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 6,
+      "maximum": 6,
+      "reset": "dawn",
+      "recovery": "1d6"
+    }
+  ],
+  "item:bgg:nimbus_coronet": [
+    {
+      "id": "invoking-the-rune",
+      "name": "Invoking the Rune",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be invoked again until the next dawn."
+    }
+  ],
+  "item:ai:obviator's_lenses": [
+    {
+      "id": "enhanced-lenses",
+      "name": "Enhanced Lenses",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:ai:occultant_abacus": [
+    {
+      "id": "read-the-kill",
+      "name": "Read the Kill",
+      "current": 1,
+      "maximum": 1,
+      "reset": "longRest",
+      "recovery": "all",
+      "note": "can't use it again until you finish a long rest."
+    },
+    {
+      "id": "eldritch-occultant",
+      "name": "Eldritch Occultant",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:fraif:orb_of_damara": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 6,
+      "maximum": 6,
+      "reset": "dawn",
+      "recovery": "1d4+2"
+    }
+  ],
+  "item:dmg:orb_of_dragonkind": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 7,
+      "maximum": 7,
+      "reset": "dawn",
+      "recovery": "1d4+3"
+    }
+  ],
+  "item:bgg:orb_of_skoraeus": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:skt:orb_of_the_stein_rune": [
+    {
+      "id": "earthen-step",
+      "name": "Earthen Step",
+      "current": 1,
+      "maximum": 1,
+      "reset": "shortRest",
+      "recovery": "all",
+      "note": "can't use it again until you finish a short or long rest."
+    }
+  ],
+  "item:ggr:orzhov_guild_signet": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:qftis:paralysis_pistol": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 6,
+      "maximum": 6,
+      "reset": "none",
+      "recovery": "all",
+      "note": "Wird durch eine neue Energiezelle aufgefüllt; manuell bearbeiten."
+    }
+  ],
+  "item:dmg:pearl_of_power": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:skt:pennant_of_the_vind_rune": [
+    {
+      "id": "winds-grasp",
+      "name": "Winds Grasp",
+      "current": 1,
+      "maximum": 1,
+      "reset": "shortRest",
+      "recovery": "all",
+      "note": "can't use it again until you finish a short or long rest."
+    },
+    {
+      "id": "wind-walker",
+      "name": "Wind Walker",
+      "current": 1,
+      "maximum": 1,
+      "reset": "shortRest",
+      "recovery": "all",
+      "note": "can't use it again until you finish a short or long rest."
+    }
+  ],
+  "item:toa:petrified_grung_egg": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:gos:pipe_of_remembrance": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used this way again until the next dawn."
+    }
+  ],
+  "item:dmg:pipes_of_haunting": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:wtthc:pipes_of_pestilence": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:dmg:pipes_of_the_sewers": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:aitfr-thp:planar_key": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 5,
+      "maximum": 5,
+      "reset": "none",
+      "recovery": "all",
+      "note": "Anfangsladungen auswürfeln und eintragen: begins existence with 1d4 + 1 charges.",
+      "needsSetup": true
+    }
+  ],
+  "item:tce:planecaller's_codex": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:dmg:plate_armor_of_etherealness": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:bmt:plate_of_knight's_fellowship": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:ftd:platinum_scarf": [
+    {
+      "id": "schuppen",
+      "name": "Schuppen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:ai:portfolio_keeper": [
+    {
+      "id": "cards-of-sending",
+      "name": "Cards of Sending",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "cannot use it again until dawn."
+    }
+  ],
+  "item:llk:powered_armor": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 20,
+      "maximum": 20,
+      "reset": "none",
+      "recovery": "all",
+      "note": "Anfangsladungen auswürfeln und eintragen: containing 2d10 charges.",
+      "needsSetup": true
+    }
+  ],
+  "item:qftis:powered_armor": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 24,
+      "maximum": 24,
+      "reset": "none",
+      "recovery": "all",
+      "note": "Wird durch eine neue Energiezelle aufgefüllt; manuell bearbeiten."
+    }
+  ],
+  "item:xmts:primal_amulet": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used to cast that spell again until the next dawn."
+    }
+  ],
+  "item:scc:prismari_primer": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:tce:protective_verses": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:bmt:puzzle_card": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:ggr:pyroconverger": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "longRest",
+      "recovery": "all",
+      "note": "can't use the Pyroconverger again until you finish a long rest."
+    }
+  ],
+  "item:scc:quandrix_primer": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:cm:radiance": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:ggr:rakdos_guild_signet": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:ggr:rakdos_riteknife": [
+    {
+      "id": "annihilation",
+      "name": "Annihilation",
+      "current": 1,
+      "maximum": 1,
+      "reset": "longRest",
+      "recovery": "all",
+      "note": "can't use this property again until you finish a long rest."
+    }
+  ],
+  "item:bgg:reaper's_scream": [
+    {
+      "id": "invoking-the-rune",
+      "name": "Invoking the Rune",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be invoked again until the next dawn."
+    }
+  ],
+  "item:dmg:red_dragon_scale_mail": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:tce:reveler's_concertina": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:dmg:ring_of_air_elemental_command": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 5,
+      "maximum": 5,
+      "reset": "dawn",
+      "recovery": "1d4+1"
+    }
+  ],
+  "item:bgg:ring_of_amity": [
+    {
+      "id": "invoking-the-rune",
+      "name": "Invoking the Rune",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be invoked again until the next dawn."
+    }
+  ],
+  "item:dmg:ring_of_animal_influence": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:coa:ring_of_collecting": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:dmg:ring_of_earth_elemental_command": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 5,
+      "maximum": 5,
+      "reset": "dawn",
+      "recovery": "1d4+1"
+    }
+  ],
+  "item:dmg:ring_of_evasion": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:dmg:ring_of_fire_elemental_command": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 5,
+      "maximum": 5,
+      "reset": "dawn",
+      "recovery": "1d4+1"
+    }
+  ],
+  "item:egw:ring_of_obscuring": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:bmt:ring_of_puzzler's_wit": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d4-1"
+    }
+  ],
+  "item:crcotn:ring_of_red_fury": [
+    {
+      "id": "ruidium-rage",
+      "name": "Ruidium Rage",
+      "current": 1,
+      "maximum": 1,
+      "reset": "longRest",
+      "recovery": "all",
+      "note": "can't use this property of the ring again until you finish a long rest."
+    }
+  ],
+  "item:dmg:ring_of_shooting_stars": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 6,
+      "maximum": 6,
+      "reset": "dawn",
+      "recovery": "1d6"
+    }
+  ],
+  "item:coa:ring_of_the_copycat": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "longRest",
+      "recovery": "all",
+      "note": "can't cast this spell again until they finish a long rest."
+    }
+  ],
+  "item:pabtso:ring_of_the_orator": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 6,
+      "maximum": 6,
+      "reset": "dawn",
+      "recovery": "1d6"
+    }
+  ],
+  "item:dmg:ring_of_the_ram": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:dmg:ring_of_three_wishes": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "none",
+      "recovery": "all"
+    }
+  ],
+  "item:coa:ring_of_treachery": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "none",
+      "recovery": "all"
+    }
+  ],
+  "item:dmg:ring_of_water_elemental_command": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 5,
+      "maximum": 5,
+      "reset": "dawn",
+      "recovery": "1d4+1"
+    }
+  ],
+  "item:toa:ring_of_winter": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 12,
+      "maximum": 12,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:dmg:robe_of_scintillating_colors": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:qftis:robot_controller": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "none",
+      "recovery": "all",
+      "note": "Wird durch eine neue Energiezelle aufgefüllt; manuell bearbeiten."
+    }
+  ],
+  "item:dmg:rod_of_alertness": [
+    {
+      "id": "protective-aura",
+      "name": "Protective Aura",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:bmt:rod_of_hellish_flames": [
+    {
+      "id": "searing-rebuke",
+      "name": "Searing Rebuke",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't cast the spell again until the next dawn."
+    },
+    {
+      "id": "surge-of-brimstone",
+      "name": "Surge of Brimstone",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:dmg:rod_of_lordly_might": [
+    {
+      "id": "drain-life",
+      "name": "Drain Life",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:dmg:rod_of_resurrection": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 5,
+      "maximum": 5,
+      "reset": "dawn",
+      "recovery": "1"
+    }
+  ],
+  "item:egw:rod_of_retribution": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:dmg:rod_of_rulership": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:veor:rod_of_seven_parts": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 7,
+      "maximum": 7,
+      "reset": "dawn",
+      "recovery": "1d4+3"
+    },
+    {
+      "id": "possessing-the-broken-rod",
+      "name": "Possessing the Broken Rod",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used that way again until the next dawn."
+    }
+  ],
+  "item:skt:rod_of_the_vonindod": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 10,
+      "maximum": 10,
+      "reset": "dawn",
+      "recovery": "1d6+4"
+    }
+  ],
+  "item:bmt:rogue_card": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:bmt:rogue's_mantle": [
+    {
+      "id": "willful-enmity",
+      "name": "Willful Enmity",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't cast the spell again until the next dawn."
+    }
+  ],
+  "item:ai:rotor_of_return": [
+    {
+      "id": "borrow-object",
+      "name": "Borrow Object",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "cannot be used again until the next dawn."
+    },
+    {
+      "id": "recall-code",
+      "name": "Recall Code",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "cannot be used again until the next dawn."
+    }
+  ],
+  "item:coa:ruby_rod_of_asmodeus": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 66,
+      "maximum": 66,
+      "reset": "none",
+      "recovery": "6d6",
+      "note": "regains 6d6 charges each nightfall."
+    }
+  ],
+  "item:ftd:ruby_weave_gem": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:bmt:ruin_card": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:egw:ruin's_wake_(dormant)": [
+    {
+      "id": "dormant",
+      "name": "Dormant",
+      "current": 1,
+      "maximum": 1,
+      "reset": "shortRest",
+      "recovery": "all",
+      "note": "can't use this property again until you finish a short or long rest."
+    }
+  ],
+  "item:imr:ruinblade": [
+    {
+      "id": "blighted-ruin",
+      "name": "Blighted Ruin",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used until the next dawn."
+    },
+    {
+      "id": "destructive-ruin",
+      "name": "Destructive Ruin",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used until dawn."
+    }
+  ],
+  "item:bmt:ruinous_flail": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:bmt:sage_card": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:coa:sage's_mirror": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "none",
+      "recovery": "all",
+      "note": "regains all charges at dusk."
+    }
+  ],
+  "item:bmt:sage's_signet_(bear)": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't cast the spell again until the next dawn."
+    },
+    {
+      "id": "anwendung-4",
+      "name": "Anwendung 4",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't cast the spell again until the next dawn."
+    }
+  ],
+  "item:bmt:sage's_signet_(hart)": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't cast the spell again until the next dawn."
+    },
+    {
+      "id": "anwendung-4",
+      "name": "Anwendung 4",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't cast the spell again until the next dawn."
+    }
+  ],
+  "item:bmt:sage's_signet_(lion)": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't cast the spell again until the next dawn."
+    },
+    {
+      "id": "anwendung-4",
+      "name": "Anwendung 4",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't cast the spell again until the next dawn."
+    }
+  ],
+  "item:bmt:sage's_signet_(serpent)": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't cast the spell again until the next dawn."
+    },
+    {
+      "id": "anwendung-4",
+      "name": "Anwendung 4",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't cast the spell again until the next dawn."
+    }
+  ],
+  "item:bmt:sage's_signet_(songbird)": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't cast the spell again until the next dawn."
+    },
+    {
+      "id": "anwendung-4",
+      "name": "Anwendung 4",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't cast the spell again until the next dawn."
+    }
+  ],
+  "item:bmt:sage's_signet_(wolf)": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't cast the spell again until the next dawn."
+    },
+    {
+      "id": "anwendung-4",
+      "name": "Anwendung 4",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't cast the spell again until the next dawn."
+    }
+  ],
+  "item:bgg:sanctum_amulet": [
+    {
+      "id": "invoking-the-rune",
+      "name": "Invoking the Rune",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be invoked again until the next dawn."
+    }
+  ],
+  "item:ftd:sapphire_buckler": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:dmg:scarab_of_protection": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 12,
+      "maximum": 12,
+      "reset": "none",
+      "recovery": "all",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:wbtw:scissors_of_shadow_snipping": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:ggr:selesnya_guild_signet": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:ai:sending_stone": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:dmg:sending_stones": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:skt:shard_of_the_ise_rune": [
+    {
+      "id": "frigid-touch",
+      "name": "Frigid Touch",
+      "current": 1,
+      "maximum": 1,
+      "reset": "shortRest",
+      "recovery": "all",
+      "note": "can't use it again until you finish a short or long rest."
+    },
+    {
+      "id": "icy-mantle",
+      "name": "Icy Mantle",
+      "current": 1,
+      "maximum": 1,
+      "reset": "shortRest",
+      "recovery": "all",
+      "note": "can't use it again until you finish a short or long rest."
+    }
+  ],
+  "item:kftgv:shard_solitaire_(black_sapphire)": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 6,
+      "maximum": 6,
+      "reset": "dawn",
+      "recovery": "1d6"
+    }
+  ],
+  "item:kftgv:shard_solitaire_(diamond)": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 6,
+      "maximum": 6,
+      "reset": "dawn",
+      "recovery": "1d6"
+    }
+  ],
+  "item:kftgv:shard_solitaire_(jacinth)": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 6,
+      "maximum": 6,
+      "reset": "dawn",
+      "recovery": "1d6"
+    }
+  ],
+  "item:kftgv:shard_solitaire_(rainbow_pearl)": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 6,
+      "maximum": 6,
+      "reset": "dawn",
+      "recovery": "1d6"
+    }
+  ],
+  "item:kftgv:shard_solitaire_(ruby)": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 6,
+      "maximum": 6,
+      "reset": "dawn",
+      "recovery": "1d6"
+    }
+  ],
+  "item:bgg:shield_of_the_blazing_dreadnought": [
+    {
+      "id": "shield-bash",
+      "name": "Shield Bash",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be activated again until the next dawn."
+    }
+  ],
+  "item:bgdia:shield_of_the_hidden_lord": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:wdmm:shield_of_the_uven_rune": [
+    {
+      "id": "bane",
+      "name": "Bane",
+      "current": 1,
+      "maximum": 1,
+      "reset": "shortRest",
+      "recovery": "all",
+      "note": "can't do so again until you finish a short or long rest."
+    }
+  ],
+  "item:bmt:shrieking_greaves": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:dmg:silver_dragon_scale_mail": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:scc:silverquill_primer": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:ggr:simic_guild_signet": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:mot:siren_song_lyre": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used to cast that spell again until the next dawn."
+    }
+  ],
+  "item:bmt:skull_card": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:bmt:skull_helm": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't cast this spell again until the next dawn."
+    }
+  ],
+  "item:ftd:slumbering_dragon_vessel": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used until the next dawn."
+    }
+  ],
+  "item:bgdia:soul_coin": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "none",
+      "recovery": "all"
+    }
+  ],
+  "item:wtthc:speaking_stones": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:oota:spell_gem_(amber)": [
+    {
+      "id": "zauber-einpr-gen",
+      "name": "Zauber einprägen",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "Zählt das Einprägen. Ein verbrauchter gespeicherter Zauber wird bei Dawn nicht automatisch wiederhergestellt."
+    }
+  ],
+  "item:oota:spell_gem_(bloodstone)": [
+    {
+      "id": "zauber-einpr-gen",
+      "name": "Zauber einprägen",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "Zählt das Einprägen. Ein verbrauchter gespeicherter Zauber wird bei Dawn nicht automatisch wiederhergestellt."
+    }
+  ],
+  "item:oota:spell_gem_(diamond)": [
+    {
+      "id": "zauber-einpr-gen",
+      "name": "Zauber einprägen",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "Zählt das Einprägen. Ein verbrauchter gespeicherter Zauber wird bei Dawn nicht automatisch wiederhergestellt."
+    }
+  ],
+  "item:oota:spell_gem_(jade)": [
+    {
+      "id": "zauber-einpr-gen",
+      "name": "Zauber einprägen",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "Zählt das Einprägen. Ein verbrauchter gespeicherter Zauber wird bei Dawn nicht automatisch wiederhergestellt."
+    }
+  ],
+  "item:oota:spell_gem_(lapis_lazuli)": [
+    {
+      "id": "zauber-einpr-gen",
+      "name": "Zauber einprägen",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "Zählt das Einprägen. Ein verbrauchter gespeicherter Zauber wird bei Dawn nicht automatisch wiederhergestellt."
+    }
+  ],
+  "item:oota:spell_gem_(obsidian)": [
+    {
+      "id": "zauber-einpr-gen",
+      "name": "Zauber einprägen",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "Zählt das Einprägen. Ein verbrauchter gespeicherter Zauber wird bei Dawn nicht automatisch wiederhergestellt."
+    }
+  ],
+  "item:oota:spell_gem_(quartz)": [
+    {
+      "id": "zauber-einpr-gen",
+      "name": "Zauber einprägen",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "Zählt das Einprägen. Ein verbrauchter gespeicherter Zauber wird bei Dawn nicht automatisch wiederhergestellt."
+    }
+  ],
+  "item:oota:spell_gem_(ruby)": [
+    {
+      "id": "zauber-einpr-gen",
+      "name": "Zauber einprägen",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "Zählt das Einprägen. Ein verbrauchter gespeicherter Zauber wird bei Dawn nicht automatisch wiederhergestellt."
+    }
+  ],
+  "item:oota:spell_gem_(star_ruby)": [
+    {
+      "id": "zauber-einpr-gen",
+      "name": "Zauber einprägen",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "Zählt das Einprägen. Ein verbrauchter gespeicherter Zauber wird bei Dawn nicht automatisch wiederhergestellt."
+    }
+  ],
+  "item:oota:spell_gem_(topaz)": [
+    {
+      "id": "zauber-einpr-gen",
+      "name": "Zauber einprägen",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "Zählt das Einprägen. Ein verbrauchter gespeicherter Zauber wird bei Dawn nicht automatisch wiederhergestellt."
+    }
+  ],
+  "item:lmop:spider_staff": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 10,
+      "maximum": 10,
+      "reset": "none",
+      "recovery": "1d6+4",
+      "note": "regains 1d6 + 4 expended charges each day at dusk. Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:pabtso:spider_staff": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 10,
+      "maximum": 10,
+      "reset": "none",
+      "recovery": "1d6+4",
+      "note": "regains 1d6 + 4 expended charges daily at dusk. Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:bmt:spindle_of_fate": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 6,
+      "maximum": 6,
+      "reset": "dawn",
+      "recovery": "1d6"
+    }
+  ],
+  "item:ai:spyglass_of_clairvoyance": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "cannot be used again until the next dawn."
+    }
+  ],
+  "item:xge:staff_of_birdcalls": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 10,
+      "maximum": 10,
+      "reset": "dawn",
+      "recovery": "1d6+4",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:dmg:staff_of_charming": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 10,
+      "maximum": 10,
+      "reset": "none",
+      "recovery": "all"
+    },
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't use this property of the staff again until the next dawn."
+    }
+  ],
+  "item:lmop:staff_of_defense": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 10,
+      "maximum": 10,
+      "reset": "dawn",
+      "recovery": "1d6+4",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:pabtso:staff_of_defense": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 10,
+      "maximum": 10,
+      "reset": "dawn",
+      "recovery": "1d6+4",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:egw:staff_of_dunamancy": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 10,
+      "maximum": 10,
+      "reset": "dawn",
+      "recovery": "1d6+4",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    },
+    {
+      "id": "new-possibility",
+      "name": "New Possibility",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:cm:staff_of_fate": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 6,
+      "maximum": 6,
+      "reset": "none",
+      "recovery": "1d6",
+      "note": "regains 1d6 of its expended charges. Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:dmg:staff_of_fire": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 10,
+      "maximum": 10,
+      "reset": "dawn",
+      "recovery": "1d6+4",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:xge:staff_of_flowers": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 10,
+      "maximum": 10,
+      "reset": "dawn",
+      "recovery": "1d6+4",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:dmg:staff_of_frost": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 10,
+      "maximum": 10,
+      "reset": "dawn",
+      "recovery": "1d6+4",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:dmg:staff_of_healing": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 10,
+      "maximum": 10,
+      "reset": "dawn",
+      "recovery": "1d6+4",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:dmg:staff_of_power": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 20,
+      "maximum": 20,
+      "reset": "dawn",
+      "recovery": "2d8+4",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:qftis:staff_of_ruling": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't produce that effect again until the next dawn."
+    }
+  ],
+  "item:dmg:staff_of_striking": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 10,
+      "maximum": 10,
+      "reset": "dawn",
+      "recovery": "1d6+4",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:dmg:staff_of_swarming_insects": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 10,
+      "maximum": 10,
+      "reset": "dawn",
+      "recovery": "1d6+4",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:toa:staff_of_the_forgotten_one": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 7,
+      "maximum": 7,
+      "reset": "dawn",
+      "recovery": "1d4+3"
+    }
+  ],
+  "item:dmg:staff_of_the_magi": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 50,
+      "maximum": 50,
+      "reset": "dawn",
+      "recovery": "4d6+2",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:bgg:staff_of_the_rooted_hills": [
+    {
+      "id": "invoking-the-rune",
+      "name": "Invoking the Rune",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be invoked again until the next dawn."
+    }
+  ],
+  "item:dmg:staff_of_the_woodlands": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 10,
+      "maximum": 10,
+      "reset": "dawn",
+      "recovery": "1d6+4",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:dmg:staff_of_thunder_and_lightning": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:dmg:staff_of_withering": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:bmt:star_card": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:wbtw:steel": [
+    {
+      "id": "revivify",
+      "name": "Revivify",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:ftd:stirring_dragon_vessel": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used until the next dawn."
+    }
+  ],
+  "item:dmg:stone_of_controlling_earth_elementals": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used this way again until the next dawn."
+    }
+  ],
+  "item:wdh:stone_of_golorr": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:bgg:stonebreaker's_breastplate": [
+    {
+      "id": "invoking-the-rune",
+      "name": "Invoking the Rune",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be invoked again until the next dawn."
+    }
+  ],
+  "item:bmt:stonemaker_war_pick": [
+    {
+      "id": "meld-into-stone",
+      "name": "Meld into Stone",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:oota:stonespeaker_crystal": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 10,
+      "maximum": 10,
+      "reset": "dawn",
+      "recovery": "1d6+4",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:egw:stormgirdle_(dormant)": [
+    {
+      "id": "dormant",
+      "name": "Dormant",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:bmt:sun_card": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:bmt:sun_staff": [
+    {
+      "id": "solar-focus",
+      "name": "Solar Focus",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:ggr:sunforger": [
+    {
+      "id": "explosion",
+      "name": "Explosion",
+      "current": 1,
+      "maximum": 1,
+      "reset": "shortRest",
+      "recovery": "all"
+    }
+  ],
+  "item:dmg:sword_of_kas": [
+    {
+      "id": "spells",
+      "name": "Spells",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't cast that spell again from it until the next dawn."
+    }
+  ],
+  "item:bam:talarith": [
+    {
+      "id": "golem-beschw-ren",
+      "name": "Golem beschwören",
+      "current": 1,
+      "maximum": 1,
+      "reset": "shortRest",
+      "recovery": "all"
+    }
+  ],
+  "item:dmg:talisman_of_pure_good": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 7,
+      "maximum": 7,
+      "reset": "none",
+      "recovery": "all",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:dmg:talisman_of_ultimate_evil": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 6,
+      "maximum": 6,
+      "reset": "none",
+      "recovery": "all",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:bmt:talons_card": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:hotdq:tankard_of_plenty": [
+    {
+      "id": "anwendungen-pro-tag",
+      "name": "Anwendungen pro Tag",
+      "current": 3,
+      "maximum": 3,
+      "reset": "none",
+      "recovery": "all",
+      "note": "Drei Anwendungen pro Tag; Tageswechsel ist im Quelltext nicht genauer festgelegt. Manuell auffüllen."
+    }
+  ],
+  "item:wdmm:tearulai": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 6,
+      "maximum": 6,
+      "reset": "dawn",
+      "recovery": "1d4+2"
+    }
+  ],
+  "item:tce:teeth_of_dahlver-nar": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 8,
+      "maximum": 8,
+      "reset": "none",
+      "recovery": "all"
+    }
+  ],
+  "item:egw:the_bloody_end_(dormant)": [
+    {
+      "id": "dormant",
+      "name": "Dormant",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be cast from it again until the next dawn."
+    }
+  ],
+  "item:bmt:throne_card": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:bgg:thunderbuss": [
+    {
+      "id": "invoking-the-rune",
+      "name": "Invoking the Rune",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be invoked again until the next dawn."
+    }
+  ],
+  "item:bmt:tidecaller_trident": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:ai:timepiece_of_travel": [
+    {
+      "id": "turn-by-turn-directions",
+      "name": "Turn-by-Turn Directions",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "cannot be used again until the next dawn."
+    },
+    {
+      "id": "get-away-from-it-all",
+      "name": "Get Away From It All",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "cannot be used again until the next dawn."
+    }
+  ],
+  "item:pota:tinderstrike": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used this way again until the next dawn."
+    },
+    {
+      "id": "dance-of-the-all-consuming-fire",
+      "name": "Dance of the All-Consuming Fire",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used to perform the ritual again until the next dawn."
+    }
+  ],
+  "item:tftyp:tloques'_berserker_battleaxe": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 12,
+      "maximum": 12,
+      "reset": "dawn",
+      "recovery": "1d6+4"
+    }
+  ],
+  "item:dmg:tome_of_the_stilled_tongue": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:ftd:topaz_annihilator": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:dmg:trident_of_fish_command": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:coa:true-ice_shards_(dagger)": [
+    {
+      "id": "sub-zero",
+      "name": "Sub-Zero",
+      "current": 1,
+      "maximum": 1,
+      "reset": "longRest",
+      "recovery": "all"
+    },
+    {
+      "id": "omniscient",
+      "name": "Omniscient",
+      "current": 1,
+      "maximum": 1,
+      "reset": "longRest",
+      "recovery": "all",
+      "note": "Gemeinsame Anwendung für Scrying / Find the Path. Bei gepaarten Shards gemeinsame Nutzung manuell abstimmen."
+    }
+  ],
+  "item:coa:true-ice_shards_(rapier)": [
+    {
+      "id": "sub-zero",
+      "name": "Sub-Zero",
+      "current": 1,
+      "maximum": 1,
+      "reset": "longRest",
+      "recovery": "all"
+    },
+    {
+      "id": "omniscient",
+      "name": "Omniscient",
+      "current": 1,
+      "maximum": 1,
+      "reset": "longRest",
+      "recovery": "all",
+      "note": "Gemeinsame Anwendung für Scrying / Find the Path. Bei gepaarten Shards gemeinsame Nutzung manuell abstimmen."
+    }
+  ],
+  "item:erlw:uncommon_glamerweave": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:erlw:ventilating_lungs": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:egw:verminshroud_(dormant)": [
+    {
+      "id": "dormant",
+      "name": "Dormant",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:azfyt:vial_of_thought_capture": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "none",
+      "recovery": "all",
+      "note": "regains all its charges daily at dusk."
+    }
+  ],
+  "item:bmt:void_card": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:bmt:voidwalker_armor": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:ai:voting_kit": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:ggr:voyager_staff": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 10,
+      "maximum": 10,
+      "reset": "dawn",
+      "recovery": "1d6+4",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:ftd:wakened_dragon_vessel": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used until the next dawn."
+    }
+  ],
+  "item:ftd:wakened_dragon-touched_focus": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used to cast that spell again until the next dawn."
+    }
+  ],
+  "item:ftd:wakened_scaled_ornament": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:dmg:wand_of_binding": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 7,
+      "maximum": 7,
+      "reset": "dawn",
+      "recovery": "1d6+1",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:xge:wand_of_conducting": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:dmg:wand_of_enemy_detection": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 7,
+      "maximum": 7,
+      "reset": "dawn",
+      "recovery": "1d6+1",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:tftyp:wand_of_entangle": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 7,
+      "maximum": 7,
+      "reset": "dawn",
+      "recovery": "1d6+1",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:dmg:wand_of_fear": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 7,
+      "maximum": 7,
+      "reset": "dawn",
+      "recovery": "1d6+1",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:dmg:wand_of_fireballs": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 7,
+      "maximum": 7,
+      "reset": "dawn",
+      "recovery": "1d6+1",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:dmg:wand_of_lightning_bolts": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 7,
+      "maximum": 7,
+      "reset": "dawn",
+      "recovery": "1d6+1",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:dmg:wand_of_magic_detection": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:dmg:wand_of_magic_missiles": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 7,
+      "maximum": 7,
+      "reset": "dawn",
+      "recovery": "1d6+1",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:dmg:wand_of_orcus": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 7,
+      "maximum": 7,
+      "reset": "dawn",
+      "recovery": "1d4+3"
+    }
+  ],
+  "item:dmg:wand_of_paralysis": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 7,
+      "maximum": 7,
+      "reset": "dawn",
+      "recovery": "1d6+1",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:dmg:wand_of_polymorph": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 7,
+      "maximum": 7,
+      "reset": "dawn",
+      "recovery": "1d6+1",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:xge:wand_of_pyrotechnics": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 7,
+      "maximum": 7,
+      "reset": "dawn",
+      "recovery": "1d6+1",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:xge:wand_of_scowls": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:dmg:wand_of_secrets": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:xge:wand_of_smiles": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:oota:wand_of_viscid_globs": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 7,
+      "maximum": 7,
+      "reset": "none",
+      "recovery": "1d6+1",
+      "note": "regains 1d6 + 1 expended charges daily at midnight. Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:dmg:wand_of_web": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 7,
+      "maximum": 7,
+      "reset": "dawn",
+      "recovery": "1d6+1",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:hotdq:wand_of_winter": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 7,
+      "maximum": 7,
+      "reset": "dawn",
+      "recovery": "1d6+1",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:dmg:wand_of_wonder": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 7,
+      "maximum": 7,
+      "reset": "dawn",
+      "recovery": "1d6+1",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "item:bgg:war_horn_of_valor": [
+    {
+      "id": "invoking-the-rune",
+      "name": "Invoking the Rune",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be invoked again until the next dawn."
+    }
+  ],
+  "item:cm:watchful_helm": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:bgg:wayfarer's_boots": [
+    {
+      "id": "invoking-the-runes",
+      "name": "Invoking the Runes",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be invoked again until the next dawn."
+    }
+  ],
+  "item:tftyp:waythe": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 7,
+      "maximum": 7,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "Wie Wand of Enemy Detection; hier alle Ladungen bei Dawn."
+    }
+  ],
+  "item:ai:wheel_of_stars": [
+    {
+      "id": "portent-of-the-stars",
+      "name": "Portent of the Stars",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "cannot be used again until the next dawn."
+    },
+    {
+      "id": "alter-gravity",
+      "name": "Alter Gravity",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "cannot be used again until the next dawn."
+    }
+  ],
+  "item:dmg:whelm": [
+    {
+      "id": "shock-wave",
+      "name": "Shock Wave",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    },
+    {
+      "id": "supernatural-awareness",
+      "name": "Supernatural Awareness",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't cast it from the weapon again until the next dawn."
+    }
+  ],
+  "item:ai:whisper_jar": [
+    {
+      "id": "whispered-encyclopedia",
+      "name": "Whispered Encyclopedia",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    },
+    {
+      "id": "whispered-warnings",
+      "name": "Whispered Warnings",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    },
+    {
+      "id": "whispered-arcana",
+      "name": "Whispered Arcana",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:dmg:white_dragon_scale_mail": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "item:egw:will_of_the_talon_(awakened)": [
+    {
+      "id": "frightful-presence",
+      "name": "Frightful Presence",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "breath-acid",
+      "name": "Breath: Acid",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "breath-cold",
+      "name": "Breath: Cold",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "breath-fire",
+      "name": "Breath: Fire",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "breath-lightning",
+      "name": "Breath: Lightning",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "breath-poison",
+      "name": "Breath: Poison",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:egw:will_of_the_talon_(dormant)": [
+    {
+      "id": "frightful-presence",
+      "name": "Frightful Presence",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "breath-acid",
+      "name": "Breath: Acid",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "breath-cold",
+      "name": "Breath: Cold",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "breath-fire",
+      "name": "Breath: Fire",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "breath-lightning",
+      "name": "Breath: Lightning",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "breath-poison",
+      "name": "Breath: Poison",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:egw:will_of_the_talon_(exalted)": [
+    {
+      "id": "frightful-presence",
+      "name": "Frightful Presence",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "breath-acid",
+      "name": "Breath: Acid",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "breath-cold",
+      "name": "Breath: Cold",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "breath-fire",
+      "name": "Breath: Fire",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "breath-lightning",
+      "name": "Breath: Lightning",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    },
+    {
+      "id": "breath-poison",
+      "name": "Breath: Poison",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:fraif:windskiff": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:pota:windvane": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used this way again until the next dawn."
+    },
+    {
+      "id": "song-of-the-four-winds",
+      "name": "Song of the Four Winds",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used to perform the ritual again until the next dawn."
+    }
+  ],
+  "item:pota:wingwear": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "none",
+      "recovery": "all",
+      "note": "regains all of its expended charges after spending at least 1 hour in an elemental air node."
+    }
+  ],
+  "item:wbtw:witchlight_vane": [
+    {
+      "id": "additional-properties",
+      "name": "Additional Properties",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used to cast this spell again until the next dawn."
+    }
+  ],
+  "item:wbtw:witchlight_watch": [
+    {
+      "id": "additional-properties",
+      "name": "Additional Properties",
+      "current": 8,
+      "maximum": 8,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used to cast this spell again until the next dawn."
+    }
+  ],
+  "item:scc:witherbloom_primer": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "item:coa:wrought-iron_tower": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 10,
+      "maximum": 10,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "item:bgg:wyrmreaver_gauntlets": [
+    {
+      "id": "invoking-the-runes",
+      "name": "Invoking the Runes",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be invoked again until the next dawn."
+    }
+  ],
+  "item:skt:wyrmskull_throne": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 9,
+      "maximum": 9,
+      "reset": "dawn",
+      "recovery": "all"
+    }
+  ],
+  "tg:152": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "tg:168": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 9,
+      "maximum": 9,
+      "reset": "none",
+      "recovery": "all",
+      "note": "Anfangsladungen auswürfeln und eintragen: has 1d8 + 1 charges.",
+      "needsSetup": true
+    }
+  ],
+  "tg:391": [
+    {
+      "id": "m-nzwurf",
+      "name": "Münzwurf",
+      "current": 1,
+      "maximum": 1,
+      "reset": "shortRest",
+      "recovery": "all"
+    }
+  ],
+  "tg:401": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 7,
+      "maximum": 7,
+      "reset": "dawn",
+      "recovery": "1d6+1",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "tg:404": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 4,
+      "maximum": 4,
+      "reset": "none",
+      "recovery": "all",
+      "note": "Anfang: 1d3+1 würfeln. Regeneriert 1 Ladung pro Tag; Zeitpunkt manuell.",
+      "needsSetup": true
+    }
+  ],
+  "tg:410": [
+    {
+      "id": "zauberanwendungen-pro-tag",
+      "name": "Zauberanwendungen pro Tag",
+      "current": 3,
+      "maximum": 3,
+      "reset": "none",
+      "recovery": "all",
+      "note": "Drei Anwendungen pro Tag, gemeinsamer Pool der drei genannten Zauber. Tageswechsel manuell."
+    }
+  ],
+  "tg:412": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "none",
+      "recovery": "all",
+      "note": "Sonderregel zum Aufladen: siehe Beschreibung; manuell bearbeiten."
+    }
+  ],
+  "tg:413": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used to cast that spell again until the next dawn."
+    }
+  ],
+  "tg:414": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 9,
+      "maximum": 9,
+      "reset": "dawn",
+      "recovery": "1d6+3",
+      "note": "Sonderregel bei der letzten Ladung beachten; Würfe/Zerstörung werden nicht automatisch ausgeführt."
+    }
+  ],
+  "tg:417": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used again until the next dawn."
+    }
+  ],
+  "tg:427": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 3,
+      "maximum": 3,
+      "reset": "dawn",
+      "recovery": "1d3"
+    }
+  ],
+  "tg:435": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be used this way again until the next dawn."
+    }
+  ],
+  "tg:461": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be invoked again until the next dawn."
+    }
+  ],
+  "tg:462": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be invoked again until the next dawn."
+    }
+  ],
+  "tg:489": [
+    {
+      "id": "anwendung",
+      "name": "Anwendung",
+      "current": 1,
+      "maximum": 1,
+      "reset": "dawn",
+      "recovery": "all",
+      "note": "can't be invoked again until the next dawn."
+    }
+  ],
+  "tg-harvest:medusa_head_sack:8303ed58a4": [
+    {
+      "id": "ladungen",
+      "name": "Ladungen",
+      "current": 1,
+      "maximum": 1,
+      "reset": "none",
+      "recovery": "all"
+    }
+  ]
+}

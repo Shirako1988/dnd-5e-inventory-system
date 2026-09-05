@@ -1,6 +1,8 @@
 # DND Inventory Manager - Campaign Join Prototype
 
-Dieser Stand erweitert den Firebase-Sync um Kampagnenbeitritt, Mitglieder und Rollen.
+Update mit Ressourcen pro Exemplar, Rasten, Einzelverkauf, Bildcache und atomaren Münztransfers.
+
+**Vor einem Update:** [Update-Anleitung und Kompatibilität](UPDATE-RESSOURCEN.md) lesen.
 
 ## Start
 
@@ -42,7 +44,7 @@ Vorlage:
 2. Web-App registrieren.
 3. Authentication aktivieren und Anbieter **Anonym / Anonymous** einschalten.
 4. Cloud Firestore erstellen, nicht Realtime Database.
-5. `firestore-dev.rules` in Firestore -> Regeln einfügen und veröffentlichen.
+5. `firestore-secure.rules` in Firestore -> Regeln einfügen und veröffentlichen.
 
 ## Aktueller Funktionsstand
 
