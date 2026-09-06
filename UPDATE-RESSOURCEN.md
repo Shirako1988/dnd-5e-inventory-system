@@ -1,5 +1,7 @@
 # Update: Ressourcen, Verkauf und Inventarbedienung
 
+Dieses Dokument beschreibt das erste Ressourcen-Update. Das anschließende Update mit Plus/Minus, DM-Schutz und wiederherstellbarer Kampagnenliste ist in [UPDATE-DM-SCHUTZ.md](UPDATE-DM-SCHUTZ.md) beschrieben; dort stehen auch die aktuellen Installationsschritte und Prüfergebnisse.
+
 Ausgangsstand: GitHub `main` b97e8a00db729a18304a048bcb451256e60e8668 (`Allow pragmatic target stack lookup for transfers`). Die hochgeladene ZIP stimmt beim Anwendungscode und Katalog mit diesem Stand überein. Die aktualisierte Version wird als separater Vorschlag bereitgestellt; Live-Daten wurden nicht angefasst.
 
 ## Installation für eine bereits genutzte Kampagne

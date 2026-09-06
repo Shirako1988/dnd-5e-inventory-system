@@ -60,11 +60,20 @@ export function recoverResource(resource: ItemResource, event: RestEvent, random
   for (let i=0; i<formula.dice; i++) amount += 1 + Math.floor(random() * formula.sides);
   return { ...resource, current: Math.min(resource.maximum, resource.current + Math.max(0, amount)) };
 }
+export function adjustResource(resources: ItemResource[], id: string, delta: number): ItemResource[] {
+  if (!Number.isSafeInteger(delta) || delta === 0) throw new Error('Bitte eine positive ganze Anzahl eingeben.');
+  const error = resourceError(resources);
+  if (error) throw new Error(error);
+  const selected = resources.find(r => r.id === id);
+  if (!selected) throw new Error('Ressource wurde inzwischen entfernt.');
+  const current = selected.current + delta;
+  if (current < 0) throw new Error('Nicht genügend Anwendungen vorhanden.');
+  if (current > selected.maximum) throw new Error('Das Maximum der Ressource würde überschritten.');
+  return resources.map(r => r.id === id ? { ...r, current } : { ...r });
+}
 export function consumeResource(resources: ItemResource[], id: string, amount: number): ItemResource[] {
   if (!Number.isSafeInteger(amount) || amount <= 0) throw new Error('Bitte eine positive ganze Anzahl eingeben.');
-  const selected = resources.find(r => r.id === id);
-  if (!selected || selected.current < amount) throw new Error('Nicht genügend Anwendungen vorhanden.');
-  return resources.map(r => r.id === id ? { ...r, current: r.current - amount } : { ...r });
+  return adjustResource(resources, id, -amount);
 }
 // A repeatable random stream prevents transaction retries from rerolling a rest.
 export function seededRandom(seed: number): () => number {

@@ -1,5 +1,8 @@
+import { CampaignDeleteDialog } from "./CampaignDeleteDialog";
+import { deleteCampaignData } from "./campaignDeletion";
+import { joinCampaignMembership, openCampaignMembership, recoverOwnedCampaigns, setCampaignHidden } from "./campaignMembership";
 import { ThumbnailImage } from "./ThumbnailImage";
-import { itemResources, resourceSignature, resourceError, consumeResource, recoverResource, recoversAt, seededRandom, restLabels, type ItemResource, type RestEvent } from "./resources";
+import { itemResources, resourceSignature, resourceError, adjustResource, recoverResource, recoversAt, seededRandom, restLabels, type ItemResource, type RestEvent } from "./resources";
 import { commitInventoryOperation, finalizePlan, isResourceItem, type InventoryPlan, type PlanBuilder } from "./inventoryStore";
 import { ResourceEditor, ResourceControls } from "./ResourceEditor";
 import { catalogResources } from "./catalogResources";
@@ -296,7 +299,7 @@ type BagAccess = {
   writeUserIds: string[];
 };
 
-type Campaign = {
+export type Campaign = {
   id: string;
   name: string;
   dmUid: string;
@@ -309,7 +312,7 @@ type Campaign = {
   updatedAt: number;
 };
 
-type CampaignMember = {
+export type CampaignMember = {
   uid: string;
   displayName: string;
   role: MemberRole;
@@ -475,6 +478,8 @@ function auditTypeLabel(type: string) {
     item_moved: "Item übertragen",
     item_stacked: "Item gestackt",
     item_quantity_changed: "Menge geändert",
+    item_resource_used: "Ressource verbraucht",
+    item_resource_restored: "Ressource wiederhergestellt",
     item_reordered: "Item sortiert",
     item_sold: "Verkaufsgut verkauft",
     currency_added: "Münzen hinzugefügt",
@@ -487,7 +492,8 @@ function auditTypeLabel(type: string) {
   return labels[type] ?? type.replace(/_/g, " ");
 }
 
-type UserCampaignSummary = {
+export type UserCampaignSummary = {
+  hidden?: boolean;
   campaignId: string;
   name: string;
   joinCode: string;
@@ -1805,19 +1811,10 @@ export default function App() {
     setSyncStatus("connecting");
     setSyncError(null);
 
-    const memberRef = doc(firebaseDb, "campaigns", activeCampaignId, "members", userUid);
-
-    getDoc(memberRef)
-      .then((snapshot) => {
+    openCampaignMembership(firebaseDb, activeCampaignId, userUid, authUser?.displayName || "DM")
+      .then(({member}) => {
         if (cancelled) return;
-        if (!snapshot.exists()) {
-          setCampaignAccessReady(false);
-          setMember(null);
-          setSyncStatus("error");
-          setSyncError("Du bist mit diesem Firebase-Account kein Mitglied dieser Kampagne. Öffne sie über den Join-Code oder entferne sie aus deiner Liste.");
-          return;
-        }
-        setMember(snapshot.data() as CampaignMember);
+        setMember(member);
         setCampaignAccessReady(true);
         setSyncStatus("connecting");
       })
@@ -2387,7 +2384,6 @@ export default function App() {
         joinedAt: member?.joinedAt ?? timestamp,
         campaignName: backup.campaign?.name ?? campaign.name,
       });
-      const restoredMembers = Array.from(memberMap.values()).sort(compareCampaignMembers);
 
       const restoredCampaign: Campaign = {
         ...campaign,
@@ -2403,6 +2399,15 @@ export default function App() {
       const existingItems = await getDocs(collection(db, "campaigns", activeCampaignId, "items"));
       const existingMembers = await getDocs(collection(db, "campaigns", activeCampaignId, "members"));
       const existingLogs = await getDocs(collection(db, "campaigns", activeCampaignId, "auditLog"));
+      // An old backup must not remove or demote the recorded campaign owner.
+      const ownerSnapshot = existingMembers.docs.find(entry => entry.id === campaign.dmUid);
+      const owner = ownerSnapshot?.data() as CampaignMember | undefined;
+      memberMap.set(campaign.dmUid, {
+        ...memberMap.get(campaign.dmUid), uid: campaign.dmUid, role: "dm",
+        displayName: owner?.displayName || memberMap.get(campaign.dmUid)?.displayName || "DM",
+        joinedAt: owner?.joinedAt ?? timestamp, campaignName: restoredCampaign.name,
+      });
+      const restoredMembers = Array.from(memberMap.values()).sort(compareCampaignMembers);
 
       async function commitOps(ops: ((batch: ReturnType<typeof writeBatch>) => void)[]) {
         for (let index = 0; index < ops.length; index += 400) {
@@ -2418,7 +2423,7 @@ export default function App() {
       existingItems.docs.forEach((entry) => deleteOps.push((batch) => batch.delete(entry.ref)));
       existingBags.docs.forEach((entry) => deleteOps.push((batch) => batch.delete(entry.ref)));
       existingMembers.docs.forEach((entry) => {
-        if (entry.id !== activeUid) {
+        if (entry.id !== activeUid && entry.id !== campaign.dmUid) {
           deleteOps.push((batch) => batch.delete(entry.ref));
           deleteOps.push((batch) => batch.delete(doc(db, "users", entry.id, "campaigns", activeCampaignId)));
         }
@@ -3105,36 +3110,11 @@ export default function App() {
       campaignId = result.docs[0].id;
     }
 
-    const joinedAt = Date.now();
-    const memberRef = doc(firebaseDb, "campaigns", campaignId, "members", userUid);
+    const result = await joinCampaignMembership(firebaseDb, campaignId, userUid, cleanDisplayName, joinCodeData?.campaignName ?? "Kampagne", joinCodeDoc.exists() ? codeSearch : undefined);
+    const savedMember = result.member;
+    const campaignData = result.campaign;
 
-    try {
-      // Neuer Spieler: Dokument erstellen. Kein vorheriges Lesen nötig, damit sichere Regeln den Join erlauben.
-      await setDoc(memberRef, {
-        uid: userUid,
-        displayName: cleanDisplayName,
-        role: "applicant",
-        joinedAt,
-        campaignName: joinCodeData?.campaignName ?? "Kampagne",
-      } satisfies CampaignMember);
-    } catch (createError) {
-      // Bereits Mitglied: Nur Anzeigenamen ändern. Das klappt auch für einen bestehenden DM, ohne die Rolle zu überschreiben.
-      try {
-        await updateDoc(memberRef, { displayName: cleanDisplayName });
-      } catch {
-        throw createError;
-      }
-    }
-
-    const memberSnapshot = await getDoc(memberRef);
-    const savedMember = memberSnapshot.exists()
-      ? (memberSnapshot.data() as CampaignMember)
-      : ({ uid: userUid, displayName: cleanDisplayName, role: "applicant", joinedAt, campaignName: joinCodeData?.campaignName ?? "Kampagne" } satisfies CampaignMember);
-
-    const campaignSnapshot = await getDoc(doc(firebaseDb, "campaigns", campaignId));
-    const campaignData = campaignSnapshot.exists() ? (campaignSnapshot.data() as Campaign) : null;
-
-    if (savedMember.role === "applicant") {
+    if (result.created && savedMember.role === "applicant") {
       const joinLogId = uid("log");
       await setDoc(doc(firebaseDb, "campaigns", campaignId, "auditLog", joinLogId), {
         id: joinLogId,
@@ -3147,20 +3127,6 @@ export default function App() {
         createdAt: Date.now(),
       } satisfies AuditLogEntry).catch(() => undefined);
     }
-
-    await setDoc(
-      doc(firebaseDb, "users", userUid, "campaigns", campaignId),
-      {
-        campaignId,
-        name: campaignData?.name ?? savedMember.campaignName ?? "Kampagne",
-        joinCode: savedMember.role === "applicant" ? "—" : (campaignData?.joinCode ?? inputJoinCode.trim().toUpperCase()),
-        role: savedMember.role,
-        displayName: savedMember.displayName,
-        joinedAt: savedMember.joinedAt ?? joinedAt,
-        updatedAt: Date.now(),
-      } satisfies UserCampaignSummary,
-      { merge: true },
-    );
 
     // Wichtig beim Wiederbeitritt nach Kick: activeCampaignId kann identisch bleiben.
     // Dann feuert React keinen neuen Selection-Wechsel, obwohl das Mitgliedsdokument neu existiert.
@@ -3216,52 +3182,23 @@ export default function App() {
 
   async function removeCampaignReference(campaignId: string) {
     if (!firebaseDb || !userUid) return;
-    await deleteDoc(doc(firebaseDb, "users", userUid, "campaigns", campaignId));
-    setUserCampaigns((prev) => prev.filter((entry) => entry.campaignId !== campaignId));
+    await setCampaignHidden(firebaseDb, userUid, campaignId, true);
     if (activeCampaignId === campaignId) leaveCampaignSelection();
   }
 
-  async function deleteCampaign(campaignId: string) {
+  async function recoverMyCampaigns() {
+    if (!firebaseDb || !userUid) return 0;
+    return recoverOwnedCampaigns(firebaseDb, userUid, authUser?.displayName || "DM");
+  }
+
+  async function restoreCampaignReference(campaignId: string) {
     if (!firebaseDb || !userUid) return;
+    await setCampaignHidden(firebaseDb, userUid, campaignId, false);
+  }
 
-    const campaignRef = doc(firebaseDb, "campaigns", campaignId);
-    const campaignSnapshot = await getDoc(campaignRef);
-    if (!campaignSnapshot.exists()) {
-      await deleteDoc(doc(firebaseDb, "users", userUid, "campaigns", campaignId)).catch(() => undefined);
-      setUserCampaigns((prev) => prev.filter((entry) => entry.campaignId !== campaignId));
-      if (activeCampaignId === campaignId) leaveCampaignSelection();
-      return;
-    }
-
-    const campaignData = campaignSnapshot.data() as Campaign;
-    if (campaignData.dmUid !== userUid && member?.role !== "dm") {
-      throw new Error("Nur der DM kann diese Kampagne löschen.");
-    }
-
-    const [bagsSnapshot, itemsSnapshot, membersSnapshot, auditSnapshot] = await Promise.all([
-      getDocs(collection(firebaseDb, "campaigns", campaignId, "bags")),
-      getDocs(collection(firebaseDb, "campaigns", campaignId, "items")),
-      getDocs(collection(firebaseDb, "campaigns", campaignId, "members")),
-      getDocs(collection(firebaseDb, "campaigns", campaignId, "auditLog")),
-    ]);
-
-    const refs = [
-      ...bagsSnapshot.docs.map((entry) => entry.ref),
-      ...itemsSnapshot.docs.map((entry) => entry.ref),
-      ...auditSnapshot.docs.map((entry) => entry.ref),
-      ...membersSnapshot.docs.map((entry) => doc(firebaseDb, "users", entry.id, "campaigns", campaignId)),
-      ...membersSnapshot.docs.map((entry) => entry.ref),
-    ];
-
-    if (campaignData.joinCodeSearch) refs.push(doc(firebaseDb, "joinCodes", campaignData.joinCodeSearch));
-    refs.push(campaignRef);
-
-    for (let index = 0; index < refs.length; index += 450) {
-      const batch = writeBatch(firebaseDb);
-      for (const ref of refs.slice(index, index + 450)) batch.delete(ref);
-      await batch.commit();
-    }
-
+  async function deleteCampaign(campaignId: string, confirmedName: string) {
+    if (!firebaseDb || !userUid) throw new Error("Bitte zuerst einloggen.");
+    await deleteCampaignData(firebaseDb, campaignId, userUid, confirmedName);
     setUserCampaigns((prev) => prev.filter((entry) => entry.campaignId !== campaignId));
     if (activeCampaignId === campaignId) leaveCampaignSelection();
   }
@@ -3707,6 +3644,7 @@ export default function App() {
 
     const now = Date.now();
     const batch = writeBatch(firebaseDb);
+    if (uid === campaign.dmUid || targetMember.role !== "applicant") throw new Error("Dieses Mitglied ist bereits aufgenommen oder leitet die Kampagne.");
     batch.update(doc(firebaseDb, "campaigns", activeCampaignId, "members", uid), { role: "player" });
     batch.set(doc(firebaseDb, "users", uid, "campaigns", activeCampaignId), {
       campaignId: activeCampaignId,
@@ -3726,11 +3664,7 @@ export default function App() {
     if (!deleteTarget) return;
 
     try {
-      if (deleteTarget.kind === "campaign") {
-        await deleteCampaign(deleteTarget.id);
-        setDeleteTarget(null);
-        return;
-      }
+      if (deleteTarget.kind === "campaign") return; // Separate name-confirmation dialog.
 
       if (deleteTarget.kind === "member") {
         if (!firebaseConfigured || !firebaseDb || !activeCampaignId || !isDm || !campaign) return;
@@ -4091,14 +4025,14 @@ export default function App() {
     };
   }
 
-  async function useItemResource(itemId: string, resourceId: string, amount: number) {
+  async function changeItemResource(itemId: string, resourceId: string, delta: number) {
     const expected=items.find(i=>i.id===itemId);if(!expected)return;
     await executeInventoryOperation(async read=>{
       const source=requireItem(await read.item(itemId),expected);
       const bag=await read.bag(source.bagId);requireWrite(bag);
       if(source.quantity<1)throw new Error("Kein Exemplar vorhanden.");
       if(resourceSignature(itemResources(source))!==resourceSignature(itemResources(expected)))throw new Error("Die Anwendungen wurden inzwischen geändert. Bitte erneut auswählen.");
-      const next={...source,quantity:1,resources:consumeResource(itemResources(source),resourceId,amount)};
+      const next={...source,quantity:1,resources:adjustResource(itemResources(source),resourceId,delta)};
       next.stackKey=itemStackKey(next);
       const candidate=findStackMatch(items,bag.id,next,source.id);
       let targetId=candidate?.id ?? stackDocumentId(bag.id,next);
@@ -4107,7 +4041,7 @@ export default function App() {
       if(target && (target.bagId!==bag.id || !isSameStackItem(target,next)))throw new Error("Der Zielstapel hat sich geändert. Bitte erneut versuchen.");
       const writes=new Map<string,InventoryItem|null>([[source.id,source.quantity===1?null:{...source,quantity:source.quantity-1}],[targetId,target?{...target,quantity:target.quantity+1}:{...next,id:targetId}]]);
       const resource=itemResources(next).find(r=>r.id===resourceId)!;
-      return {items:writes,bags:new Map([[bag.id,{}]]),audit:makeAuditLogEntry("item_resource_used",`„${source.name}“: ${amount} ${resource.name} verbraucht; ein Exemplar jetzt ${resource.current}/${resource.maximum}.`,source.id)};
+      return {items:writes,bags:new Map([[bag.id,{}]]),audit:makeAuditLogEntry(delta>0 ? "item_resource_restored" : "item_resource_used",`„${source.name}“: ${Math.abs(delta)} ${resource.name} ${delta>0 ? "wiederhergestellt" : "verbraucht"}; ein Exemplar jetzt ${resource.current}/${resource.maximum}.`,source.id)};
     });
   }
 
@@ -4391,6 +4325,8 @@ export default function App() {
           onOpenCampaign={openKnownCampaign}
           onDeleteCampaign={deleteCampaign}
           onRemoveCampaignReference={removeCampaignReference}
+          onRestoreCampaignReference={restoreCampaignReference}
+          onRecoverCampaigns={recoverMyCampaigns}
           onClearLocalData={clearLocalBrowserState}
           authUser={authUser}
           accountBusy={accountBusy}
@@ -4420,6 +4356,8 @@ export default function App() {
           onOpenCampaign={openKnownCampaign}
           onDeleteCampaign={deleteCampaign}
           onRemoveCampaignReference={removeCampaignReference}
+          onRestoreCampaignReference={restoreCampaignReference}
+          onRecoverCampaigns={recoverMyCampaigns}
           onClearLocalData={clearLocalBrowserState}
           authUser={authUser}
           accountBusy={accountBusy}
@@ -5094,7 +5032,7 @@ export default function App() {
                                 </div>
                               </div>
 
-                              {!!itemResources(item).length && <div className="mt-2 space-y-2">{itemResources(item).map(r=><ResourceControls key={r.id} resource={r} canEdit={writable} onUse={amount=>useItemResource(item.id,r.id,amount)} inputClass={inputClass} buttonClass={secondaryButton}/>)}</div>}
+                              {!!itemResources(item).length && <div className="mt-2 space-y-2">{itemResources(item).map(r=><ResourceControls key={r.id} resource={r} canEdit={writable} onAdjust={delta=>changeItemResource(item.id,r.id,delta)} inputClass={inputClass} buttonClass={secondaryButton}/>)}</div>}
                               {normalizeItemCategory(item.category)==="sale" && <button className={`${primaryButton} mt-2 px-3 py-1.5 text-xs`} disabled={!writable||item.quantity<1} onClick={()=>setSaleConfirmTarget({bagId:item.bagId,itemId:item.id,quantity:"1"})}><Coins className="h-4 w-4"/> Verkaufen</button>}
 
                               <div className="mt-2 flex min-w-0 items-start gap-2">
@@ -5627,14 +5565,14 @@ export default function App() {
         </div>
       )}
 
-      {deleteTarget && (
+      {deleteTarget?.kind === "campaign" && <CampaignDeleteDialog key={deleteTarget.id} name={deleteTarget.label} panelClass={panelClass} inputClass={inputClass} secondaryButton={secondaryButton} onCancel={() => setDeleteTarget(null)} onConfirm={async name => {await deleteCampaign(deleteTarget.id, name); setDeleteTarget(null);}} />}
+      {deleteTarget && deleteTarget.kind !== "campaign" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
           <div className={`w-full max-w-md rounded-3xl border p-6 shadow-2xl ${panelClass}`}>
             <h3 className="mb-2 text-xl font-black">Löschen bestätigen</h3>
             <p className={`mb-5 ${mutedText}`}>
               Soll <span className="font-bold">{deleteTarget.label}</span> wirklich gelöscht werden?
               {deleteTarget.kind === "bag" && " Alle Items in dieser Tasche werden ebenfalls entfernt."}
-              {deleteTarget.kind === "campaign" && " Die gesamte Kampagne inklusive Taschen, Items, Mitglieder und Log wird gelöscht. Das kann nicht rückgängig gemacht werden."}
               {deleteTarget.kind === "member" && " Das Mitglied verliert den Zugriff und die Kampagne wird aus seiner Kampagnenliste entfernt. Taschen und Items bleiben erhalten. Danach wird automatisch ein neuer Beitrittscode erzeugt."}
             </p>
             <div className="flex justify-end gap-2">
@@ -5661,7 +5599,7 @@ function CenteredPanel({ panelClass, children }: { panelClass: string; children:
   return <div className="mx-auto flex min-h-screen max-w-2xl items-center justify-center p-6"><div className={`w-full rounded-3xl border p-6 shadow-xl ${panelClass}`}>{children}</div></div>;
 }
 
-function CampaignGate({
+export function CampaignGate({
   isDark,
   panelClass,
   mutedText,
@@ -5675,6 +5613,8 @@ function CampaignGate({
   onOpenCampaign,
   onDeleteCampaign,
   onRemoveCampaignReference,
+  onRestoreCampaignReference,
+  onRecoverCampaigns,
   onClearLocalData,
   authUser,
   accountBusy,
@@ -5694,8 +5634,10 @@ function CampaignGate({
   onCreate: (campaignName: string, displayName: string) => Promise<void>;
   onJoin: (joinCode: string, displayName: string) => Promise<void>;
   onOpenCampaign: (campaignId: string) => void;
-  onDeleteCampaign: (campaignId: string) => Promise<void>;
+  onDeleteCampaign: (campaignId: string, confirmedName: string) => Promise<void>;
   onRemoveCampaignReference: (campaignId: string) => Promise<void>;
+  onRestoreCampaignReference: (campaignId: string) => Promise<void>;
+  onRecoverCampaigns: () => Promise<number>;
   onClearLocalData: () => void;
   authUser: User | null;
   accountBusy: boolean;
@@ -5717,6 +5659,10 @@ function CampaignGate({
   const [accountMessage, setAccountMessage] = useState<string | null>(null);
   const [campaignDeleteTarget, setCampaignDeleteTarget] = useState<UserCampaignSummary | null>(null);
   const [referenceRemoveTarget, setReferenceRemoveTarget] = useState<UserCampaignSummary | null>(null);
+  const [showHiddenCampaigns, setShowHiddenCampaigns] = useState(false);
+  const [campaignListMessage, setCampaignListMessage] = useState<string | null>(null);
+  const listedCampaigns = userCampaigns.filter(entry => showHiddenCampaigns || !entry.hidden);
+  const hiddenCount = userCampaigns.filter(entry => entry.hidden).length;
 
   useEffect(() => {
     setAccountName(authUser?.displayName || "");
@@ -5846,15 +5792,20 @@ function CampaignGate({
             <div className={`mt-4 rounded-3xl border p-4 ${isDark ? "border-[#7b6237]/35 bg-[#1d150e]/70" : "border-[#9b7339]/25 bg-[#fff8df]/70"}`}>
               <h2 className="mb-2 flex items-center gap-2 text-xl font-black"><DoorOpen className="h-5 w-5" /> Meine Kampagnen</h2>
               <p className={`mb-3 text-sm ${mutedText}`}>Hier kannst du eine Kampagne wieder öffnen, ohne einen neuen Raum zu erstellen oder einen Join-Code neu einzugeben.</p>
-              {userCampaigns.length === 0 ? (
+              <div className="mb-3 flex flex-wrap gap-2">
+                {hiddenCount > 0 && <button className={secondaryButton} disabled={busy} aria-pressed={showHiddenCampaigns} onClick={() => setShowHiddenCampaigns(value => !value)}>{showHiddenCampaigns ? "Ausgeblendete verbergen" : `Ausgeblendete anzeigen (${hiddenCount})`}</button>}
+                <button className={secondaryButton} disabled={busy} onClick={() => run(async () => {setCampaignListMessage(null); const count = await onRecoverCampaigns(); setCampaignListMessage(count ? `${count} eigene Kampagne(n) wieder in deiner Liste. Dein DM-Zugang wurde geprüft.` : "Keine eigenen Kampagnen für diesen Account gefunden.");})}>Eigene Kampagnen wiederfinden</button>
+              </div>
+              {campaignListMessage && <p role="status" className={`mb-3 text-sm ${mutedText}`}>{campaignListMessage}</p>}
+              {listedCampaigns.length === 0 ? (
                 <div className={`rounded-2xl border border-current/10 px-3 py-2 text-sm ${mutedText}`}>Noch keine gespeicherten Kampagnen für diesen Account.</div>
               ) : (
                 <div className="grid gap-2 md:grid-cols-2">
-                  {userCampaigns.map((entry) => (
+                  {listedCampaigns.map((entry) => (
                     <div key={entry.campaignId} className={`rounded-2xl border p-3 text-left transition ${isDark ? "border-[#7b6237]/35 bg-[#1a130d]" : "border-[#9b7339]/25 bg-[#f8edcf]"}`}>
                       <button className="w-full text-left" onClick={() => onOpenCampaign(entry.campaignId)} disabled={busy}>
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-black">{entry.name}</span>
+                          <span className="font-black">{entry.name}{entry.hidden && <span className="ml-2 text-xs font-normal opacity-60">ausgeblendet</span>}</span>
                           <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${entry.role === "dm" ? "bg-amber-800/40" : entry.role === "applicant" ? "bg-sky-900/45 text-sky-100" : "bg-current/10"}`}>{memberRoleLabel(entry.role)}</span>
                         </div>
                         <div className={`mt-1 text-xs ${mutedText}`}>{entry.role === "applicant" ? "Status: wartet auf DM-Bestätigung" : <>Join-Code: <span className="font-mono font-bold">{entry.joinCode}</span></>} · zuletzt: {formatTimestamp(entry.updatedAt)}</div>
@@ -5866,7 +5817,7 @@ function CampaignGate({
                             <Trash2 className="h-4 w-4" /> Kampagne löschen
                           </button>
                         )}
-                        <button className={`${secondaryButton} px-3 py-1.5 text-xs opacity-85`} onClick={() => setReferenceRemoveTarget(entry)} disabled={busy}><X className="h-4 w-4" /> Nur aus Liste entfernen</button>
+                        {entry.hidden ? <button className={`${secondaryButton} px-3 py-1.5 text-xs`} disabled={busy} onClick={() => run(() => onRestoreCampaignReference(entry.campaignId))}>Wieder anzeigen</button> : <button className={`${secondaryButton} px-3 py-1.5 text-xs opacity-85`} onClick={() => setReferenceRemoveTarget(entry)} disabled={busy}><X className="h-4 w-4" /> Aus Liste ausblenden</button>}
                       </div>
                     </div>
                   ))}
@@ -5890,30 +5841,17 @@ function CampaignGate({
 
         <p className={`mt-4 text-sm ${mutedText}`}>Hinweis: Kampagnen werden pro E-Mail-Account gespeichert. Nach dem Login sind sie auch nach lokalen Browserdaten-Löschungen wieder verfügbar.</p>
 
-        {campaignDeleteTarget && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-            <div className={`w-full max-w-lg rounded-3xl border p-6 shadow-2xl ${panelClass}`}>
-              <h3 className="mb-2 text-xl font-black">Kampagne löschen?</h3>
-              <p className={`mb-4 text-sm ${mutedText}`}>Das löscht <span className="font-bold">{campaignDeleteTarget.name}</span> inklusive Taschen, Items, Mitglieder und Aktivitätslog aus Firebase. Das kann nicht rückgängig gemacht werden.</p>
-              <div className="flex flex-wrap justify-end gap-2">
-                <button className={secondaryButton} onClick={() => setCampaignDeleteTarget(null)} disabled={busy}><X className="h-4 w-4" /> Abbrechen</button>
-                <button className={`${isDark ? "bg-red-800 text-red-50 hover:bg-red-700" : "bg-red-800 text-white hover:bg-red-700"} inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition disabled:opacity-50`} disabled={busy} onClick={() => run(async () => { await onDeleteCampaign(campaignDeleteTarget.campaignId); setCampaignDeleteTarget(null); })}>
-                  <Trash2 className="h-4 w-4" /> Endgültig löschen
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {campaignDeleteTarget && <CampaignDeleteDialog key={campaignDeleteTarget.campaignId} name={campaignDeleteTarget.name} panelClass={panelClass} inputClass={inputClass} secondaryButton={secondaryButton} onCancel={() => setCampaignDeleteTarget(null)} onConfirm={async name => {await onDeleteCampaign(campaignDeleteTarget.campaignId, name); setCampaignDeleteTarget(null);}} />}
 
         {referenceRemoveTarget && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
             <div className={`w-full max-w-lg rounded-3xl border p-6 shadow-2xl ${panelClass}`}>
-              <h3 className="mb-2 text-xl font-black">Nur aus deiner Liste entfernen?</h3>
-              <p className={`mb-4 text-sm ${mutedText}`}>Das entfernt <span className="font-bold">{referenceRemoveTarget.name}</span> nur aus „Meine Kampagnen“ dieses Accounts. Die Firebase-Kampagne selbst wird nicht gelöscht.</p>
+              <h3 className="mb-2 text-xl font-black">Kampagne aus deiner Liste ausblenden?</h3>
+              <p className={`mb-4 text-sm ${mutedText}`}>Das verbirgt <span className="font-bold">{referenceRemoveTarget.name}</span> aus deiner sichtbaren Liste. Deine Mitgliedschaft und dein DM-Status bleiben erhalten. Über „Ausgeblendete anzeigen“ kannst du sie jederzeit zurückholen.</p>
               <div className="flex flex-wrap justify-end gap-2">
                 <button className={secondaryButton} onClick={() => setReferenceRemoveTarget(null)} disabled={busy}><X className="h-4 w-4" /> Abbrechen</button>
                 <button className={secondaryButton} disabled={busy} onClick={() => run(async () => { await onRemoveCampaignReference(referenceRemoveTarget.campaignId); setReferenceRemoveTarget(null); })}>
-                  <Trash2 className="h-4 w-4" /> Aus Liste entfernen
+                  <X className="h-4 w-4" /> Ausblenden
                 </button>
               </div>
             </div>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Minus, Plus } from 'lucide-react';
 import { MAX_RESOURCES, resourceError, restLabels, type ItemResource } from './resources';
 
 export function ResourceEditor({ resources, onChange, inputClass, buttonClass }: {
@@ -23,17 +24,28 @@ export function ResourceEditor({ resources, onChange, inputClass, buttonClass }:
       </div>
       <label className="block text-xs">Hinweis / Sonderregel<input className={field} value={r.note??''} maxLength={1500} placeholder="Optional, z. B. Sonderregel bei der letzten Ladung" onChange={e=>patch(index,{note:e.target.value})}/></label>
     </div>)}
-    {!!resources.length && <p className="text-xs opacity-70">„all“ füllt vollständig auf. Long Rest schließt Short Rest ein. Diese Werte gelten für jedes Exemplar dieses Stapels. Verbrauch teilt ein Exemplar automatisch ab.</p>}
+    {!!resources.length && <p className="text-xs opacity-70">„all“ füllt vollständig auf. Long Rest schließt Short Rest ein. Diese Werte gelten für jedes Exemplar dieses Stapels. Plus und Minus ändern ein Exemplar und passen die Stapel automatisch an.</p>}
     {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
   </section>;
 }
 
-export function ResourceControls({resource,canEdit,onUse,inputClass,buttonClass}: {resource:ItemResource;canEdit:boolean;onUse:(amount:number)=>void;inputClass:string;buttonClass:string}) {
-  const [amount,setAmount]=useState('1');const n=Number(amount);
-  return <div className="rounded-xl border border-current/20 p-2 text-xs">
-    <div className="flex flex-wrap items-center gap-2"><span className="font-bold">{resource.name}</span><strong className="tabular-nums">{resource.current}/{resource.maximum}</strong><span className="opacity-65">pro Exemplar · {restLabels[resource.reset]}{resource.reset!=='none'?` (${resource.recovery==='all'?'vollständig':resource.recovery})`:''}</span>
-      <input aria-label={`${resource.name}: Anzahl verbrauchen`} className={`ml-auto w-16 rounded-lg border px-2 py-1 ${inputClass}`} type="number" min="1" max={resource.current} value={amount} disabled={!canEdit} onChange={e=>setAmount(e.target.value)}/>
-      <button type="button" className={`${buttonClass} px-2 py-1`} disabled={!canEdit||!Number.isSafeInteger(n)||n<1||n>resource.current} onClick={()=>onUse(n)}>Verbrauchen</button></div>
+export function ResourceControls({resource,canEdit,onAdjust,inputClass,buttonClass}: {
+  resource: ItemResource; canEdit: boolean; onAdjust: (delta:number)=>void; inputClass:string; buttonClass:string;
+}) {
+  const [amount,setAmount]=useState('1');
+  const n=Number(amount);
+  const invalid=!canEdit || !Number.isSafeInteger(n) || n<1;
+  return <div className="rounded-xl border border-current/20 p-3 text-xs">
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="font-bold">{resource.name}</span>
+      <strong className="tabular-nums">{resource.current}/{resource.maximum}</strong>
+      <span className="opacity-65">pro Exemplar · {restLabels[resource.reset]}{resource.reset!=='none'?` (${resource.recovery==='all'?'vollständig':resource.recovery})`:''}</span>
+      <div className="ml-auto flex items-center gap-1.5" role="group" aria-label={`${resource.name} ändern`}>
+        <button type="button" className={`${buttonClass} h-10 w-10 shrink-0 rounded-xl p-0`} aria-label={`${resource.name} verbrauchen`} title="Anwendungen verbrauchen (ein Exemplar)" disabled={invalid || n>resource.current} onClick={()=>onAdjust(-n)}><Minus className="h-4 w-4"/></button>
+        <input aria-label={`${resource.name}: Änderungsmenge`} className={`h-10 w-20 min-w-0 rounded-xl border px-2 text-center text-sm font-black tabular-nums ${inputClass}`} type="number" min="1" max={resource.maximum} step="1" value={amount} disabled={!canEdit} onChange={e=>setAmount(e.target.value)}/>
+        <button type="button" className={`${buttonClass} h-10 w-10 shrink-0 rounded-xl p-0`} aria-label={`${resource.name} wiederherstellen`} title="Anwendungen wiederherstellen (ein Exemplar)" disabled={invalid || n>resource.maximum-resource.current} onClick={()=>onAdjust(n)}><Plus className="h-4 w-4"/></button>
+      </div>
+    </div>
     <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-current/10"><div className="h-full bg-amber-500" style={{width:`${Math.max(0,Math.min(100,100*resource.current/resource.maximum))}%`}}/></div>
     {resource.note && <p className="mt-1 opacity-75">{resource.note}</p>}
   </div>;

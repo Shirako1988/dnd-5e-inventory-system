@@ -1,8 +1,8 @@
 # DND Inventory Manager - Campaign Join Prototype
 
-Update mit Ressourcen pro Exemplar, Rasten, Einzelverkauf, Bildcache und atomaren Münztransfers.
+Update mit Ressourcen-Plus/Minus, Schutz der DM-Mitgliedschaft und wiederherstellbarer Kampagnenliste. Ressourcen pro Exemplar, Rasten, Einzelverkauf, Bildcache und atomare Münztransfers bleiben enthalten.
 
-**Vor einem Update:** [Update-Anleitung und Kompatibilität](UPDATE-RESSOURCEN.md) lesen.
+**Dieses Update installieren:** [GitHub-Anleitung, DM-Schutz und Wiederherstellung](UPDATE-DM-SCHUTZ.md). Details zum vorigen Ressourcen-Update: [Ressourcen und Kompatibilität](UPDATE-RESSOURCEN.md).
 
 ## Start
 
@@ -42,18 +42,18 @@ Vorlage:
 
 1. Firebase-Projekt erstellen.
 2. Web-App registrieren.
-3. Authentication aktivieren und Anbieter **Anonym / Anonymous** einschalten.
+3. Authentication aktivieren und Anbieter **E-Mail/Passwort** einschalten.
 4. Cloud Firestore erstellen, nicht Realtime Database.
 5. `firestore-secure.rules` in Firestore -> Regeln einfügen und veröffentlichen.
 
 ## Aktueller Funktionsstand
 
-- Anonymer Firebase-Login.
+- Firebase-Login mit E-Mail und Passwort.
 - Startscreen mit:
   - Kampagne erstellen
   - Kampagne per Join-Code beitreten
 - Ersteller wird DM.
-- Beitretende Nutzer werden Spieler.
+- Neue Nutzer bewerben sich per Beitrittscode und werden vom DM bestätigt. Bestehende Mitgliedschaften behalten beim erneuten Beitritt ihre Rolle.
 - Mitglieder werden unter `campaigns/{campaignId}/members/{uid}` gespeichert.
 - Kampagnen haben automatisch einen Join-Code.
 - Taschen und Items syncen weiter live über Firestore.
