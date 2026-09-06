@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {consumeResource,recoverResource,resourceSignature,resourceError,seededRandom,parseRecovery,type ItemResource} from '../src/resources';
+import {adjustResource,consumeResource,recoverResource,resourceSignature,resourceError,seededRandom,parseRecovery,type ItemResource} from '../src/resources';
 import defaults from '../src/data/resourceCatalog.json';
 const resource:ItemResource={id:'uses',name:'Anwendungen',current:10,maximum:10,reset:'none',recovery:'all'};
 test('consumption does not mutate source and refuses overdraft',()=>{const next=consumeResource([resource],'uses',1);assert.equal(resource.current,10);assert.equal(next[0].current,9);assert.throws(()=>consumeResource(next,'uses',10));assert.throws(()=>consumeResource(next,'uses',0.5));});
@@ -9,3 +9,12 @@ test('retry rolls repeat, separate specimens get their own rolls',()=>{const a=s
 test('stack signature ignores local resource ids but preserves definitions and charge state',()=>{assert.equal(resourceSignature([resource]),resourceSignature([{...resource,id:'other'}]));assert.notEqual(resourceSignature([resource]),resourceSignature([{...resource,current:9}]));assert.notEqual(resourceSignature([resource]),resourceSignature([{...resource,reset:'dawn'}]));});
 test('formulas are parsed, never executed',()=>{for(const value of ['process.exit()','1d0','99d6','-5','Infinity','1e9','1d6;alert(1)'])assert.equal(parseRecovery(value),null);assert.ok(parseRecovery('2d6 + 1'));});
 test('all catalog resource defaults are valid and have unique ids',()=>{for(const [id,resources] of Object.entries(defaults))assert.equal(resourceError((resources as ItemResource[]).map(r=>({...r,needsSetup:false}))),null,id);});
+
+test('manual restoration is immutable and obeys exact bounds',()=>{
+ const empty={...resource,current:0};const restored=adjustResource([empty],'uses',6);
+ assert.equal(empty.current,0);assert.equal(restored[0].current,6);
+ assert.equal(adjustResource(restored,'uses',4)[0].current,10);
+ assert.equal(adjustResource(restored,'uses',-6)[0].current,0);
+ for(const delta of [0,0.5,NaN,Infinity,11,-1])assert.throws(()=>adjustResource([empty],'uses',delta));
+ assert.throws(()=>adjustResource([resource],'missing',1));
+});

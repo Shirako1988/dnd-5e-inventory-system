@@ -271,37 +271,41 @@ service cloud.firestore {
         && request.resource.data.id == campaignId
         && request.resource.data.dmUid == request.auth.uid;
 
-      allow get: if isMember(campaignId);
-      allow list: if isApprovedMember(campaignId);
-      allow update, delete: if isDm(campaignId);
+      // dmUid is the stable owner identity, including recovery of legacy damage.
+      allow get: if signedIn() && (resource.data.dmUid == request.auth.uid || isMember(campaignId));
+      allow list: if signedIn() && (resource.data.dmUid == request.auth.uid || isApprovedMember(campaignId));
+      allow update: if isDm(campaignId) && request.resource.data.dmUid == resource.data.dmUid;
+      allow delete: if isDm(campaignId);
 
       match /members/{uid} {
-        allow get: if isApprovedMember(campaignId) || (signedIn() && uid == request.auth.uid && isMember(campaignId));
+        // The caller may read their own missing member document before joining.
+        allow get: if signedIn() && (uid == request.auth.uid || isApprovedMember(campaignId));
         allow list: if isApprovedMember(campaignId);
 
         allow create: if signedIn()
-          && (
-            isDm(campaignId)
-            || (
-              uid == request.auth.uid
-              && (
-                request.resource.data.role == "applicant"
-                || (request.resource.data.role == "dm" && getAfter(campaignPath(campaignId)).data.dmUid == request.auth.uid)
-              )
-            )
-          );
+          && request.resource.data.uid == uid
+          && (uid != getAfter(campaignPath(campaignId)).data.dmUid || request.resource.data.role == "dm")
+          && (isDm(campaignId)
+            || (uid == request.auth.uid && (
+              request.resource.data.role == "applicant"
+              || (request.resource.data.role == "dm" && getAfter(campaignPath(campaignId)).data.dmUid == uid)
+            )));
 
         allow update: if signedIn()
-          && (
-            isDm(campaignId)
-            || (
-              uid == request.auth.uid
+          // Even an old DM client must never demote the campaign's owner.
+          && (uid != get(campaignPath(campaignId)).data.dmUid || request.resource.data.role == "dm")
+          && (isDm(campaignId)
+            || (uid == request.auth.uid
               && request.resource.data.role == resource.data.role
-              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["displayName"])
-            )
-          );
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["displayName"]))
+            || (uid == request.auth.uid
+              && get(campaignPath(campaignId)).data.dmUid == uid
+              && request.resource.data.uid == uid && request.resource.data.role == "dm"
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["uid", "role", "displayName", "joinedAt", "campaignName"])));
 
-        allow delete: if isDm(campaignId);
+        // Preserve owner access until the entire campaign is deliberately removed.
+        allow delete: if isDm(campaignId)
+          && (uid != get(campaignPath(campaignId)).data.dmUid || !existsAfter(campaignPath(campaignId)));
       }
 
       match /targetVisibility/{uid}/bags/{bagId} {
