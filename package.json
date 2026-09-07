@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "node --import tsx --test tests/resources.test.ts",
+    "test": "node --import tsx --test tests/resources.test.ts tests/itemEditGuard.test.ts",
     "test:rules": "firebase emulators:exec --only firestore --project demo-inventory --non-interactive \"node --import tsx --test tests/firestore.test.ts\"",
     "test:browser": "node tests/browser.mjs",
     "catalog:resources": "python scripts/build-resource-catalog.py"

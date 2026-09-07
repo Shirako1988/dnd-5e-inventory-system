@@ -2,7 +2,7 @@
 
 Update mit Ressourcen-Plus/Minus, Schutz der DM-Mitgliedschaft und wiederherstellbarer Kampagnenliste. Ressourcen pro Exemplar, Rasten, Einzelverkauf, Bildcache und atomare Münztransfers bleiben enthalten.
 
-**Dieses Update installieren:** [GitHub-Anleitung, DM-Schutz und Wiederherstellung](UPDATE-DM-SCHUTZ.md). Details zum vorigen Ressourcen-Update: [Ressourcen und Kompatibilität](UPDATE-RESSOURCEN.md).
+**Aktuelle Fehlerkorrektur installieren:** [Ressourcen speichern ohne falschen Änderungskonflikt](UPDATE-RESSOURCEN-SPEICHERN.md). Vorige Updates: [DM-Schutz und Wiederherstellung](UPDATE-DM-SCHUTZ.md), [Ressourcen und Kompatibilität](UPDATE-RESSOURCEN.md).
 
 ## Start
 
