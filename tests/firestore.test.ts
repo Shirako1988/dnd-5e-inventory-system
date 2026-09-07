@@ -2,7 +2,8 @@ import {test, before, after, beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {initializeTestEnvironment,assertFails,assertSucceeds,type RulesTestEnvironment} from '@firebase/rules-unit-testing';
-import {doc,setDoc,getDoc,updateDoc,writeBatch,deleteDoc,type Firestore} from 'firebase/firestore';
+import {doc,setDoc,getDoc,updateDoc,writeBatch,deleteDoc,onSnapshot,type Firestore} from 'firebase/firestore';
+import {assertUnchangedItemFields} from '../src/itemEditGuard';
 import {commitInventoryOperation} from '../src/inventoryStore';
 import {joinCampaignMembership,openCampaignMembership,recoverOwnedCampaigns,setCampaignHidden} from '../src/campaignMembership';
 import {deleteCampaignData} from '../src/campaignDeletion';
@@ -157,4 +158,57 @@ test('large campaign deletion retains DM authority until its final batch and han
   for(const name of ['items','bags','members','auditLog'])assert.equal((await d.collection(`${base}/${name}`).get()).size,0,name);
   assert.equal((await d.doc('joinCodes/TEST').get()).exists,false);
  });
+});
+
+test('player can remove a resource using a locally cached editor snapshot', {timeout:20000}, async()=>{
+ const d=db(),ref=doc(d,base,'items','goods');
+ let baseline:InventoryItem|undefined;
+ const unsubscribe=onSnapshot(ref,{includeMetadataChanges:true},snapshot=>{
+  if(snapshot.metadata.hasPendingWrites && snapshot.data()?.resources?.length)baseline=structuredClone(snapshot.data()) as InventoryItem;
+ });
+ try {
+  await setDoc(ref,{...item(),updatedBy:'player',resourceVersion:1,resourceRevision:1,resources:[{id:'uses',name:'Anwendungen',current:7,maximum:10,reset:'none',recovery:'all'}]});
+  assert.ok(baseline,'the live listener must capture the locally cached editor baseline');
+  const expected=baseline;
+  await commitInventoryOperation(d,'c','player',async read=>{
+   const current=(await read.item('goods'))!,b=await read.bag('a');
+   assert.deepEqual(current.resources,expected.resources,'no values changed on the server');
+   assertUnchangedItemFields(current,expected,{resources:[]});
+   return {items:new Map([['goods',{...current,resources:[]}]]),bags:new Map([[b.id,{}]])};
+  });
+  const saved=(await getDoc(ref)).data()!;
+  assert.deepEqual(saved.resources,[]);assert.equal(saved.quantity,3);assert.equal(saved.resourceVersion,1);assert.equal(saved.resourceRevision,2);
+ } finally {unsubscribe();}
+});
+
+test('player and DM remove one or all resources despite equivalent reordered editor fields',async()=>{
+ const r={id:'uses',name:'Anwendungen',current:7,maximum:10,reset:'none',recovery:'all'};
+ for(const actor of ['player','dm'])for(const remaining of [0,1]) {
+  await env.withSecurityRulesDisabled(async ctx=>{await ctx.firestore().doc(`${base}/items/goods`).set({...item(),resourceVersion:1,resourceRevision:1,resources:[r,{...r,id:'other',name:'Zauber'}]});});
+  const d=db(actor),ref=doc(d,base,'items','goods'),baseline=(await getDoc(ref)).data() as InventoryItem;
+  // Simulate equivalent map serialization without modifying any resource values.
+  baseline.resources=baseline.resources!.map(r=>Object.fromEntries(Object.entries(r).reverse()) as typeof r);
+  await commitInventoryOperation(d,'c',actor,async read=>{
+   const current=(await read.item('goods'))!,b=await read.bag('a'),patch={resources:baseline.resources!.slice(0,remaining)};
+   assertUnchangedItemFields(current,baseline,patch);
+   return {items:new Map([['goods',{...current,...patch}]]),bags:new Map([[b.id,{}]])};
+  });
+  const saved=(await getDoc(ref)).data()!;assert.equal(saved.resources.length,remaining);assert.equal(saved.quantity,3);assert.equal(saved.resourceVersion,1);assert.equal(saved.resourceRevision,2);
+  // Removing the last resource must not drop the existing old-client safeguards.
+  await assertFails(updateDoc(ref,{quantity:2}));
+ }
+});
+test('resource deletion refuses a real concurrent use and leaves the new charge state intact',async()=>{
+ await env.withSecurityRulesDisabled(async ctx=>{await ctx.firestore().doc(`${base}/items/goods`).update({resourceVersion:1,resourceRevision:1,resources:[{id:'uses',name:'Uses',current:7,maximum:10,reset:'none',recovery:'all'}]});});
+ const d=db(),ref=doc(d,base,'items','goods'),baseline=(await getDoc(ref)).data() as InventoryItem;
+ await commitInventoryOperation(db('player2'),'c','player2',async read=>{const current=(await read.item('goods'))!,b=await read.bag('a');return {items:new Map([['goods',{...current,resources:current.resources!.map(r=>({...r,current:6}))}]]),bags:new Map([[b.id,{}]])};});
+ const beforeBag=(await getDoc(doc(d,base,'bags','a'))).data();
+ await assert.rejects(()=>commitInventoryOperation(d,'c','player',async read=>{const current=(await read.item('goods'))!,b=await read.bag('a');assertUnchangedItemFields(current,baseline,{resources:[]});return {items:new Map([['goods',{...current,resources:[]}]]),bags:new Map([[b.id,{}]])};}),/Ressourcen/);
+ assert.equal((await getDoc(ref)).data()?.resources[0].current,6);
+ assert.deepEqual((await getDoc(doc(d,base,'bags','a'))).data(),beforeBag);
+});
+test('read-only player still cannot remove resources',async()=>{
+ await env.withSecurityRulesDisabled(async ctx=>{await ctx.firestore().doc(`${base}/bags/a`).update({'access.writeMode':'dm'});await ctx.firestore().doc(`${base}/items/goods`).update({resourceVersion:1,resourceRevision:1,resources:[{id:'uses',name:'Uses',current:7,maximum:10,reset:'none',recovery:'all'}]});});
+ const d=db();await assertFails(commitInventoryOperation(d,'c','player',async read=>{const current=(await read.item('goods'))!,b=await read.bag('a');return {items:new Map([['goods',{...current,resources:[]}]]),bags:new Map([[b.id,{}]])};}));
+ assert.equal((await getDoc(doc(d,base,'items','goods'))).data()?.resources[0].current,7);
 });

@@ -1,4 +1,5 @@
 import { CampaignDeleteDialog } from "./CampaignDeleteDialog";
+import { assertUnchangedItemFields } from "./itemEditGuard";
 import { deleteCampaignData } from "./campaignDeletion";
 import { joinCampaignMembership, openCampaignMembership, recoverOwnedCampaigns, setCampaignHidden } from "./campaignMembership";
 import { ThumbnailImage } from "./ThumbnailImage";
@@ -3876,9 +3877,7 @@ export default function App() {
       // Compare the same defaults shown by the editor for legacy documents.
       const comparable = normalizeLiveItem(current, id, expected.updatedAt);
       // Explicit editor values must not silently overwrite a concurrent edit.
-      for (const key of Object.keys(patch) as (keyof InventoryItem)[]) {
-        if (JSON.stringify(comparable[key]) !== JSON.stringify(expected[key])) throw new Error("Dieser Gegenstand wurde gleichzeitig geändert. Bitte die aktuellen Werte prüfen und erneut speichern.");
-      }
+      assertUnchangedItemFields(comparable, expected, patch);
       const bag = await read.bag(current.bagId); requireWrite(bag);
       const target = patch.bagId && patch.bagId !== bag.id ? await read.bag(patch.bagId) : bag;
       if (target.id !== bag.id && !canDepositBag(target)) throw new Error("Keine Rechte für das Zielinventar.");
